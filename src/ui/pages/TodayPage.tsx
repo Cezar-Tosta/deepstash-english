@@ -7,6 +7,8 @@ import { cyclePosition, weekPlan } from '../../domain/cycle';
 import { formatDate, formatDuration, startOfWeek } from '../../domain/dates';
 import { MAX_CHUNKS_PER_DAY, sessionProgress } from '../../domain/session';
 import { getDueChunks } from '../../services/reviews';
+import { getPendingActions } from '../../services/study';
+import { ActionFollowUp } from '../components/ActionFollowUp';
 import { loadSessionBundle, startSession } from '../../services/sessions';
 import { Button, Card, Eyebrow, PageTitle, ProgressBar } from '../components/ui';
 import { useSettings, useToday } from '../hooks';
@@ -29,6 +31,7 @@ export function TodayPage() {
   const bundle = useLiveQuery(() => loadSessionBundle(date), [date]);
   const due = useLiveQuery(() => getDueChunks(date), [date]);
   const totalSessions = useLiveQuery(() => db.sessions.count(), []);
+  const actions = useLiveQuery(() => getPendingActions(date), [date]);
 
   if (bundle === undefined || !due || !settings || totalSessions === undefined) return null;
 
@@ -111,6 +114,8 @@ export function TodayPage() {
           </Button>
         )}
       </Card>
+
+      <ActionFollowUp actions={actions ?? []} />
 
       {totalSessions > 0 && (
         <Link to={`/weekly/${startOfWeek(date)}`} className="block rounded-2xl border border-line bg-surface p-5 hover:bg-sunken">

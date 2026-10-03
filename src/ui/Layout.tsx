@@ -16,6 +16,7 @@ const NAV = [
   { to: '/', label: 'TODAY', icon: icon(<><circle cx="12" cy="12" r="4" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" /></>) },
   { to: '/review', label: 'REVIEW', icon: icon(<><path d="M4 12a8 8 0 0 1 13.7-5.7L20 8.5" /><path d="M20 4v4.5h-4.5" /><path d="M20 12a8 8 0 0 1-13.7 5.7L4 15.5" /><path d="M4 20v-4.5h4.5" /></>) },
   { to: '/knowledge', label: 'KNOWLEDGE', icon: icon(<><path d="M5 4.5h10a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z" /><path d="M5 17a3 3 0 0 1 3-3h10" /></>) },
+  { to: '/practice', label: 'PRACTICE', icon: icon(<><path d="M4 20l4-1 11-11-3-3L5 16z" /><path d="M14 6l3 3" /></>) },
   { to: '/progress', label: 'PROGRESS', icon: icon(<><path d="M4 20h16" /><path d="M7 20v-6M12 20V6M17 20v-9" /></>) },
   { to: '/settings', label: 'SETTINGS', icon: icon(<><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></>) },
 ] as const;
@@ -63,7 +64,7 @@ export function Layout() {
                 to={item.to}
                 end={item.to === '/'}
                 className={({ isActive }) =>
-                  `relative flex min-h-16 flex-col items-center justify-center gap-1 text-[10px] font-semibold tracking-wider transition-colors md:min-h-12 md:flex-row md:justify-start md:gap-3 md:rounded-xl md:px-3 md:text-xs ${
+                  `relative flex min-h-16 flex-col items-center justify-center gap-1 text-[9px] font-semibold tracking-wide transition-colors md:min-h-12 md:flex-row md:justify-start md:gap-3 md:rounded-xl md:px-3 md:text-xs ${
                     isActive ? 'text-accent md:bg-accent-soft' : 'text-muted hover:text-ink'
                   }`
                 }

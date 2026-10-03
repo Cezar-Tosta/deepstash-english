@@ -1,5 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { type FormEvent, useEffect, useState } from 'react';
+import { AIError } from '../../ai/AIProvider';
+import { canTranscribe, transcribeAudio } from '../../ai/feedback';
+import { bookKey, NO_BOOK_TITLE } from '../../domain/books';
 import { weekPlan } from '../../domain/cycle';
 import { formatDate, formatDuration } from '../../domain/dates';
 import { looksLikeSingleWord, MAX_CHUNKS_PER_DAY } from '../../domain/session';
@@ -22,6 +25,7 @@ import {
   recordSpeaking,
   replaceChunk,
   saveReflection,
+  saveTranscript,
   type SessionBundle,
   setIdeaOfDay,
   splitIntoCards,
@@ -47,6 +51,7 @@ import {
   TextArea,
   TextInput,
 } from '../components/ui';
+import { useSettings } from '../hooks';
 import { attempt, showToast } from '../toast';
 
 export interface StepProps {
@@ -147,8 +152,7 @@ function IdeaEditor({ item, isIdeaOfDay }: { item: IdeaWithCards; isIdeaOfDay: b
     <Card>
       <div className="flex items-start justify-between gap-3">
         <div>
-          {idea.bookTitle && <p className="text-xs text-muted">{idea.bookTitle}</p>}
-          <h3 className="font-serif text-lg leading-snug">{idea.title}</h3>
+          <h4 className="font-serif text-lg leading-snug">{idea.title}</h4>
         </div>
         {isIdeaOfDay && <Badge tone="accent">⭐ Idea of the Day</Badge>}
       </div>
@@ -225,7 +229,7 @@ export function ReadStep({ bundle }: StepProps) {
   return (
     <div className="space-y-4">
       <Notice>
-        Cada ideia do livro é uma sequência de cards, lida como uma história. Leia tudo em inglês antes de traduzir e,
+        Cada livro tem várias ideias, e cada ideia é uma sequência de cards, lida como uma história. Leia tudo em inglês antes de traduzir e,
         ao fim de cada ideia, pergunte: <em>“What is the main idea?”</em> Não pare em toda palavra desconhecida.
       </Notice>
 
@@ -237,9 +241,21 @@ export function ReadStep({ bundle }: StepProps) {
         </p>
       </div>
 
-      {ideas.map((item) => (
-        <IdeaEditor key={item.idea.id} item={item} isIdeaOfDay={item.idea.id === session.ideaOfDayId} />
-      ))}
+      {ideas.map((item, i) => {
+        const previous = ideas[i - 1];
+        const newBook = !previous || bookKey(previous.idea.bookTitle) !== bookKey(item.idea.bookTitle);
+        return (
+          <div key={item.idea.id} className="space-y-2">
+            {newBook && (
+              <h3 className="pt-2 text-sm font-semibold">
+                <span className="text-muted">Livro · </span>
+                {item.idea.bookTitle || NO_BOOK_TITLE}
+              </h3>
+            )}
+            <IdeaEditor item={item} isIdeaOfDay={item.idea.id === session.ideaOfDayId} />
+          </div>
+        );
+      })}
 
       <form onSubmit={submit} className="space-y-3 rounded-2xl border border-line p-4">
         <TextInput label="Livro" value={book ?? ''} onChange={setBook} autoComplete="off" placeholder="Atomic Habits" />
@@ -557,10 +573,56 @@ const RETELL_PROMPTS = [
 ] as const;
 
 export function RetellStep({ bundle, goTo }: StepProps) {
-  const { session, ideaOfDay, speaking } = bundle;
+  const { session, ideaOfDay, speaking, chunks } = bundle;
+  const settings = useSettings();
+  const [playback, setPlayback] = useState<string | null>(null);
+  const [transcribing, setTranscribing] = useState(false);
+
+  // Libera a gravação anterior da memória ao trocar ou sair da tela.
+  useEffect(
+    () => () => {
+      if (playback) URL.revokeObjectURL(playback);
+    },
+    [playback],
+  );
+
   if (!ideaOfDay) return <NeedsIdeaOfDay goTo={goTo} />;
   const plan = weekPlan(session.cycleWeek);
   const total = speaking.reduce((sum, s) => sum + s.durationSec, 0);
+  const transcription = Boolean(settings && canTranscribe(settings.ai));
+  const { idea } = ideaOfDay;
+
+  const finish = async (durationSec: number, audio: Blob | null) => {
+    const id = await recordSpeaking({
+      kind: 'daily',
+      sessionId: session.id,
+      ideaId: idea.id,
+      date: session.date,
+      durationSec,
+      targetSec: plan.speakingMaxSec,
+    });
+    if (!id) return;
+    showToast(`Fala registrada: ${formatDuration(durationSec)}`);
+    if (!audio) return;
+    setPlayback(URL.createObjectURL(audio));
+    if (!transcription) return;
+    setTranscribing(true);
+    try {
+      await saveTranscript(id, await transcribeAudio(audio));
+    } catch (e) {
+      showToast(e instanceof AIError ? e.message : 'Não foi possível transcrever a fala.', 'error');
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  const feedbackContext = [
+    `Ideia recontada: "${idea.title}".`,
+    idea.mainIdea && `Ideia principal segundo o aluno: ${idea.mainIdea}`,
+    chunks.length > 0 && `Expressões que ele está aprendendo: ${chunks.map((c) => c.text).join('; ')}.`,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div className="space-y-6">
@@ -585,30 +647,57 @@ export function RetellStep({ bundle, goTo }: StepProps) {
 
       <Card>
         <Timer
+          record
           minSec={plan.speakingMinSec}
           maxSec={plan.speakingMaxSec}
           targetLabel={plan.speakingLabel}
-          onStop={(durationSec) => {
-            if (durationSec < 1) return;
-            attempt(
-              recordSpeaking({
-                kind: 'daily',
-                sessionId: session.id,
-                ideaId: ideaOfDay.idea.id,
-                date: session.date,
-                durationSec,
-                targetSec: plan.speakingMaxSec,
-              }).then(() => showToast(`Fala registrada: ${formatDuration(durationSec)}`)),
-            );
-          }}
+          onStop={(durationSec, audio) => attempt(finish(durationSec, audio))}
         />
+        <p className="mt-2 text-center text-xs text-muted">
+          {transcription
+            ? 'A fala é gravada e transcrita ao terminar. O áudio não fica guardado.'
+            : 'A fala é gravada para você se ouvir. Com Groq configurada em Ajustes, ela também é transcrita.'}
+        </p>
       </Card>
 
-      {speaking.length > 0 && (
-        <p className="text-sm text-muted" aria-live="polite">
-          {speaking.length === 1 ? '1 fala registrada hoje' : `${speaking.length} falas registradas hoje`} ·{' '}
-          {formatDuration(total)} no total.
+      {playback && (
+        <div>
+          <p className="mb-1 text-sm font-medium">Ouça a sua última fala</p>
+          {/* A gravação é a fala do próprio usuário; a transcrição aparece logo abaixo. */}
+          <audio controls src={playback} className="w-full" />
+        </div>
+      )}
+
+      {transcribing && (
+        <p className="text-sm text-muted" role="status">
+          Transcrevendo…
         </p>
+      )}
+
+      {speaking.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-sm text-muted" aria-live="polite">
+            {speaking.length === 1 ? '1 fala registrada hoje' : `${speaking.length} falas registradas hoje`} ·{' '}
+            {formatDuration(total)} no total.
+          </p>
+          {speaking
+            .filter((s) => s.transcript)
+            .map((s) => (
+              <Card key={s.id}>
+                <Eyebrow>O que você disse · {formatDuration(s.durationSec)}</Eyebrow>
+                <p className="mt-2 whitespace-pre-wrap font-serif text-lg leading-relaxed" lang="en">
+                  {s.transcript}
+                </p>
+                <AIFeedbackPanel
+                  targetType="retell"
+                  targetId={s.id}
+                  text={s.transcript ?? ''}
+                  context={feedbackContext}
+                  kinds={['retell']}
+                />
+              </Card>
+            ))}
+        </div>
       )}
     </div>
   );

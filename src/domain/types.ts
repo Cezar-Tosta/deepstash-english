@@ -88,6 +88,10 @@ export interface ComprehensionVocab {
   sessionId: string;
   term: string;
   meaning: string;
+  /** Frase em que o termo apareceu (preenchida ao adicionar pela leitura). */
+  context?: string;
+  /** Explicação do sentido naquele contexto. */
+  explanation?: string;
   createdAt: ISODateTime;
 }
 
@@ -122,7 +126,9 @@ export interface ChunkReview {
 
 export interface SpeakingSession {
   id: string;
-  kind: 'daily' | 'weekly';
+  kind: 'daily' | 'weekly' | 'book';
+  /** Livro explicado, quando `kind` é 'book'. */
+  bookKey?: string;
   sessionId: string | null;
   ideaId: string | null;
   date: ISODate;
@@ -142,6 +148,11 @@ export interface Reflection {
   userOpinion: string;
   /** SO WHAT? — What will I do differently? */
   soWhat: string;
+  /** Acompanhamento da ação, dias depois: "Did you do it?" */
+  followUpStatus?: FollowUpStatus;
+  /** "What happened?" */
+  followUp?: string;
+  followUpAt?: ISODateTime;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }
@@ -173,8 +184,29 @@ export interface WritingExercise {
   updatedAt: ISODateTime;
 }
 
-export type FeedbackKind = 'grammar' | 'improve' | 'natural';
-export type FeedbackTarget = 'mainIdea' | 'chunkSentence' | 'opinion' | 'soWhat' | 'writing';
+export type FollowUpStatus = 'done' | 'partly' | 'not';
+
+/** Fechamento de um livro. A chave é o título normalizado (ver domain/books). */
+export interface BookNote {
+  id: string;
+  title: string;
+  /** O que fica do livro, nas palavras do usuário, em inglês. */
+  takeaway: string;
+  finishedAt: ISODateTime | null;
+  updatedAt: ISODateTime;
+}
+
+export type FeedbackKind = 'grammar' | 'improve' | 'natural' | 'retell';
+export type FeedbackTarget =
+  | 'mainIdea'
+  | 'chunkSentence'
+  | 'opinion'
+  | 'soWhat'
+  | 'writing'
+  | 'retell'
+  | 'followUp'
+  | 'bookTakeaway'
+  | 'practice';
 
 /** Retorno da IA. Guarda o original ao lado da correção; nada é sobrescrito. */
 export interface AIFeedback {

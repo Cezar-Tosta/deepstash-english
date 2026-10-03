@@ -20,6 +20,40 @@ REVIEW → READ → IDEA OF THE DAY → CHECK → MINE → RETELL → PERSONALIZ
 
 Na etapa READ, cada ideia registra o livro, o título e os cards. O texto dos cards é opcional e pode ser colado de uma vez (uma linha em branco separa um card do outro).
 
+### Livro → ideias → cards
+
+Toda a biblioteca segue essa hierarquia. Em **Knowledge**:
+
+- **Livros:** cada livro lista suas ideias na ordem de leitura e tem um fechamento ("Explain this book in two minutes" e "What stays with me from this book?"). O livro é o título informado em cada ideia; títulos que só diferem em maiúsculas, acentos ou espaços são tratados como o mesmo livro.
+- **Ideias:** cada ideia tem sua página com os cards em sequência e links para a ideia anterior e a seguinte do mesmo livro.
+- **My English:** os chunks em repetição espaçada.
+- **Dicionário:** palavras e expressões consultadas na leitura.
+
+### Leitura com clique nas palavras
+
+Na página de uma ideia, cada palavra dos cards é clicável. Um clique seleciona a palavra; um segundo clique, em outra palavra do mesmo card, estende a seleção até formar a expressão. O painel mostra a frase em que ela aparece e, a pedido, o significado em português naquele contexto (pela IA). "Adicionar ao dicionário" guarda termo, significado, frase e explicação. Sem IA, o significado pode ser digitado. O dicionário não entra na repetição espaçada; ele alimenta os exercícios.
+
+### Retelling gravado e transcrito
+
+Na etapa RETELL, o cronômetro grava o microfone. Ao parar, você pode ouvir a própria fala e, com Groq (ou outro serviço compatível com OpenAI) configurado, ela é transcrita. Sobre a transcrição há a ação "Evaluate my retelling". O áudio não é guardado; a transcrição sim.
+
+### Acompanhamento das ações
+
+Três dias depois de registrar um "So what?", a tela Today pergunta "Did you do it?", com um campo "What happened?" em inglês e as respostas *Yes, I did it*, *Partly* e *Not yet*. A resposta fica na página da ideia.
+
+### Exercícios (menu Practice)
+
+Montados só com o que você já estudou, em rodadas de até 8 questões:
+
+| Exercício | Material usado |
+|---|---|
+| Dicionário: português → inglês | entradas do dicionário com significado |
+| Completar a frase | suas frases com os chunks e as frases do dicionário |
+| Escrever com a expressão | chunks e dicionário; a IA comenta depois, se ligada |
+| Ouvir e escrever | frases dos cards, lidas pela voz do navegador |
+
+Os resultados das rodadas não são guardados.
+
 Decisões que preservam o método:
 
 - **Revisão:** primeiro só a expressão; significado, frases e card de origem aparecem depois de REVELAR.
@@ -73,6 +107,9 @@ src/
     cycle.ts            ciclo de 4 semanas e metas de speaking
     chunks.ts           pendente / atrasado / difícil
     stats.ts            estatísticas semanais e totais
+    books.ts            livro → ideias → cards
+    reader.ts           palavras clicáveis, seleção e frase de contexto
+    exercises.ts        montagem e correção dos exercícios
     srs/
       scheduler.ts      interface ReviewScheduler
       fixedInterval.ts  D1/D3/D7/D14/D30
@@ -81,12 +118,12 @@ src/
     db.ts               esquema Dexie e versões
     migrations.ts       conversão de dados entre versões
     backup.ts           export/import JSON
-  services/             sessions, reviews, library, weekly, settings
+  services/             sessions, reviews, library, weekly, study (livros, ações, dicionário, exercícios), settings
   sync/                 engine (regras), cloudStore (interface), supabase (implementação), cloud (estado)
   ai/                   AIProvider, anthropicProvider, openAICompatibleProvider, feedback
   ui/
     session/            assistente da sessão diária
-    pages/              Today, Review, Knowledge, IdeaDetail, Progress, Weekly, Settings
+    pages/              Today, Review, Knowledge, Book, IdeaDetail, Practice, Progress, Weekly, Settings
     components/         botões, campos, cronômetro, fluxo de revisão, gráfico
 supabase/schema.sql      tabela e políticas de acesso
 scripts/generate-icons.mjs
@@ -197,7 +234,7 @@ O app funciona inteiro sem IA. Para ligar, vá em **Settings → IA**:
 
 O último cobre OpenAI, Google (endpoint compatível), Ollama (`http://localhost:11434/v1`) e LM Studio.
 
-Com a IA ligada, aparecem três ações abaixo dos textos já salvos: *Check grammar*, *Improve this sentence* e *Suggest a natural expression*. O retorno vem como MY VERSION / CORRECTED / WHY? / MORE NATURAL e é guardado ao lado do original.
+Com a IA ligada, aparecem três ações abaixo dos textos já salvos: *Check grammar*, *Improve this sentence* e *Suggest a natural expression*. Ela também explica as palavras clicadas na leitura e avalia a transcrição do retelling. A transcrição em si exige Groq ou outro serviço compatível com OpenAI (a Anthropic não transcreve áudio). O retorno vem como MY VERSION / CORRECTED / WHY? / MORE NATURAL e é guardado ao lado do original.
 
 A chave fica no IndexedDB do navegador, nunca no código-fonte nem na nuvem. Como não há servidor, a chamada sai direto do navegador com essa chave; use uma chave com limite de gasto.
 
@@ -223,7 +260,7 @@ Cobertura: criação de sessão, ideias e cards em sequência, Idea of the Day, 
 | 0.3 | Dashboard, My Knowledge, My English, Weekly Review e Writing | feito |
 | 0.4 | PWA, offline, backup | feito |
 | 0.5 | IA opcional (Groq, Anthropic e compatíveis com OpenAI) | feito, não testado contra um provedor real |
-| 0.7 | Gravação, transcrição e avaliação do retelling | futuro (`SpeakingSession.transcript` e `audioPath` já existem) |
+| 0.7 | Livros, leitura com clique e dicionário, gravação e transcrição do retelling, acompanhamento das ações, exercícios | feito, testado com IA simulada |
 | 0.6 | Login e sincronização com Supabase | feito, testado contra um servidor simulado |
 | 1.0 | Entrada por screenshot/OCR, tabelas relacionais no Supabase com mesclagem por registro, testes de interface | futuro |
 

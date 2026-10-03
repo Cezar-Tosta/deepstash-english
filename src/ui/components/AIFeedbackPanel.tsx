@@ -12,12 +12,14 @@ interface Props {
   /** O texto já salvo do usuário. A IA só aparece depois da tentativa. */
   text: string;
   context?: string | undefined;
+  /** Ações oferecidas. Por padrão, as três de correção de texto escrito. */
+  kinds?: readonly FeedbackKind[] | undefined;
 }
 
-const KINDS: FeedbackKind[] = ['grammar', 'improve', 'natural'];
+const WRITING_KINDS: readonly FeedbackKind[] = ['grammar', 'improve', 'natural'];
 
 /** Retorno opcional da IA sobre algo que o usuário já escreveu. Sem IA configurada, não renderiza nada. */
-export function AIFeedbackPanel({ targetType, targetId, text, context = '' }: Props) {
+export function AIFeedbackPanel({ targetType, targetId, text, context = '', kinds = WRITING_KINDS }: Props) {
   const settings = useSettings();
   const online = useOnline();
   const history = useLiveQuery(() => getFeedbackFor(targetType, targetId), [targetType, targetId]);
@@ -44,7 +46,7 @@ export function AIFeedbackPanel({ targetType, targetId, text, context = '' }: Pr
     <div className="mt-3 rounded-xl border border-line p-3">
       <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">Retorno da IA (opcional)</p>
       <div className="flex flex-wrap gap-2">
-        {KINDS.map((kind) => (
+        {kinds.map((kind) => (
           <Button key={kind} small variant="secondary" disabled={busy !== null || !online} onClick={() => void ask(kind)}>
             {busy === kind ? 'Analisando…' : FEEDBACK_LABELS[kind]}
           </Button>

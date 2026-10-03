@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type {
   AIFeedback,
+  BookNote,
   Chunk,
   ChunkReview,
   ComprehensionVocab,
@@ -47,6 +48,7 @@ export class AppDB extends Dexie {
   weeklyReviews!: EntityTable<WeeklyReview, 'id'>;
   writings!: EntityTable<WritingExercise, 'id'>;
   aiFeedback!: EntityTable<AIFeedback, 'id'>;
+  bookNotes!: EntityTable<BookNote, 'id'>;
 
   constructor(name = DB_NAME) {
     super(name);
@@ -87,6 +89,9 @@ export class AppDB extends Dexie {
           await tx.table(name).bulkAdd(after[name] ?? []);
         }
       });
+
+    // v3: fechamento por livro. Só acrescenta uma tabela; nada é convertido.
+    this.version(3).stores({ bookNotes: 'id' });
   }
 }
 
@@ -105,5 +110,6 @@ export const DATA_TABLES = [
   'weeklyReviews',
   'writings',
   'aiFeedback',
+  'bookNotes',
 ] as const;
 export type DataTableName = (typeof DATA_TABLES)[number];

@@ -151,8 +151,8 @@ function AISection({ saved }: { saved: AISettings }) {
     <Card>
       <Eyebrow>IA (opcional)</Eyebrow>
       <Hint>
-        O app funciona inteiro sem IA. Ligada, ela só comenta frases que você já escreveu e salvou; nunca responde no
-        seu lugar.
+        O app funciona inteiro sem IA. Ligada, ela comenta o que você já escreveu ou falou, explica palavras que você
+        clicar nos cards e, com a Groq, transcreve o seu retelling. Nunca responde no seu lugar.
       </Hint>
       <div className="mt-4 space-y-4">
         <Segmented label="Provedor de IA" value={draft.provider} options={PROVIDERS} onChange={(provider) => patch({ ...(provider === draft.provider ? {} : { model: '', apiKey: '', baseUrl: '' }), provider })} />

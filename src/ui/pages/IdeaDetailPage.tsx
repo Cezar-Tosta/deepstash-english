@@ -2,7 +2,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { formatDate, formatDuration } from '../../domain/dates';
+import { bookKey } from '../../domain/books';
 import { getIdeaDetail } from '../../services/library';
+import { getNeighbors } from '../../services/study';
+import { FOLLOW_UP_LABEL } from '../components/ActionFollowUp';
+import { Reader } from '../components/Reader';
 import { ChunkItem } from '../components/ChunkItem';
 import { EmptyState, Eyebrow } from '../components/ui';
 import { useToday } from '../hooks';
@@ -23,6 +27,7 @@ export function IdeaDetailPage() {
   const { ideaId = '' } = useParams();
   const date = useToday();
   const detail = useLiveQuery(() => getIdeaDetail(ideaId), [ideaId]);
+  const neighbors = useLiveQuery(async () => (detail ? getNeighbors(detail.idea) : null), [detail?.idea.id]);
 
   if (detail === undefined) return null;
 
@@ -54,7 +59,14 @@ export function IdeaDetailPage() {
           {session && ` · semana ${session.cycleWeek} do ciclo ${session.cycleNumber}`}
         </p>
         <h1 className="mt-1 font-serif text-3xl leading-tight">{idea.title}</h1>
-        {idea.bookTitle && <p className="mt-1 text-muted">do livro {idea.bookTitle}</p>}
+        {idea.bookTitle && (
+          <p className="mt-1 text-muted">
+            do livro{' '}
+            <Link to={`/knowledge/book/${encodeURIComponent(bookKey(idea.bookTitle))}`} className="text-accent underline underline-offset-2">
+              {idea.bookTitle}
+            </Link>
+          </p>
+        )}
         {isIdeaOfDay && <p className="mt-2 text-xs font-semibold tracking-wide text-accent">⭐ IDEA OF THE DAY</p>}
       </header>
 
@@ -64,16 +76,7 @@ export function IdeaDetailPage() {
             {cards.length === 0 ? 'Nenhum card registrado.' : 'O texto dos cards não foi registrado.'}
           </p>
         ) : (
-          <ol className="space-y-4">
-            {withText.map((card) => (
-              <li key={card.id} className="border-l-2 border-line pl-4">
-                <p className="text-xs font-semibold text-muted">Card {card.position + 1}</p>
-                <p className="whitespace-pre-wrap font-serif text-lg leading-relaxed" lang="en">
-                  {card.content}
-                </p>
-              </li>
-            ))}
-          </ol>
+          <Reader ideaId={idea.id} cards={withText} />
         )}
       </Section>
 
@@ -83,7 +86,7 @@ export function IdeaDetailPage() {
 
       {isIdeaOfDay && (
         <>
-          <Section title="Vocabulary for comprehension">
+          <Section title="Dicionário desta ideia">
             {vocab.length === 0 ? (
               none
             ) : (
@@ -123,6 +126,13 @@ export function IdeaDetailPage() {
                 {speaking.length} {speaking.length === 1 ? 'fala' : 'falas'} · {formatDuration(speakingSec)} no total
               </p>
             )}
+            {speaking
+              .filter((s) => s.transcript)
+              .map((s) => (
+                <p key={s.id} className="mt-2 whitespace-pre-wrap border-l-2 border-line pl-3 font-serif" lang="en">
+                  {s.transcript}
+                </p>
+              ))}
             {session?.retellNotes && (
               <p className="mt-2 whitespace-pre-wrap font-serif text-muted" lang="en">
                 {session.retellNotes}
@@ -146,6 +156,32 @@ export function IdeaDetailPage() {
             )}
           </Section>
         </>
+      )}
+
+      {reflection?.followUpStatus && (
+        <Section title="Did I do it?">
+          <p className="font-medium" lang="en">{FOLLOW_UP_LABEL[reflection.followUpStatus]}</p>
+          {reflection.followUp && (
+            <p className="mt-1 whitespace-pre-wrap font-serif text-lg" lang="en">{reflection.followUp}</p>
+          )}
+        </Section>
+      )}
+
+      {(neighbors?.prev || neighbors?.next) && (
+        <nav aria-label="Ideias do mesmo livro" className="flex justify-between gap-3 border-t border-line pt-4 text-sm">
+          {neighbors.prev ? (
+            <Link to={`/knowledge/idea/${neighbors.prev.id}`} className="text-accent">
+              ← {neighbors.prev.title}
+            </Link>
+          ) : (
+            <span />
+          )}
+          {neighbors.next && (
+            <Link to={`/knowledge/idea/${neighbors.next.id}`} className="text-right text-accent">
+              {neighbors.next.title} →
+            </Link>
+          )}
+        </nav>
       )}
 
       {idea.notes && (

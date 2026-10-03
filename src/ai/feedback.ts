@@ -3,7 +3,13 @@ import { nowISO } from '../domain/dates';
 import { newId } from '../domain/ids';
 import type { AIFeedback, AISettings, FeedbackKind, FeedbackTarget } from '../domain/types';
 import { getSettings } from '../services/settings';
-import { AIError, type AIProvider, GROQ_BASE_URL, GROQ_DEFAULT_MODEL } from './AIProvider';
+import {
+  AIError,
+  type AIProvider,
+  GROQ_BASE_URL,
+  GROQ_DEFAULT_MODEL,
+  GROQ_TRANSCRIPTION_MODEL,
+} from './AIProvider';
 
 export function isAIConfigured(ai: AISettings): boolean {
   if (ai.provider === 'anthropic' || ai.provider === 'groq') return ai.apiKey.trim() !== '';
@@ -25,6 +31,7 @@ export async function createProvider(ai: AISettings): Promise<AIProvider | null>
       ai.model.trim() || GROQ_DEFAULT_MODEL,
       ai.apiKey.trim(),
       'groq',
+      GROQ_TRANSCRIPTION_MODEL,
     );
   }
   return createOpenAICompatibleProvider(ai.baseUrl, ai.model, ai.apiKey);
@@ -34,6 +41,7 @@ export const FEEDBACK_LABELS: Record<FeedbackKind, string> = {
   grammar: 'Check grammar',
   improve: 'Improve this sentence',
   natural: 'Suggest a natural expression',
+  retell: 'Evaluate my retelling',
 };
 
 const FOCUS: Record<FeedbackKind, string> = {
@@ -41,6 +49,8 @@ const FOCUS: Record<FeedbackKind, string> = {
   improve: 'Corrija os erros e melhore a clareza, preservando a ideia e o nível do aluno.',
   natural:
     'Corrija os erros e, em "moreNatural", mostre como um falante nativo diria a mesma coisa.',
+  retell:
+    'O texto é a transcrição de uma fala improvisada do aluno recontando uma ideia. Ignore hesitações e falhas da transcrição. Em "corrected", reescreva a fala corrigida, mantendo o conteúdo e o nível dele. Em "why", comente em português, em até 4 frases: se ele transmitiu a ideia principal, os 2 ou 3 erros de inglês mais importantes, e se usou as expressões que está aprendendo. Em "moreNatural" responda null.',
 };
 
 export function buildFeedbackPrompt(
@@ -138,4 +148,59 @@ export async function getFeedbackFor(
     .equals([targetType, targetId])
     .toArray();
   return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** Transcrição só existe nos provedores com endpoint de áudio (Groq e compatíveis com OpenAI). */
+export function canTranscribe(ai: AISettings): boolean {
+  return isAIConfigured(ai) && (ai.provider === 'groq' || ai.provider === 'openai-compatible');
+}
+
+export async function transcribeAudio(audio: Blob): Promise<string> {
+  const provider = await createProvider((await getSettings()).ai);
+  if (!provider?.transcribe) throw new AIError('O provedor de IA configurado não faz transcrição.');
+  return provider.transcribe(audio);
+}
+
+export interface WordMeaning {
+  /** Tradução curta para o português, no sentido que o termo tem naquela frase. */
+  meaning: string;
+  /** Uma ou duas frases em português explicando o uso no contexto. */
+  explanation: string;
+}
+
+export function buildLookupPrompt(term: string, sentence: string): { system: string; user: string } {
+  return {
+    system: [
+      'Você é um dicionário inglês → português para um estudante brasileiro que lê resumos de livros.',
+      'Explique o termo no sentido que ele tem NA FRASE dada, não todos os sentidos possíveis.',
+      'Responda somente com um objeto JSON, sem texto antes ou depois, neste formato:',
+      '{"meaning": "<tradução curta em português, no sentido do contexto>", "explanation": "<1 ou 2 frases em português sobre o uso nessa frase; diga se é expressão idiomática, phrasal verb ou colocação>"}',
+    ].join('\n'),
+    user: `Termo: ${term}\nFrase: ${sentence}`,
+  };
+}
+
+export function parseLookup(raw: string): WordMeaning {
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  let data: unknown = null;
+  try {
+    data = start >= 0 && end > start ? JSON.parse(raw.slice(start, end + 1)) : null;
+  } catch {
+    data = null;
+  }
+  const obj = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>;
+  const meaning = obj['meaning'];
+  if (typeof meaning !== 'string' || !meaning.trim()) {
+    throw new AIError('A IA respondeu em um formato inesperado.');
+  }
+  const explanation = obj['explanation'];
+  return { meaning: meaning.trim(), explanation: typeof explanation === 'string' ? explanation.trim() : '' };
+}
+
+/** Significado de uma palavra ou expressão dentro da frase em que ela apareceu. */
+export async function lookupMeaning(term: string, sentence: string): Promise<WordMeaning> {
+  const provider = await createProvider((await getSettings()).ai);
+  if (!provider) throw new AIError('A IA não está configurada. Veja em Ajustes.');
+  return parseLookup(await provider.complete(buildLookupPrompt(term, sentence)));
 }

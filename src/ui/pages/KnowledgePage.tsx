@@ -3,17 +3,30 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { ChunkFilter } from '../../domain/chunks';
 import { formatDate } from '../../domain/dates';
-import { searchIdeas, searchChunks } from '../../services/library';
+import { searchChunks, searchIdeas } from '../../services/library';
+import { deleteVocab } from '../../services/sessions';
+import { listBooks, searchDictionary } from '../../services/study';
 import { ChunkItem } from '../components/ChunkItem';
-import { EmptyState, PageTitle, Segmented, TextInput } from '../components/ui';
+import { speak } from '../components/Reader';
+import { Button, EmptyState, PageTitle, Segmented, TextInput } from '../components/ui';
 import { useToday } from '../hooks';
+import { attempt } from '../toast';
 
-type Tab = 'knowledge' | 'english';
+type Tab = 'books' | 'ideas' | 'english' | 'dictionary';
 
-const TABS = [
-  { value: 'knowledge', label: 'My Knowledge' },
+const TABS: readonly { value: Tab; label: string }[] = [
+  { value: 'books', label: 'Livros' },
+  { value: 'ideas', label: 'Ideias' },
   { value: 'english', label: 'My English' },
-] as const;
+  { value: 'dictionary', label: 'Dicionário' },
+];
+
+const SEARCH: Record<Tab, string> = {
+  books: 'Pesquisar livro…',
+  ideas: 'Título, livro, tema, palavra dos cards, chunk ou data…',
+  english: 'Pesquisar expressão…',
+  dictionary: 'Pesquisar palavra ou significado…',
+};
 
 const FILTERS: readonly { value: ChunkFilter; label: string }[] = [
   { value: 'all', label: 'Todos' },
@@ -24,8 +37,45 @@ const FILTERS: readonly { value: ChunkFilter; label: string }[] = [
   { value: 'difficult', label: 'Difficult' },
 ];
 
-function CardList({ query }: { query: string }) {
-  const [onlyIdeaOfDay, setOnlyIdeaOfDay] = useState(true);
+const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
+/** Livro → ideias → cards: a entrada principal da biblioteca. */
+function BookList({ query }: { query: string }) {
+  const books = useLiveQuery(listBooks, []);
+  const q = query.trim().toLowerCase();
+  const shown = books?.filter((b) => !q || b.title.toLowerCase().includes(q));
+
+  return (
+    <div className="space-y-3">
+      {shown?.length === 0 && (
+        <EmptyState title={q ? 'Nenhum livro encontrado.' : 'Nenhum livro ainda.'}>
+          {!q && 'Os livros aparecem aqui conforme você registra as ideias lidas em cada sessão.'}
+        </EmptyState>
+      )}
+      <ul className="space-y-3">
+        {shown?.map((book) => (
+          <li key={book.key}>
+            <Link
+              to={`/knowledge/book/${encodeURIComponent(book.key)}`}
+              className="block rounded-2xl border border-line bg-surface p-5 hover:bg-sunken"
+            >
+              <p className="font-serif text-xl leading-snug">{book.title}</p>
+              <p className="mt-1 text-sm text-muted">
+                {count(book.ideas.length, 'ideia', 'ideias')} · {count(book.cardCount, 'card', 'cards')} ·{' '}
+                {book.firstDate === book.lastDate
+                  ? formatDate(book.firstDate, 'medium')
+                  : `${formatDate(book.firstDate, 'short')} a ${formatDate(book.lastDate, 'medium')}`}
+              </p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function IdeaList({ query }: { query: string }) {
+  const [onlyIdeaOfDay, setOnlyIdeaOfDay] = useState(false);
   const items = useLiveQuery(() => searchIdeas(query, onlyIdeaOfDay), [query, onlyIdeaOfDay]);
 
   return (
@@ -40,8 +90,8 @@ function CardList({ query }: { query: string }) {
         Mostrar só as Ideas of the Day
       </label>
       {items?.length === 0 && (
-        <EmptyState title={query ? 'Nada encontrado.' : 'Sua biblioteca ainda está vazia.'}>
-          {query ? 'Tente outra palavra, livro, tema ou data.' : 'As ideias aprofundadas aparecem aqui depois da primeira sessão.'}
+        <EmptyState title={query ? 'Nada encontrado.' : 'Nenhuma ideia ainda.'}>
+          {query ? 'Tente outra palavra, livro, tema ou data.' : 'As ideias registradas nas sessões aparecem aqui.'}
         </EmptyState>
       )}
       <ul className="space-y-3">
@@ -51,8 +101,7 @@ function CardList({ query }: { query: string }) {
               <p className="text-xs text-muted">
                 {formatDate(idea.date, 'medium')}
                 {idea.bookTitle && ` · ${idea.bookTitle}`}
-                {` · ${cardCount} ${cardCount === 1 ? 'card' : 'cards'}`}
-                {idea.category && ` · ${idea.category}`}
+                {` · ${count(cardCount, 'card', 'cards')}`}
                 {isIdeaOfDay && ' · ⭐ Idea of the Day'}
               </p>
               <p className="mt-1 font-serif text-lg leading-snug">{idea.title}</p>
@@ -92,29 +141,78 @@ function ChunkList({ query }: { query: string }) {
   );
 }
 
+function DictionaryList({ query }: { query: string }) {
+  const items = useLiveQuery(() => searchDictionary(query), [query]);
+  return (
+    <div className="space-y-3">
+      {items?.length === 0 && (
+        <EmptyState title={query ? 'Nada encontrado.' : 'Seu dicionário está vazio.'}>
+          {!query && 'Abra uma ideia, clique numa palavra do card e adicione o significado.'}
+        </EmptyState>
+      )}
+      <ul className="space-y-3">
+        {items?.map(({ entry, idea }) => (
+          <li key={entry.id} className="rounded-2xl border border-line bg-surface p-5">
+            <div className="flex items-start justify-between gap-3">
+              <p>
+                <span className="font-serif text-lg" lang="en">
+                  {entry.term}
+                </span>
+                {entry.meaning && <span className="text-muted"> — {entry.meaning}</span>}
+              </p>
+              <div className="flex shrink-0 gap-1">
+                <Button small variant="ghost" onClick={() => speak(entry.term)}>
+                  Ouvir
+                </Button>
+                <Button small variant="ghost" aria-label={`Remover ${entry.term}`} onClick={() => attempt(deleteVocab(entry.id))}>
+                  Remover
+                </Button>
+              </div>
+            </div>
+            {entry.context && (
+              <p className="mt-1 font-serif text-muted" lang="en">
+                “{entry.context}”
+              </p>
+            )}
+            {entry.explanation && <p className="mt-1 text-sm">{entry.explanation}</p>}
+            {idea && (
+              <p className="mt-2 text-xs text-muted">
+                <Link to={`/knowledge/idea/${idea.id}`} className="underline underline-offset-2">
+                  {idea.title}
+                </Link>
+                {idea.bookTitle && ` · ${idea.bookTitle}`}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function KnowledgePage() {
   const [params, setParams] = useSearchParams();
-  const tab: Tab = params.get('tab') === 'english' ? 'english' : 'knowledge';
+  const requested = params.get('tab');
+  const tab: Tab = TABS.some((t) => t.value === requested) ? (requested as Tab) : 'books';
   const [query, setQuery] = useState('');
 
   return (
     <div className="space-y-5">
-      <PageTitle eyebrow="Knowledge" title={tab === 'english' ? 'My English' : 'My Knowledge'} />
+      <PageTitle eyebrow="Knowledge" title="Biblioteca" />
       <Segmented
         label="Biblioteca"
         value={tab}
         options={TABS}
-        onChange={(next) => setParams(next === 'english' ? { tab: 'english' } : {}, { replace: true })}
+        onChange={(next) => {
+          setQuery('');
+          setParams(next === 'books' ? {} : { tab: next }, { replace: true });
+        }}
       />
-      <TextInput
-        type="search"
-        label={tab === 'english' ? 'Pesquisar expressão' : 'Pesquisar por título, livro, tema, palavra, chunk ou data'}
-        hideLabel
-        placeholder={tab === 'english' ? 'Pesquisar expressão…' : 'Título, livro, tema, palavra, chunk ou data…'}
-        value={query}
-        onChange={setQuery}
-      />
-      {tab === 'english' ? <ChunkList query={query} /> : <CardList query={query} />}
+      <TextInput type="search" label={SEARCH[tab]} hideLabel placeholder={SEARCH[tab]} value={query} onChange={setQuery} />
+      {tab === 'books' && <BookList query={query} />}
+      {tab === 'ideas' && <IdeaList query={query} />}
+      {tab === 'english' && <ChunkList query={query} />}
+      {tab === 'dictionary' && <DictionaryList query={query} />}
     </div>
   );
 }

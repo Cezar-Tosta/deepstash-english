@@ -336,24 +336,34 @@ export function deleteChunk(chunkId: string): Promise<void> {
 // ---------- Speaking ----------
 
 export interface SpeakingInput {
-  kind: 'daily' | 'weekly';
+  kind: 'daily' | 'weekly' | 'book';
   sessionId: string | null;
   ideaId: string | null;
   date: ISODate;
   durationSec: number;
   targetSec: number;
+  /** Livro explicado, quando `kind` é 'book'. */
+  bookKey?: string | undefined;
 }
 
-export async function recordSpeaking(input: SpeakingInput): Promise<void> {
-  if (input.durationSec < 1) return;
+/** Registra a fala e devolve o id, ou null se foi curta demais para contar. */
+export async function recordSpeaking({ bookKey, ...input }: SpeakingInput): Promise<string | null> {
+  if (input.durationSec < 1) return null;
+  const id = newId();
   await db.speaking.add({
     ...input,
-    id: newId(),
+    ...(bookKey ? { bookKey } : {}),
+    id,
     durationSec: Math.round(input.durationSec),
     transcript: null,
     audioPath: null,
     createdAt: nowISO(),
   });
+  return id;
+}
+
+export async function saveTranscript(speakingId: string, transcript: string): Promise<void> {
+  await db.speaking.update(speakingId, { transcript });
 }
 
 // ---------- Reflection ----------

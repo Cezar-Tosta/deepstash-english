@@ -7,7 +7,9 @@ import { CloudGate } from './ui/CloudGate';
 import { useApplyTheme, useSettings } from './ui/hooks';
 import { Layout } from './ui/Layout';
 import { IdeaDetailPage } from './ui/pages/IdeaDetailPage';
+import { BookPage } from './ui/pages/BookPage';
 import { KnowledgePage } from './ui/pages/KnowledgePage';
+import { PracticePage } from './ui/pages/PracticePage';
 import { ProgressPage } from './ui/pages/ProgressPage';
 import { ReviewPage } from './ui/pages/ReviewPage';
 import { SettingsPage } from './ui/pages/SettingsPage';
@@ -58,6 +60,8 @@ function App() {
           <Route path="review" element={<ReviewPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
           <Route path="knowledge/idea/:ideaId" element={<IdeaDetailPage />} />
+          <Route path="knowledge/book/:key" element={<BookPage />} />
+          <Route path="practice" element={<PracticePage />} />
           <Route path="progress" element={<ProgressPage />} />
           <Route path="weekly/:weekStart?" element={<WeeklyPage />} />
           <Route path="settings" element={<SettingsPage />} />
