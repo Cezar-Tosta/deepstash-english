@@ -1,8 +1,9 @@
 import { DATA_TABLES, type DataTableName, db } from './db';
 import type { UserSettings } from '../domain/types';
+import { migrateV1toV2, type Tables } from './migrations';
 
 export const BACKUP_APP = 'deepstash-english';
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
 type Row = Record<string, unknown>;
 
@@ -56,9 +57,16 @@ export function parseBackup(json: string): BackupFile {
   const rawData = raw['data'];
   if (!isRecord(rawData)) throw new BackupError('Backup sem dados.');
 
+  const tables: Record<string, unknown> = { ...rawData };
+  for (const name of DATA_TABLES) {
+    if (!Array.isArray(tables[name] ?? [])) throw new BackupError(`Tabela "${name}" inválida.`);
+  }
+  // Backups feitos antes de existirem ideias são convertidos na leitura.
+  const source = version < 2 ? migrateV1toV2(tables as Tables) : tables;
+
   const data = {} as Record<DataTableName, Row[]>;
   for (const name of DATA_TABLES) {
-    const rows = rawData[name] ?? [];
+    const rows = source[name] ?? [];
     if (!Array.isArray(rows)) throw new BackupError(`Tabela "${name}" inválida.`);
     for (const row of rows) {
       if (!isRecord(row) || typeof row['id'] !== 'string' || row['id'] === '') {
@@ -73,7 +81,7 @@ export function parseBackup(json: string): BackupFile {
   const cycleStartDate = isRecord(rawSettings) ? rawSettings['cycleStartDate'] : null;
   return {
     app: BACKUP_APP,
-    version,
+    version: BACKUP_VERSION,
     exportedAt: typeof raw['exportedAt'] === 'string' ? raw['exportedAt'] : '',
     settings:
       theme === 'system' || theme === 'light' || theme === 'dark'
@@ -83,10 +91,10 @@ export function parseBackup(json: string): BackupFile {
   };
 }
 
-export function backupCounts(backup: BackupFile): { sessions: number; cards: number; chunks: number } {
+export function backupCounts(backup: BackupFile): { sessions: number; ideas: number; chunks: number } {
   return {
     sessions: backup.data.sessions.length,
-    cards: backup.data.cards.length,
+    ideas: backup.data.ideas.length,
     chunks: backup.data.chunks.length,
   };
 }

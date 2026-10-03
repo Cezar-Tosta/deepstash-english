@@ -1,7 +1,5 @@
 import type { StepId } from './types';
 
-/** "5" é meta, não restrição: a sessão vale com qualquer quantidade de cards. */
-export const CARD_GOAL = 5;
 /** Limite rígido do método: no máximo 3 chunks novos por dia. */
 export const MAX_CHUNKS_PER_DAY = 3;
 
@@ -13,8 +11,8 @@ export interface StepDef {
 
 export const STEPS: readonly StepDef[] = [
   { id: 'review', label: 'REVIEW', hint: 'Recupere antes de olhar.' },
-  { id: 'read', label: 'READ', hint: 'Leia os cards sem traduzir primeiro.' },
-  { id: 'focus', label: 'CARD OF THE DAY', hint: 'Escolha um para aprofundar.' },
+  { id: 'read', label: 'READ', hint: 'Leia as ideias sem traduzir primeiro.' },
+  { id: 'focus', label: 'IDEA OF THE DAY', hint: 'Escolha uma ideia para aprofundar.' },
   { id: 'check', label: 'CHECK', hint: 'Confirme a compreensão.' },
   { id: 'mine', label: 'MINE', hint: 'Até 3 chunks úteis.' },
   { id: 'retell', label: 'RETELL', hint: 'Explique sem olhar.' },
@@ -39,8 +37,9 @@ export function looksLikeSingleWord(text: string): boolean {
 }
 
 export interface ProgressInput {
-  cards: number;
-  hasCardOfDay: boolean;
+  /** Ideias lidas hoje. Não há meta numérica: basta ter lido ao menos uma. */
+  ideas: number;
+  hasIdeaOfDay: boolean;
   hasMainIdea: boolean;
   chunks: number;
   sentences: number;
@@ -52,8 +51,8 @@ export interface ProgressInput {
 /** Percentual da sessão, de 0 a 100. Cada pilar do método pesa o mesmo. */
 export function sessionProgress(p: ProgressInput): number {
   const parts = [
-    Math.min(p.cards, CARD_GOAL) / CARD_GOAL,
-    p.hasCardOfDay ? 1 : 0,
+    p.ideas > 0 ? 1 : 0,
+    p.hasIdeaOfDay ? 1 : 0,
     p.hasMainIdea ? 1 : 0,
     Math.min(p.chunks, MAX_CHUNKS_PER_DAY) / MAX_CHUNKS_PER_DAY,
     Math.min(p.sentences, MAX_CHUNKS_PER_DAY) / MAX_CHUNKS_PER_DAY,

@@ -26,9 +26,9 @@ function StatusBadge({ item, date }: { item: ChunkWithHistory; date: ISODate }) 
 }
 
 /** Um chunk com tudo o que se sabe dele: frases, origem, próxima revisão e histórico. */
-export function ChunkItem({ item, date, linkToCard = true }: { item: ChunkWithHistory; date: ISODate; linkToCard?: boolean }) {
+export function ChunkItem({ item, date, linkToIdea = true }: { item: ChunkWithHistory; date: ISODate; linkToIdea?: boolean }) {
   const [open, setOpen] = useState(false);
-  const { chunk, reviews, recall, sourceCard } = item;
+  const { chunk, reviews, recall, sourceIdea } = item;
   const active = chunk.status === 'new' || chunk.status === 'learning';
 
   return (
@@ -82,16 +82,16 @@ export function ChunkItem({ item, date, linkToCard = true }: { item: ChunkWithHi
                   {recall.recalled} / {recall.missed}
                 </dd>
               </div>
-              {sourceCard && (
+              {sourceIdea && (
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Card de origem</dt>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Ideia de origem</dt>
                   <dd>
-                    {linkToCard ? (
-                      <Link to={`/knowledge/card/${sourceCard.id}`} className="text-accent underline underline-offset-2">
-                        {sourceCard.title}
+                    {linkToIdea ? (
+                      <Link to={`/knowledge/idea/${sourceIdea.id}`} className="text-accent underline underline-offset-2">
+                        {sourceIdea.title}
                       </Link>
                     ) : (
-                      sourceCard.title
+                      sourceIdea.title
                     )}
                   </dd>
                 </div>

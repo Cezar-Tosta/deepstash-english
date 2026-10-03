@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { formatDate, formatDuration } from '../../domain/dates';
-import { getCardDetail } from '../../services/library';
+import { getIdeaDetail } from '../../services/library';
 import { ChunkItem } from '../components/ChunkItem';
 import { EmptyState, Eyebrow } from '../components/ui';
 import { useToday } from '../hooks';
@@ -18,11 +18,11 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 const none = <p className="text-muted">Não registrado.</p>;
 
-/** Página própria de um card: tudo o que foi lido, produzido e revisado a partir dele. */
-export function CardDetailPage() {
-  const { cardId = '' } = useParams();
+/** Página própria de uma ideia: os cards em sequência e tudo o que foi produzido a partir dela. */
+export function IdeaDetailPage() {
+  const { ideaId = '' } = useParams();
   const date = useToday();
-  const detail = useLiveQuery(() => getCardDetail(cardId), [cardId]);
+  const detail = useLiveQuery(() => getIdeaDetail(ideaId), [ideaId]);
 
   if (detail === undefined) return null;
 
@@ -35,40 +35,53 @@ export function CardDetailPage() {
     return (
       <div>
         {back}
-        <EmptyState title="Card não encontrado." />
+        <EmptyState title="Ideia não encontrada." />
       </div>
     );
   }
 
-  const { card, session, isCardOfDay, vocab, chunks, speaking, reflection } = detail;
+  const { idea, cards, session, isIdeaOfDay, vocab, chunks, speaking, reflection } = detail;
   const speakingSec = speaking.reduce((sum, s) => sum + s.durationSec, 0);
+  const withText = cards.filter((c) => c.content.trim());
 
   return (
     <article className="space-y-7">
       <header>
         {back}
         <p className="text-sm text-muted">
-          {formatDate(card.date, 'long')}
-          {card.category && ` · ${card.category}`}
+          {formatDate(idea.date, 'long')}
+          {idea.category && ` · ${idea.category}`}
           {session && ` · semana ${session.cycleWeek} do ciclo ${session.cycleNumber}`}
         </p>
-        <h1 className="mt-1 font-serif text-3xl leading-tight">{card.title}</h1>
-        {isCardOfDay && <p className="mt-2 text-xs font-semibold tracking-wide text-accent">⭐ CARD OF THE DAY</p>}
+        <h1 className="mt-1 font-serif text-3xl leading-tight">{idea.title}</h1>
+        {idea.bookTitle && <p className="mt-1 text-muted">do livro {idea.bookTitle}</p>}
+        {isIdeaOfDay && <p className="mt-2 text-xs font-semibold tracking-wide text-accent">⭐ IDEA OF THE DAY</p>}
       </header>
 
-      {card.content && (
-        <Section title="Texto original">
-          <p className="whitespace-pre-wrap font-serif text-lg leading-relaxed" lang="en">
-            {card.content}
+      <Section title={`Cards da ideia (${cards.length})`}>
+        {withText.length === 0 ? (
+          <p className="text-muted">
+            {cards.length === 0 ? 'Nenhum card registrado.' : 'O texto dos cards não foi registrado.'}
           </p>
-        </Section>
-      )}
-
-      <Section title="Main idea">
-        {card.mainIdea ? <p className="font-serif text-lg" lang="en">{card.mainIdea}</p> : none}
+        ) : (
+          <ol className="space-y-4">
+            {withText.map((card) => (
+              <li key={card.id} className="border-l-2 border-line pl-4">
+                <p className="text-xs font-semibold text-muted">Card {card.position + 1}</p>
+                <p className="whitespace-pre-wrap font-serif text-lg leading-relaxed" lang="en">
+                  {card.content}
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
       </Section>
 
-      {isCardOfDay && (
+      <Section title="Main idea">
+        {idea.mainIdea ? <p className="font-serif text-lg" lang="en">{idea.mainIdea}</p> : none}
+      </Section>
+
+      {isIdeaOfDay && (
         <>
           <Section title="Vocabulary for comprehension">
             {vocab.length === 0 ? (
@@ -96,7 +109,7 @@ export function CardDetailPage() {
             ) : (
               <ul className="space-y-3">
                 {chunks.map((item) => (
-                  <ChunkItem key={item.chunk.id} item={item} date={date} linkToCard={false} />
+                  <ChunkItem key={item.chunk.id} item={item} date={date} linkToIdea={false} />
                 ))}
               </ul>
             )}
@@ -135,9 +148,9 @@ export function CardDetailPage() {
         </>
       )}
 
-      {card.notes && (
+      {idea.notes && (
         <Section title="Observações">
-          <p className="whitespace-pre-wrap">{card.notes}</p>
+          <p className="whitespace-pre-wrap">{idea.notes}</p>
         </Section>
       )}
     </article>

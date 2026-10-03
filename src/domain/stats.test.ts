@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { cyclePosition, weekPlan } from './cycle';
 import { startOfWeek } from './dates';
 import { type StatsInput, totals, weeklyHistory, weekStats } from './stats';
-import type { Chunk, ChunkReview, SourceCard, SpeakingSession, StudySession } from './types';
+import type { Chunk, ChunkReview, Idea, SourceCard, SpeakingSession, StudySession } from './types';
 
 const WEEK = '2026-09-28'; // segunda-feira
 
-function session(date: string, cardOfDayId: string | null, completed = true): StudySession {
+function session(date: string, ideaOfDayId: string | null, completed = true): StudySession {
   return {
     id: `s-${date}`,
     date,
@@ -14,7 +14,7 @@ function session(date: string, cardOfDayId: string | null, completed = true): St
     cycleWeek: 1,
     startedAt: `${date}T10:00:00.000Z`,
     completedAt: completed ? `${date}T10:30:00.000Z` : null,
-    cardOfDayId,
+    ideaOfDayId,
     currentStep: 'schedule',
     status: completed ? 'completed' : 'in_progress',
     misunderstood: '',
@@ -22,13 +22,13 @@ function session(date: string, cardOfDayId: string | null, completed = true): St
   };
 }
 
-function card(id: string, date: string): SourceCard {
+function idea(id: string, date: string): Idea {
   return {
     id,
     sessionId: `s-${date}`,
     date,
-    title: `Card ${id}`,
-    content: '',
+    bookTitle: '',
+    title: `Idea ${id}`,
     mainIdea: '',
     category: '',
     notes: '',
@@ -36,11 +36,23 @@ function card(id: string, date: string): SourceCard {
   };
 }
 
+function cards(ideaId: string, date: string, count: number): SourceCard[] {
+  return Array.from({ length: count }, (_, position) => ({
+    id: `${ideaId}-${position}`,
+    ideaId,
+    sessionId: `s-${date}`,
+    date,
+    position,
+    content: '',
+    createdAt: `${date}T10:00:00.000Z`,
+  }));
+}
+
 function chunk(id: string, date: string, status: Chunk['status'] = 'new'): Chunk {
   return {
     id,
     sessionId: `s-${date}`,
-    sourceCardId: null,
+    sourceIdeaId: null,
     text: `chunk ${id}`,
     meaning: '',
     originalSentence: '',
@@ -71,7 +83,7 @@ function speaking(id: string, date: string, durationSec: number): SpeakingSessio
     id,
     kind: 'daily',
     sessionId: `s-${date}`,
-    cardId: null,
+    ideaId: null,
     date,
     durationSec,
     targetSec: 60,
@@ -87,11 +99,18 @@ const input: StatsInput = {
     session('2026-09-29', 'b1', false),
     session('2026-10-05', 'c1'),
   ],
+  ideas: [
+    idea('a1', '2026-09-28'),
+    idea('a2', '2026-09-28'),
+    idea('b1', '2026-09-29'),
+    idea('c1', '2026-10-05'),
+  ],
+  // Cada ideia tem uma quantidade diferente de cards.
   cards: [
-    card('a1', '2026-09-28'),
-    card('a2', '2026-09-28'),
-    card('b1', '2026-09-29'),
-    card('c1', '2026-10-05'),
+    ...cards('a1', '2026-09-28', 4),
+    ...cards('a2', '2026-09-28', 6),
+    ...cards('b1', '2026-09-29', 3),
+    ...cards('c1', '2026-10-05', 5),
   ],
   chunks: [
     chunk('k1', '2026-09-28'),
@@ -112,16 +131,17 @@ describe('estatísticas semanais', () => {
 
   it('soma só o que aconteceu na semana', () => {
     expect(stats).toMatchObject({
-      cardsRead: 3,
-      cardsStudied: 2,
+      ideasRead: 3,
+      cardsRead: 13,
+      ideasStudied: 2,
       chunksCreated: 2,
       reviewsDone: 3,
       speakingSec: 120,
     });
   });
 
-  it('conta como dia estudado o dia com card lido ou revisão feita', () => {
-    // 28 e 29 têm cards; 30 só teve revisão.
+  it('conta como dia estudado o dia com ideia lida ou revisão feita', () => {
+    // 28 e 29 têm ideias; 30 só teve revisão.
     expect(stats.studyDays).toBe(3);
   });
 
@@ -133,8 +153,9 @@ describe('estatísticas semanais', () => {
     expect(stats.days).toHaveLength(7);
     expect(stats.days[0]).toMatchObject({
       date: '2026-09-28',
-      cards: 2,
-      cardOfDayTitle: 'Card a1',
+      ideas: 2,
+      cards: 10,
+      ideaOfDayTitle: 'Idea a1',
       chunks: ['chunk k1', 'chunk k2'],
       speakingSec: 70,
       sessionCompleted: true,
@@ -145,6 +166,7 @@ describe('estatísticas semanais', () => {
 
   it('semana vazia não tem taxa de recuperação', () => {
     expect(weekStats(input, '2026-01-05')).toMatchObject({
+      ideasRead: 0,
       cardsRead: 0,
       studyDays: 0,
       recallRate: null,
@@ -153,7 +175,7 @@ describe('estatísticas semanais', () => {
 
   it('histórico vem da semana mais antiga para a mais recente', () => {
     const history = weeklyHistory(input, '2026-10-05', 3);
-    expect(history.map((w) => [w.weekStart, w.cardsRead])).toEqual([
+    expect(history.map((w) => [w.weekStart, w.ideasRead])).toEqual([
       ['2026-09-21', 0],
       ['2026-09-28', 3],
       ['2026-10-05', 1],
@@ -162,8 +184,9 @@ describe('estatísticas semanais', () => {
 
   it('totais gerais', () => {
     expect(totals(input)).toMatchObject({
-      cardsRead: 4,
-      cardsStudied: 3,
+      ideasRead: 4,
+      cardsRead: 18,
+      ideasStudied: 3,
       chunksCreated: 3,
       chunksLearned: 1,
       reviewsDone: 4,

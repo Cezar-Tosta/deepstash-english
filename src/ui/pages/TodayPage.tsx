@@ -5,7 +5,7 @@ import { db } from '../../data/db';
 import { overdueDays } from '../../domain/chunks';
 import { cyclePosition, weekPlan } from '../../domain/cycle';
 import { formatDate, formatDuration, startOfWeek } from '../../domain/dates';
-import { CARD_GOAL, MAX_CHUNKS_PER_DAY, sessionProgress } from '../../domain/session';
+import { MAX_CHUNKS_PER_DAY, sessionProgress } from '../../domain/session';
 import { getDueChunks } from '../../services/reviews';
 import { loadSessionBundle, startSession } from '../../services/sessions';
 import { Button, Card, Eyebrow, PageTitle, ProgressBar } from '../components/ui';
@@ -41,9 +41,9 @@ export function TodayPage() {
   const completed = bundle?.session.status === 'completed';
   const progress = bundle
     ? sessionProgress({
-        cards: bundle.cards.length,
-        hasCardOfDay: bundle.cardOfDay !== null,
-        hasMainIdea: Boolean(bundle.cardOfDay?.mainIdea.trim()),
+        ideas: bundle.ideas.length,
+        hasIdeaOfDay: bundle.ideaOfDay !== null,
+        hasMainIdea: Boolean(bundle.ideaOfDay?.idea.mainIdea.trim()),
         chunks: bundle.chunks.length,
         sentences: bundle.chunks.filter((c) => c.userSentence.trim()).length,
         spoke: speakingSec > 0,
@@ -51,6 +51,9 @@ export function TodayPage() {
         hasSoWhat: Boolean(bundle.reflection?.soWhat.trim()),
       })
     : 0;
+
+  const ideasToday = bundle?.ideas.length ?? 0;
+  const cardsToday = bundle?.ideas.reduce((sum, i) => sum + i.cards.length, 0) ?? 0;
 
   const open = () => {
     attempt(startSession(date).then(() => navigate('/session')));
@@ -64,9 +67,10 @@ export function TodayPage() {
 
       {totalSessions === 0 && (
         <Card className="bg-accent-soft">
-          <Eyebrow>Método 5 → 1 → 3 → 1</Eyebrow>
+          <Eyebrow>Método: ideias → 1 → 3 → 1</Eyebrow>
           <p className="mt-2 leading-relaxed">
-            Leia <strong>5 cards</strong> do Deepstash, escolha <strong>1</strong> para aprofundar, guarde só{' '}
+            Leia as <strong>ideias</strong> do dia no Deepstash (cada uma é uma sequência de cards), escolha{' '}
+            <strong>1 ideia</strong> para aprofundar, guarde só{' '}
             <strong>3 expressões</strong> úteis e faça <strong>1 explicação</strong> em voz alta. Cerca de 30 minutos
             por dia.
           </p>
@@ -88,11 +92,11 @@ export function TodayPage() {
               due.length === 0 ? 'nenhuma' : overdue > 0 ? `${due.length} (${overdue} em atraso)` : String(due.length)
             }
           />
-          <Row label="Cards de hoje" done={(bundle?.cards.length ?? 0) >= CARD_GOAL} value={`${bundle?.cards.length ?? 0}/${CARD_GOAL}`} />
+          <Row label="Ideias lidas hoje" done={ideasToday > 0} value={ideasToday === 0 ? 'nenhuma' : `${ideasToday} · ${cardsToday} ${cardsToday === 1 ? 'card' : 'cards'}`} />
           <Row
-            label="Card of the Day"
-            done={Boolean(bundle?.cardOfDay)}
-            value={bundle?.cardOfDay ? <span className="font-serif">{bundle.cardOfDay.title}</span> : 'não escolhido'}
+            label="Idea of the Day"
+            done={Boolean(bundle?.ideaOfDay)}
+            value={bundle?.ideaOfDay ? <span className="font-serif">{bundle.ideaOfDay.idea.title}</span> : 'não escolhida'}
           />
           <Row label="Chunks" done={(bundle?.chunks.length ?? 0) >= MAX_CHUNKS_PER_DAY} value={`${bundle?.chunks.length ?? 0}/${MAX_CHUNKS_PER_DAY}`} />
           <Row label="Speaking" done={speakingSec > 0} value={speakingSec > 0 ? formatDuration(speakingSec) : `não realizado · meta ${plan.speakingLabel}`} />
@@ -111,7 +115,7 @@ export function TodayPage() {
       {totalSessions > 0 && (
         <Link to={`/weekly/${startOfWeek(date)}`} className="block rounded-2xl border border-line bg-surface p-5 hover:bg-sunken">
           <Eyebrow>Weekly review</Eyebrow>
-          <p className="mt-1">Fechamento da semana: relembrar os Cards of the Day, Top 3 ideias e escrita curta.</p>
+          <p className="mt-1">Fechamento da semana: relembrar as Ideas of the Day, Top 3 ideias e escrita curta.</p>
         </Link>
       )}
     </div>

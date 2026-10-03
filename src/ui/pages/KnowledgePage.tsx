@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { ChunkFilter } from '../../domain/chunks';
 import { formatDate } from '../../domain/dates';
-import { searchCards, searchChunks } from '../../services/library';
+import { searchIdeas, searchChunks } from '../../services/library';
 import { ChunkItem } from '../components/ChunkItem';
 import { EmptyState, PageTitle, Segmented, TextInput } from '../components/ui';
 import { useToday } from '../hooks';
@@ -25,8 +25,8 @@ const FILTERS: readonly { value: ChunkFilter; label: string }[] = [
 ];
 
 function CardList({ query }: { query: string }) {
-  const [onlyCardOfDay, setOnlyCardOfDay] = useState(true);
-  const items = useLiveQuery(() => searchCards(query, onlyCardOfDay), [query, onlyCardOfDay]);
+  const [onlyIdeaOfDay, setOnlyIdeaOfDay] = useState(true);
+  const items = useLiveQuery(() => searchIdeas(query, onlyIdeaOfDay), [query, onlyIdeaOfDay]);
 
   return (
     <div className="space-y-4">
@@ -34,27 +34,29 @@ function CardList({ query }: { query: string }) {
         <input
           type="checkbox"
           className="size-5 accent-(--accent)"
-          checked={onlyCardOfDay}
-          onChange={(e) => setOnlyCardOfDay(e.target.checked)}
+          checked={onlyIdeaOfDay}
+          onChange={(e) => setOnlyIdeaOfDay(e.target.checked)}
         />
-        Mostrar só os Cards of the Day
+        Mostrar só as Ideas of the Day
       </label>
       {items?.length === 0 && (
         <EmptyState title={query ? 'Nada encontrado.' : 'Sua biblioteca ainda está vazia.'}>
-          {query ? 'Tente outra palavra, tema ou data.' : 'Os cards aprofundados aparecem aqui depois da primeira sessão.'}
+          {query ? 'Tente outra palavra, livro, tema ou data.' : 'As ideias aprofundadas aparecem aqui depois da primeira sessão.'}
         </EmptyState>
       )}
       <ul className="space-y-3">
-        {items?.map(({ card, isCardOfDay, chunks }) => (
-          <li key={card.id}>
-            <Link to={`/knowledge/card/${card.id}`} className="block rounded-2xl border border-line bg-surface p-5 hover:bg-sunken">
+        {items?.map(({ idea, isIdeaOfDay, cardCount, chunks }) => (
+          <li key={idea.id}>
+            <Link to={`/knowledge/idea/${idea.id}`} className="block rounded-2xl border border-line bg-surface p-5 hover:bg-sunken">
               <p className="text-xs text-muted">
-                {formatDate(card.date, 'medium')}
-                {card.category && ` · ${card.category}`}
-                {isCardOfDay && ' · ⭐ Card of the Day'}
+                {formatDate(idea.date, 'medium')}
+                {idea.bookTitle && ` · ${idea.bookTitle}`}
+                {` · ${cardCount} ${cardCount === 1 ? 'card' : 'cards'}`}
+                {idea.category && ` · ${idea.category}`}
+                {isIdeaOfDay && ' · ⭐ Idea of the Day'}
               </p>
-              <p className="mt-1 font-serif text-lg leading-snug">{card.title}</p>
-              {card.mainIdea && <p className="mt-1 text-sm text-muted">{card.mainIdea}</p>}
+              <p className="mt-1 font-serif text-lg leading-snug">{idea.title}</p>
+              {idea.mainIdea && <p className="mt-1 text-sm text-muted">{idea.mainIdea}</p>}
               {chunks.length > 0 && (
                 <p className="mt-2 font-serif text-sm" lang="en">
                   {chunks.join(' • ')}
@@ -106,9 +108,9 @@ export function KnowledgePage() {
       />
       <TextInput
         type="search"
-        label={tab === 'english' ? 'Pesquisar expressão' : 'Pesquisar por título, tema, palavra, chunk ou data'}
+        label={tab === 'english' ? 'Pesquisar expressão' : 'Pesquisar por título, livro, tema, palavra, chunk ou data'}
         hideLabel
-        placeholder={tab === 'english' ? 'Pesquisar expressão…' : 'Título, tema, palavra, chunk ou data…'}
+        placeholder={tab === 'english' ? 'Pesquisar expressão…' : 'Título, livro, tema, palavra, chunk ou data…'}
         value={query}
         onChange={setQuery}
       />

@@ -107,7 +107,7 @@ function BackupSection({ lastBackupAt }: { lastBackupAt: string | null }) {
             <p className="font-medium">Importar substitui tudo o que está neste aparelho.</p>
             <p className="mt-1">
               O arquivo{pending.exportedAt && ` de ${new Date(pending.exportedAt).toLocaleDateString('pt-BR')}`} tem{' '}
-              {counts.sessions} sessões, {counts.cards} cards e {counts.chunks} chunks.
+              {counts.sessions} sessões, {counts.ideas} ideias e {counts.chunks} chunks.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button

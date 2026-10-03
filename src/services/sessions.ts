@@ -7,6 +7,7 @@ import { scheduler } from '../domain/srs';
 import type {
   Chunk,
   ComprehensionVocab,
+  Idea,
   ISODate,
   Reflection,
   SourceCard,
@@ -17,10 +18,16 @@ import type {
 import { ChunkLimitError, DomainError } from './errors';
 import { getSettings } from './settings';
 
+export interface IdeaWithCards {
+  idea: Idea;
+  /** Na ordem em que são lidos. */
+  cards: SourceCard[];
+}
+
 export interface SessionBundle {
   session: StudySession;
-  cards: SourceCard[];
-  cardOfDay: SourceCard | null;
+  ideas: IdeaWithCards[];
+  ideaOfDay: IdeaWithCards | null;
   vocab: ComprehensionVocab[];
   chunks: Chunk[];
   speaking: SpeakingSession[];
@@ -60,7 +67,7 @@ export function startSession(date: ISODate = today()): Promise<StudySession> {
       cycleWeek: week,
       startedAt: nowISO(),
       completedAt: null,
-      cardOfDayId: null,
+      ideaOfDayId: null,
       currentStep: 'review',
       status: 'in_progress',
       misunderstood: '',
@@ -74,20 +81,27 @@ export function startSession(date: ISODate = today()): Promise<StudySession> {
 export async function loadSessionBundle(date: ISODate): Promise<SessionBundle | null> {
   const session = await db.sessions.where('date').equals(date).first();
   if (!session) return null;
-  const [cards, vocab, chunks, speaking] = await Promise.all([
+  const [ideas, cards, vocab, chunks, speaking] = await Promise.all([
+    db.ideas.where('sessionId').equals(session.id).toArray(),
     db.cards.where('sessionId').equals(session.id).toArray(),
     db.vocab.where('sessionId').equals(session.id).toArray(),
     db.chunks.where('sessionId').equals(session.id).toArray(),
     db.speaking.where('sessionId').equals(session.id).toArray(),
   ]);
-  const cardOfDay = cards.find((c) => c.id === session.cardOfDayId) ?? null;
-  const reflection = cardOfDay
-    ? ((await db.reflections.where('cardId').equals(cardOfDay.id).first()) ?? null)
+  const withCards = ideas.sort(byCreatedAt).map(
+    (idea): IdeaWithCards => ({
+      idea,
+      cards: cards.filter((c) => c.ideaId === idea.id).sort((a, b) => a.position - b.position),
+    }),
+  );
+  const ideaOfDay = withCards.find((i) => i.idea.id === session.ideaOfDayId) ?? null;
+  const reflection = ideaOfDay
+    ? ((await db.reflections.where('ideaId').equals(ideaOfDay.idea.id).first()) ?? null)
     : null;
   return {
     session,
-    cards: cards.sort(byCreatedAt),
-    cardOfDay,
+    ideas: withCards,
+    ideaOfDay,
     vocab: vocab.sort(byCreatedAt),
     chunks: chunks.sort(byCreatedAt),
     speaking: speaking.sort(byCreatedAt),
@@ -106,71 +120,130 @@ export async function updateSessionNotes(
   await db.sessions.update(sessionId, patch);
 }
 
-// ---------- Cards ----------
+// ---------- Ideias ----------
 
-export interface CardInput {
+export interface IdeaInput {
   title: string;
-  content?: string | undefined;
+  bookTitle?: string | undefined;
   mainIdea?: string | undefined;
   category?: string | undefined;
   notes?: string | undefined;
+  /** Texto dos cards, na ordem de leitura. */
+  cards?: readonly string[] | undefined;
 }
 
-export async function addCard(sessionId: string, input: CardInput): Promise<SourceCard> {
-  const session = await mustGetSession(sessionId);
-  const card: SourceCard = {
+/** Texto colado → um card por bloco. Os blocos são separados por uma linha em branco. */
+export function splitIntoCards(text: string): string[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+}
+
+function buildCards(idea: Idea, contents: readonly string[], firstPosition: number): SourceCard[] {
+  return contents.map((content, i) => ({
     id: newId(),
-    sessionId,
-    date: session.date,
-    title: required(input.title, 'Título'),
-    content: input.content?.trim() ?? '',
-    mainIdea: input.mainIdea?.trim() ?? '',
-    category: input.category?.trim() ?? '',
-    notes: input.notes?.trim() ?? '',
+    ideaId: idea.id,
+    sessionId: idea.sessionId,
+    date: idea.date,
+    position: firstPosition + i,
+    content: content.trim(),
     createdAt: nowISO(),
-  };
-  await db.cards.add(card);
-  return card;
+  }));
 }
 
-export async function updateCard(
-  cardId: string,
-  patch: Partial<Pick<SourceCard, 'title' | 'content' | 'mainIdea' | 'category' | 'notes'>>,
+export function addIdea(sessionId: string, input: IdeaInput): Promise<Idea> {
+  return db.transaction('rw', db.sessions, db.ideas, db.cards, async () => {
+    const session = await mustGetSession(sessionId);
+    const idea: Idea = {
+      id: newId(),
+      sessionId,
+      date: session.date,
+      bookTitle: input.bookTitle?.trim() ?? '',
+      title: required(input.title, 'Título da ideia'),
+      mainIdea: input.mainIdea?.trim() ?? '',
+      category: input.category?.trim() ?? '',
+      notes: input.notes?.trim() ?? '',
+      createdAt: nowISO(),
+    };
+    await db.ideas.add(idea);
+    await db.cards.bulkAdd(buildCards(idea, input.cards ?? [], 0));
+    return idea;
+  });
+}
+
+export async function updateIdea(
+  ideaId: string,
+  patch: Partial<Pick<Idea, 'title' | 'bookTitle' | 'mainIdea' | 'category' | 'notes'>>,
 ): Promise<void> {
-  if (patch.title !== undefined) required(patch.title, 'Título');
-  await db.cards.update(cardId, patch);
+  if (patch.title !== undefined) required(patch.title, 'Título da ideia');
+  await db.ideas.update(ideaId, patch);
 }
 
-/** Remove o card e o que só existe por causa dele. Os chunks ficam, sem card de origem. */
-export function deleteCard(cardId: string): Promise<void> {
+/** Remove a ideia e o que só existe por causa dela. Os chunks ficam, sem ideia de origem. */
+export function deleteIdea(ideaId: string): Promise<void> {
   return db.transaction(
     'rw',
-    [db.cards, db.sessions, db.vocab, db.chunks, db.reflections],
+    [db.ideas, db.cards, db.sessions, db.vocab, db.chunks, db.reflections],
     async () => {
-      const card = await db.cards.get(cardId);
-      if (!card) return;
+      const idea = await db.ideas.get(ideaId);
+      if (!idea) return;
       await db.sessions
         .where('id')
-        .equals(card.sessionId)
+        .equals(idea.sessionId)
         .modify((s) => {
-          if (s.cardOfDayId === cardId) s.cardOfDayId = null;
+          if (s.ideaOfDayId === ideaId) s.ideaOfDayId = null;
         });
-      await db.vocab.where('cardId').equals(cardId).delete();
-      await db.reflections.where('cardId').equals(cardId).delete();
-      await db.chunks.where('sourceCardId').equals(cardId).modify({ sourceCardId: null });
-      await db.cards.delete(cardId);
+      await db.cards.where('ideaId').equals(ideaId).delete();
+      await db.vocab.where('ideaId').equals(ideaId).delete();
+      await db.reflections.where('ideaId').equals(ideaId).delete();
+      await db.chunks.where('sourceIdeaId').equals(ideaId).modify({ sourceIdeaId: null });
+      await db.ideas.delete(ideaId);
     },
   );
 }
 
-/** Só um card por sessão recebe o aprofundamento; escolher outro substitui o anterior. */
-export function setCardOfDay(sessionId: string, cardId: string): Promise<void> {
-  return db.transaction('rw', db.sessions, db.cards, async () => {
-    const card = await db.cards.get(cardId);
-    if (!card || card.sessionId !== sessionId) {
-      throw new DomainError('Este card não pertence à sessão de hoje.');
+/** Só uma ideia por sessão recebe o aprofundamento; escolher outra substitui a anterior. */
+export function setIdeaOfDay(sessionId: string, ideaId: string): Promise<void> {
+  return db.transaction('rw', db.sessions, db.ideas, async () => {
+    const idea = await db.ideas.get(ideaId);
+    if (!idea || idea.sessionId !== sessionId) {
+      throw new DomainError('Esta ideia não pertence à sessão de hoje.');
     }
-    await db.sessions.update(sessionId, { cardOfDayId: cardId });
+    await db.sessions.update(sessionId, { ideaOfDayId: ideaId });
+  });
+}
+
+/** Título do livro usado por último, para não redigitar ao registrar a próxima ideia. */
+export async function lastBookTitle(): Promise<string> {
+  const ideas = await db.ideas.toArray();
+  return ideas.sort(byCreatedAt).findLast((i) => i.bookTitle)?.bookTitle ?? '';
+}
+
+// ---------- Cards de uma ideia ----------
+
+/** Acrescenta cards ao fim da ideia, preservando a ordem de leitura. */
+export function addCards(ideaId: string, contents: readonly string[]): Promise<void> {
+  return db.transaction('rw', db.ideas, db.cards, async () => {
+    const idea = await db.ideas.get(ideaId);
+    if (!idea) throw new DomainError('Ideia não encontrada.');
+    const count = await db.cards.where('ideaId').equals(ideaId).count();
+    await db.cards.bulkAdd(buildCards(idea, contents, count));
+  });
+}
+
+export async function updateCard(cardId: string, content: string): Promise<void> {
+  await db.cards.update(cardId, { content });
+}
+
+/** Remove o card e renumera os seguintes para a sequência continuar sem buracos. */
+export function deleteCard(cardId: string): Promise<void> {
+  return db.transaction('rw', db.cards, async () => {
+    const card = await db.cards.get(cardId);
+    if (!card) return;
+    await db.cards.delete(cardId);
+    const rest = await db.cards.where('ideaId').equals(card.ideaId).sortBy('position');
+    await Promise.all(rest.map((c, position) => db.cards.update(c.id, { position })));
   });
 }
 
@@ -178,14 +251,14 @@ export function setCardOfDay(sessionId: string, cardId: string): Promise<void> {
 
 export async function addVocab(
   sessionId: string,
-  cardId: string,
+  ideaId: string,
   term: string,
   meaning: string,
 ): Promise<void> {
   await db.vocab.add({
     id: newId(),
     sessionId,
-    cardId,
+    ideaId,
     term: required(term, 'Palavra ou expressão'),
     meaning: meaning.trim(),
     createdAt: nowISO(),
@@ -202,14 +275,14 @@ export interface ChunkInput {
   text: string;
   meaning?: string | undefined;
   originalSentence?: string | undefined;
-  sourceCardId?: string | null | undefined;
+  sourceIdeaId?: string | null | undefined;
 }
 
 function buildChunk(session: StudySession, input: ChunkInput): Chunk {
   return {
     id: newId(),
     sessionId: session.id,
-    sourceCardId: input.sourceCardId ?? session.cardOfDayId,
+    sourceIdeaId: input.sourceIdeaId ?? session.ideaOfDayId,
     text: required(input.text, 'Expressão'),
     meaning: input.meaning?.trim() ?? '',
     originalSentence: input.originalSentence?.trim() ?? '',
@@ -247,7 +320,7 @@ export function replaceChunk(oldChunkId: string, input: ChunkInput): Promise<Chu
 
 export async function updateChunk(
   chunkId: string,
-  patch: Partial<Pick<Chunk, 'text' | 'meaning' | 'originalSentence' | 'userSentence' | 'sourceCardId'>>,
+  patch: Partial<Pick<Chunk, 'text' | 'meaning' | 'originalSentence' | 'userSentence' | 'sourceIdeaId'>>,
 ): Promise<void> {
   if (patch.text !== undefined) required(patch.text, 'Expressão');
   await db.chunks.update(chunkId, patch);
@@ -265,7 +338,7 @@ export function deleteChunk(chunkId: string): Promise<void> {
 export interface SpeakingInput {
   kind: 'daily' | 'weekly';
   sessionId: string | null;
-  cardId: string | null;
+  ideaId: string | null;
   date: ISODate;
   durationSec: number;
   targetSec: number;
@@ -287,11 +360,11 @@ export async function recordSpeaking(input: SpeakingInput): Promise<void> {
 
 export function saveReflection(
   sessionId: string,
-  cardId: string,
+  ideaId: string,
   patch: Partial<Pick<Reflection, 'userOpinion' | 'soWhat'>>,
 ): Promise<void> {
   return db.transaction('rw', db.reflections, async () => {
-    const existing = await db.reflections.where('cardId').equals(cardId).first();
+    const existing = await db.reflections.where('ideaId').equals(ideaId).first();
     const now = nowISO();
     if (existing) {
       await db.reflections.update(existing.id, { ...patch, updatedAt: now });
@@ -300,7 +373,7 @@ export function saveReflection(
     await db.reflections.add({
       id: newId(),
       sessionId,
-      cardId,
+      ideaId,
       userOpinion: patch.userOpinion ?? '',
       soWhat: patch.soWhat ?? '',
       createdAt: now,
@@ -311,13 +384,13 @@ export function saveReflection(
 
 // ---------- Encerramento ----------
 
-/** A única exigência para encerrar é ter lido ao menos um card. */
+/** A única exigência para encerrar é ter lido ao menos uma ideia. */
 export function finishSession(sessionId: string): Promise<void> {
-  return db.transaction('rw', db.sessions, db.cards, async () => {
+  return db.transaction('rw', db.sessions, db.ideas, async () => {
     await mustGetSession(sessionId);
-    const cards = await db.cards.where('sessionId').equals(sessionId).count();
-    if (cards === 0) {
-      throw new DomainError('Registre pelo menos um card antes de finalizar a sessão.');
+    const ideas = await db.ideas.where('sessionId').equals(sessionId).count();
+    if (ideas === 0) {
+      throw new DomainError('Registre pelo menos uma ideia antes de finalizar a sessão.');
     }
     await db.sessions.update(sessionId, {
       status: 'completed',

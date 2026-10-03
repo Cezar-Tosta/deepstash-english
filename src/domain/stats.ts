@@ -1,8 +1,17 @@
 import { addDays, startOfWeek, weekDates } from './dates';
-import type { Chunk, ChunkReview, ISODate, SourceCard, SpeakingSession, StudySession } from './types';
+import type {
+  Chunk,
+  ChunkReview,
+  Idea,
+  ISODate,
+  SourceCard,
+  SpeakingSession,
+  StudySession,
+} from './types';
 
 export interface StatsInput {
   sessions: readonly StudySession[];
+  ideas: readonly Idea[];
   cards: readonly SourceCard[];
   chunks: readonly Chunk[];
   reviews: readonly ChunkReview[];
@@ -11,8 +20,9 @@ export interface StatsInput {
 
 export interface DayStats {
   date: ISODate;
+  ideas: number;
   cards: number;
-  cardOfDayTitle: string | null;
+  ideaOfDayTitle: string | null;
   chunks: string[];
   speakingSec: number;
   reviews: number;
@@ -22,8 +32,10 @@ export interface DayStats {
 
 export interface WeekStats {
   weekStart: ISODate;
+  ideasRead: number;
   cardsRead: number;
-  cardsStudied: number;
+  /** Ideias aprofundadas (Idea of the Day). */
+  ideasStudied: number;
   chunksCreated: number;
   reviewsDone: number;
   /** Fração de revisões lembradas (qualquer nota diferente de AGAIN); null sem revisões. */
@@ -33,40 +45,43 @@ export interface WeekStats {
   days: DayStats[];
 }
 
-/** Um dia conta como estudado quando houve leitura de card ou revisão concluída. */
+/** Um dia conta como estudado quando houve leitura de ideia ou revisão concluída. */
 export function weekStats(input: StatsInput, weekStart: ISODate): WeekStats {
-  const cardsById = new Map(input.cards.map((c) => [c.id, c]));
+  const ideasById = new Map(input.ideas.map((i) => [i.id, i]));
   let recalled = 0;
 
   const days = weekDates(weekStart).map((date): DayStats => {
     const session = input.sessions.find((s) => s.date === date);
-    const cards = input.cards.filter((c) => c.date === date).length;
+    const ideas = input.ideas.filter((i) => i.date === date).length;
     const reviews = input.reviews.filter((r) => r.completedDate === date);
     recalled += reviews.filter((r) => r.rating !== 'AGAIN').length;
-    const cardOfDay = session?.cardOfDayId ? cardsById.get(session.cardOfDayId) : undefined;
+    const ideaOfDay = session?.ideaOfDayId ? ideasById.get(session.ideaOfDayId) : undefined;
     return {
       date,
-      cards,
-      cardOfDayTitle: cardOfDay?.title ?? null,
+      ideas,
+      cards: input.cards.filter((c) => c.date === date).length,
+      ideaOfDayTitle: ideaOfDay?.title ?? null,
       chunks: input.chunks.filter((c) => c.createdDate === date).map((c) => c.text),
       speakingSec: input.speaking
         .filter((s) => s.date === date)
         .reduce((sum, s) => sum + s.durationSec, 0),
       reviews: reviews.length,
       sessionCompleted: session?.status === 'completed',
-      studied: cards > 0 || reviews.length > 0,
+      studied: ideas > 0 || reviews.length > 0,
     };
   });
 
-  const reviewsDone = days.reduce((sum, d) => sum + d.reviews, 0);
+  const sum = (pick: (d: DayStats) => number): number => days.reduce((n, d) => n + pick(d), 0);
+  const reviewsDone = sum((d) => d.reviews);
   return {
     weekStart,
-    cardsRead: days.reduce((sum, d) => sum + d.cards, 0),
-    cardsStudied: days.filter((d) => d.cardOfDayTitle !== null).length,
-    chunksCreated: days.reduce((sum, d) => sum + d.chunks.length, 0),
+    ideasRead: sum((d) => d.ideas),
+    cardsRead: sum((d) => d.cards),
+    ideasStudied: days.filter((d) => d.ideaOfDayTitle !== null).length,
+    chunksCreated: sum((d) => d.chunks.length),
     reviewsDone,
     recallRate: reviewsDone === 0 ? null : recalled / reviewsDone,
-    speakingSec: days.reduce((sum, d) => sum + d.speakingSec, 0),
+    speakingSec: sum((d) => d.speakingSec),
     studyDays: days.filter((d) => d.studied).length,
     days,
   };
@@ -80,8 +95,9 @@ export function weeklyHistory(input: StatsInput, lastWeekStart: ISODate, weeks: 
 }
 
 export interface Totals {
+  ideasRead: number;
   cardsRead: number;
-  cardsStudied: number;
+  ideasStudied: number;
   chunksCreated: number;
   chunksLearned: number;
   reviewsDone: number;
@@ -93,7 +109,7 @@ export interface Totals {
 
 export function totals(input: StatsInput): Totals {
   const studied = new Set<ISODate>();
-  for (const c of input.cards) studied.add(c.date);
+  for (const i of input.ideas) studied.add(i.date);
   for (const r of input.reviews) studied.add(r.completedDate);
 
   const perWeek = new Map<ISODate, number>();
@@ -102,11 +118,12 @@ export function totals(input: StatsInput): Totals {
     perWeek.set(week, (perWeek.get(week) ?? 0) + 1);
   }
 
-  const cardIds = new Set(input.cards.map((c) => c.id));
+  const ideaIds = new Set(input.ideas.map((i) => i.id));
   const recalled = input.reviews.filter((r) => r.rating !== 'AGAIN').length;
   return {
+    ideasRead: input.ideas.length,
     cardsRead: input.cards.length,
-    cardsStudied: input.sessions.filter((s) => s.cardOfDayId && cardIds.has(s.cardOfDayId)).length,
+    ideasStudied: input.sessions.filter((s) => s.ideaOfDayId && ideaIds.has(s.ideaOfDayId)).length,
     chunksCreated: input.chunks.length,
     chunksLearned: input.chunks.filter((c) => c.status === 'learned' || c.status === 'retired')
       .length,

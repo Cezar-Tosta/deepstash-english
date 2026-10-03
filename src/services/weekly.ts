@@ -5,7 +5,7 @@ import type {
   Chunk,
   ISODate,
   Reflection,
-  SourceCard,
+  Idea,
   SpeakingSession,
   WeeklyReview,
   WritingExercise,
@@ -14,15 +14,15 @@ import { DomainError } from './errors';
 
 export const TOP_IDEAS = 3;
 
-export interface WeekCard {
-  card: SourceCard;
+export interface WeekIdea {
+  idea: Idea;
   reflection: Reflection | null;
 }
 
 export interface WeekBundle {
   weekStart: ISODate;
-  /** Os Cards of the Day da semana, em ordem de data. */
-  cards: WeekCard[];
+  /** As Ideas of the Day da semana, em ordem de data. */
+  ideas: WeekIdea[];
   chunks: Chunk[];
   review: WeeklyReview;
   writing: WritingExercise | null;
@@ -34,8 +34,8 @@ function emptyReview(weekStart: ISODate): WeeklyReview {
     id: weekStart,
     weekStart,
     recalls: {},
-    topCardIds: [],
-    speakingCardId: null,
+    topIdeaIds: [],
+    speakingIdeaId: null,
     wentWell: '',
     difficulty: '',
     consistency: null,
@@ -54,18 +54,18 @@ export async function loadWeekBundle(weekStart: ISODate): Promise<WeekBundle> {
     db.speaking.where('date').between(weekStart, weekEnd, true, true).toArray(),
   ]);
 
-  const cards: WeekCard[] = [];
+  const ideas: WeekIdea[] = [];
   for (const session of sessions) {
-    if (!session.cardOfDayId) continue;
-    const card = await db.cards.get(session.cardOfDayId);
-    if (!card) continue;
-    const reflection = (await db.reflections.where('cardId').equals(card.id).first()) ?? null;
-    cards.push({ card, reflection });
+    if (!session.ideaOfDayId) continue;
+    const idea = await db.ideas.get(session.ideaOfDayId);
+    if (!idea) continue;
+    const reflection = (await db.reflections.where('ideaId').equals(idea.id).first()) ?? null;
+    ideas.push({ idea, reflection });
   }
 
   return {
     weekStart,
-    cards,
+    ideas,
     chunks,
     review: review ?? emptyReview(weekStart),
     writing: writing ?? null,
@@ -79,19 +79,19 @@ export function saveWeeklyReview(
 ): Promise<void> {
   return db.transaction('rw', db.weeklyReviews, async () => {
     const current = (await db.weeklyReviews.get(weekStart)) ?? emptyReview(weekStart);
-    if (patch.topCardIds && patch.topCardIds.length > TOP_IDEAS) {
+    if (patch.topIdeaIds && patch.topIdeaIds.length > TOP_IDEAS) {
       throw new DomainError(`Escolha no máximo ${TOP_IDEAS} ideias.`);
     }
     await db.weeklyReviews.put({ ...current, ...patch, updatedAt: nowISO() });
   });
 }
 
-export function saveRecall(weekStart: ISODate, cardId: string, text: string): Promise<void> {
+export function saveRecall(weekStart: ISODate, ideaId: string, text: string): Promise<void> {
   return db.transaction('rw', db.weeklyReviews, async () => {
     const current = (await db.weeklyReviews.get(weekStart)) ?? emptyReview(weekStart);
     await db.weeklyReviews.put({
       ...current,
-      recalls: { ...current.recalls, [cardId]: text },
+      recalls: { ...current.recalls, [ideaId]: text },
       updatedAt: nowISO(),
     });
   });
@@ -100,7 +100,7 @@ export function saveRecall(weekStart: ISODate, cardId: string, text: string): Pr
 /** Rascunho da primeira versão. Depois de finalizado o texto original não muda mais. */
 export function saveWritingDraft(
   weekStart: ISODate,
-  patch: { text?: string; cardId?: string | null },
+  patch: { text?: string; ideaId?: string | null },
 ): Promise<void> {
   return db.transaction('rw', db.writings, async () => {
     const existing = await db.writings.where('weekStart').equals(weekStart).first();
@@ -109,7 +109,7 @@ export function saveWritingDraft(
       await db.writings.add({
         id: newId(),
         weekStart,
-        cardId: patch.cardId ?? null,
+        ideaId: patch.ideaId ?? null,
         text: patch.text ?? '',
         finalizedAt: null,
         revisedText: '',

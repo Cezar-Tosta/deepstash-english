@@ -17,7 +17,7 @@ import {
   saveWritingRevision,
   TOP_IDEAS,
   type WeekBundle,
-  type WeekCard,
+  type WeekIdea,
 } from '../../services/weekly';
 import { AIFeedbackPanel } from '../components/AIFeedbackPanel';
 import { Timer } from '../components/Timer';
@@ -40,20 +40,21 @@ const WRITING_STARTERS = ['The idea…', 'The main point is…', 'For example…
 const WRITING_MIN = 80;
 const WRITING_MAX = 120;
 
-// ---------- 1. Relembrar os Cards of the Day ----------
+// ---------- 1. Relembrar os Ideas of the Day ----------
 
-function RecallCard({ item, weekStart, saved }: { item: WeekCard; weekStart: string; saved: string }) {
+function RecallCard({ item, weekStart, saved }: { item: WeekIdea; weekStart: string; saved: string }) {
   const [revealed, setRevealed] = useState(false);
-  const { card, reflection } = item;
+  const { idea, reflection } = item;
   return (
     <Card>
-      <p className="text-xs text-muted">{formatDate(card.date, 'long')}</p>
-      <h3 className="mt-1 font-serif text-xl">{card.title}</h3>
+      <p className="text-xs text-muted">{formatDate(idea.date, 'long')}</p>
+      <h3 className="mt-1 font-serif text-xl">{idea.title}</h3>
+      {idea.bookTitle && <p className="text-sm text-muted">{idea.bookTitle}</p>}
       <div className="mt-3">
         <AutoTextArea
           label="Você consegue lembrar a ideia?"
           value={saved}
-          onSave={(text) => saveRecall(weekStart, card.id, text)}
+          onSave={(text) => saveRecall(weekStart, idea.id, text)}
           rows={2}
           lang="en"
           placeholder="The main idea was…"
@@ -63,7 +64,7 @@ function RecallCard({ item, weekStart, saved }: { item: WeekCard; weekStart: str
         <dl className="mt-4 space-y-3 border-t border-line pt-4 text-sm">
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Main idea</dt>
-            <dd className="font-serif text-base" lang="en">{card.mainIdea || 'Não registrada.'}</dd>
+            <dd className="font-serif text-base" lang="en">{idea.mainIdea || 'Não registrada.'}</dd>
           </div>
           {reflection?.userOpinion && (
             <div>
@@ -77,8 +78,8 @@ function RecallCard({ item, weekStart, saved }: { item: WeekCard; weekStart: str
               <dd className="font-serif text-base" lang="en">{reflection.soWhat}</dd>
             </div>
           )}
-          <Link to={`/knowledge/card/${card.id}`} className="inline-block text-accent underline underline-offset-2">
-            Abrir a página do card
+          <Link to={`/knowledge/idea/${idea.id}`} className="inline-block text-accent underline underline-offset-2">
+            Abrir a página da ideia
           </Link>
         </dl>
       ) : (
@@ -93,15 +94,15 @@ function RecallCard({ item, weekStart, saved }: { item: WeekCard; weekStart: str
 // ---------- 2. Top 3 ----------
 
 function TopIdeas({ bundle }: { bundle: WeekBundle }) {
-  const { review, cards, weekStart } = bundle;
-  const toggle = (cardId: string) => {
-    const selected = review.topCardIds.includes(cardId);
-    if (!selected && review.topCardIds.length >= TOP_IDEAS) {
+  const { review, ideas, weekStart } = bundle;
+  const toggle = (ideaId: string) => {
+    const selected = review.topIdeaIds.includes(ideaId);
+    if (!selected && review.topIdeaIds.length >= TOP_IDEAS) {
       showToast(`Você já escolheu ${TOP_IDEAS}. Desmarque uma para trocar.`);
       return;
     }
-    const topCardIds = selected ? review.topCardIds.filter((id) => id !== cardId) : [...review.topCardIds, cardId];
-    attempt(saveWeeklyReview(weekStart, { topCardIds }));
+    const topIdeaIds = selected ? review.topIdeaIds.filter((id) => id !== ideaId) : [...review.topIdeaIds, ideaId];
+    attempt(saveWeeklyReview(weekStart, { topIdeaIds }));
   };
 
   return (
@@ -110,17 +111,17 @@ function TopIdeas({ bundle }: { bundle: WeekBundle }) {
         <Prompt>Escolha as 3 melhores ideias da semana.</Prompt>
         <Hint>Depois, explique cada uma em voz alta, em inglês.</Hint>
       </legend>
-      {cards.map(({ card }) => {
-        const position = review.topCardIds.indexOf(card.id);
+      {ideas.map(({ idea }) => {
+        const position = review.topIdeaIds.indexOf(idea.id);
         return (
           <label
-            key={card.id}
+            key={idea.id}
             className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border px-4 py-2 ${
               position >= 0 ? 'border-accent bg-accent-soft' : 'border-line bg-surface'
             }`}
           >
-            <input type="checkbox" className="size-5 accent-(--accent)" checked={position >= 0} onChange={() => toggle(card.id)} />
-            <span className="flex-1 font-serif text-lg">{card.title}</span>
+            <input type="checkbox" className="size-5 accent-(--accent)" checked={position >= 0} onChange={() => toggle(idea.id)} />
+            <span className="flex-1 font-serif text-lg">{idea.title}</span>
             {position >= 0 && <span className="text-sm font-semibold text-accent">Top {position + 1}</span>}
           </label>
         );
@@ -164,8 +165,8 @@ function VocabularyCheck({ chunks, date }: { chunks: Chunk[]; date: string }) {
 // ---------- 4. Speaking semanal ----------
 
 function WeeklySpeaking({ bundle, date }: { bundle: WeekBundle; date: string }) {
-  const { review, cards, weekStart, speaking } = bundle;
-  const options = cards.filter(({ card }) => review.topCardIds.length === 0 || review.topCardIds.includes(card.id));
+  const { review, ideas, weekStart, speaking } = bundle;
+  const options = ideas.filter(({ idea }) => review.topIdeaIds.length === 0 || review.topIdeaIds.includes(idea.id));
   const total = speaking.reduce((sum, s) => sum + s.durationSec, 0);
 
   return (
@@ -180,14 +181,14 @@ function WeeklySpeaking({ bundle, date }: { bundle: WeekBundle; date: string }) 
         </label>
         <select
           id="weekly-topic"
-          value={review.speakingCardId ?? ''}
-          onChange={(e) => attempt(saveWeeklyReview(weekStart, { speakingCardId: e.target.value || null }))}
+          value={review.speakingIdeaId ?? ''}
+          onChange={(e) => attempt(saveWeeklyReview(weekStart, { speakingIdeaId: e.target.value || null }))}
           className="min-h-12 w-full rounded-xl border border-line bg-paper px-3"
         >
           <option value="">Escolha…</option>
-          {options.map(({ card }) => (
-            <option key={card.id} value={card.id}>
-              {card.title}
+          {options.map(({ idea }) => (
+            <option key={idea.id} value={idea.id}>
+              {idea.title}
             </option>
           ))}
         </select>
@@ -202,7 +203,7 @@ function WeeklySpeaking({ bundle, date }: { bundle: WeekBundle; date: string }) 
               recordSpeaking({
                 kind: 'weekly',
                 sessionId: null,
-                cardId: review.speakingCardId,
+                ideaId: review.speakingIdeaId,
                 // Dentro da semana revisada, para a fala contar no balanço dela.
                 date: date >= weekStart && date <= addDays(weekStart, 6) ? date : addDays(weekStart, 6),
                 durationSec,
@@ -222,7 +223,7 @@ function WeeklySpeaking({ bundle, date }: { bundle: WeekBundle; date: string }) 
 // ---------- 5. Weekly writing ----------
 
 function WeeklyWriting({ bundle }: { bundle: WeekBundle }) {
-  const { writing, weekStart, cards } = bundle;
+  const { writing, weekStart, ideas } = bundle;
   const [revising, setRevising] = useState(false);
   const text = writing?.text ?? '';
   const words = countWords(text);
@@ -241,15 +242,15 @@ function WeeklyWriting({ bundle }: { bundle: WeekBundle }) {
         </label>
         <select
           id="writing-topic"
-          value={writing?.cardId ?? ''}
+          value={writing?.ideaId ?? ''}
           disabled={finalized}
-          onChange={(e) => attempt(saveWritingDraft(weekStart, { cardId: e.target.value || null }))}
+          onChange={(e) => attempt(saveWritingDraft(weekStart, { ideaId: e.target.value || null }))}
           className="min-h-12 w-full rounded-xl border border-line bg-paper px-3 disabled:opacity-60"
         >
           <option value="">Escolha…</option>
-          {cards.map(({ card }) => (
-            <option key={card.id} value={card.id}>
-              {card.title}
+          {ideas.map(({ idea }) => (
+            <option key={idea.id} value={idea.id}>
+              {idea.title}
             </option>
           ))}
         </select>
@@ -309,8 +310,8 @@ function Balance({ bundle }: { bundle: WeekBundle }) {
   const stats = weekStats(input, bundle.weekStart);
   const rows: [string, string][] = [
     ['Dias estudados', `${stats.studyDays} / 7`],
-    ['Cards lidos', `${stats.cardsRead} / 35`],
-    ['Cards aprofundados', `${stats.cardsStudied} / 7`],
+    ['Ideias lidas', `${stats.ideasRead} (${stats.cardsRead} cards)`],
+    ['Ideias aprofundadas', `${stats.ideasStudied} / 7`],
     ['Chunks novos', `${stats.chunksCreated} / 21`],
     ['Tempo total de speaking', `${Math.round(stats.speakingSec / 60)} min`],
   ];
@@ -370,16 +371,16 @@ export function WeeklyPage() {
         </PageTitle>
       </div>
 
-      {bundle.cards.length === 0 ? (
-        <EmptyState title="Nenhum Card of the Day nesta semana.">
-          O fechamento usa os cards que você aprofundou nas sessões diárias.
+      {bundle.ideas.length === 0 ? (
+        <EmptyState title="Nenhuma Idea of the Day nesta semana.">
+          O fechamento usa as ideias que você aprofundou nas sessões diárias.
         </EmptyState>
       ) : (
         <>
-          <Part number={1} title="Os Cards of the Day">
-            <Hint>Sem reler primeiro, tente lembrar a ideia central de cada card. Depois confira.</Hint>
-            {bundle.cards.map((item) => (
-              <RecallCard key={item.card.id} item={item} weekStart={weekStart} saved={bundle.review.recalls[item.card.id] ?? ''} />
+          <Part number={1} title="As Ideas of the Day">
+            <Hint>Sem reler primeiro, tente lembrar o ponto central de cada ideia. Depois confira.</Hint>
+            {bundle.ideas.map((item) => (
+              <RecallCard key={item.idea.id} item={item} weekStart={weekStart} saved={bundle.review.recalls[item.idea.id] ?? ''} />
             ))}
           </Part>
           <Part number={2} title="Top 3 ideas">

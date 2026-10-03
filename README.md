@@ -4,22 +4,27 @@ Aplicação web (PWA) que digitaliza o método de estudo do planner "Deepstash +
 
 A aplicação não estuda pelo usuário. Ela organiza o esforço: **tentar → recuperar → produzir → receber retorno → revisar**.
 
-## Metodologia 5 → 1 → 3 → 1
+## Metodologia: ideias → 1 → 3 → 1
+
+O Deepstash apresenta **ideias de livros**. Cada ideia é uma sequência de **cards**, lida como uma história, e a quantidade de ideias e de cards varia. Por isso a unidade de estudo do app é a ideia, não o card.
 
 | | O que | Etapas da sessão |
 |---|---|---|
-| **5** | cards lidos e compreendidos (meta, não regra) | READ |
-| **1** | Card of the Day para aprofundar | CARD OF THE DAY, CHECK |
+| **Ideias** | as ideias lidas no dia, quantas forem, cada uma com seus cards em ordem | READ |
+| **1** | Idea of the Day: uma ideia inteira para aprofundar | IDEA OF THE DAY, CHECK |
 | **3** | chunks úteis, no máximo, por dia | MINE, PERSONALIZE |
-| **1** | explicação oral sobre o card | RETELL |
+| **1** | explicação oral recontando a ideia | RETELL |
 
 A sessão diária é um assistente de 10 etapas, uma por tela, com salvamento automático:
-REVIEW → READ → CARD OF THE DAY → CHECK → MINE → RETELL → PERSONALIZE → REFLECT → SO WHAT? → SCHEDULE REVIEW.
+REVIEW → READ → IDEA OF THE DAY → CHECK → MINE → RETELL → PERSONALIZE → REFLECT → SO WHAT? → SCHEDULE REVIEW.
+
+Na etapa READ, cada ideia registra o livro, o título e os cards. O texto dos cards é opcional e pode ser colado de uma vez (uma linha em branco separa um card do outro).
 
 Decisões que preservam o método:
 
 - **Revisão:** primeiro só a expressão; significado, frases e card de origem aparecem depois de REVELAR.
 - **Vocabulário de compreensão** e **chunks para aprender** são coisas diferentes. Só os chunks entram na repetição espaçada.
+- **Sem meta numérica de leitura.** Ler uma ideia já conta; o progresso não premia quantidade.
 - **Limite de 3 chunks por dia.** O quarto só entra substituindo um dos três.
 - **IA opcional e sempre depois da tentativa.** Ela comenta um texto já salvo e nunca o sobrescreve.
 - **Ciclos de 4 semanas** ajustam a meta de speaking (≈1 min → 1–2 → 2 → 2–3) e a orientação sobre tradução.
@@ -47,7 +52,7 @@ ui  ──►  services  ──►  data (Dexie/IndexedDB)
 
 - **domain**: regras puras e testáveis: agendamento, ciclo, progresso da sessão, estatísticas.
 - **data**: esquema do banco, migrations e backup.
-- **services**: casos de uso (abrir sessão, escolher Card of the Day, avaliar revisão…), cada um numa transação.
+- **services**: casos de uso (abrir sessão, escolher a Idea of the Day, avaliar revisão…), cada um numa transação.
 - **ai**: interface `AIProvider`, provedores e o fluxo de retorno. Carregado só quando usado.
 - **ui**: telas e componentes. Não acessa o banco diretamente.
 
@@ -67,13 +72,14 @@ src/
       fixedInterval.ts  D1/D3/D7/D14/D30
       index.ts          algoritmo em uso
   data/
-    db.ts               esquema Dexie e migrations
+    db.ts               esquema Dexie e versões
+    migrations.ts       conversão de dados entre versões
     backup.ts           export/import JSON
   services/             sessions, reviews, library, weekly, settings
   ai/                   AIProvider, anthropicProvider, openAICompatibleProvider, feedback
   ui/
     session/            assistente da sessão diária
-    pages/              Today, Review, Knowledge, CardDetail, Progress, Weekly, Settings
+    pages/              Today, Review, Knowledge, IdeaDetail, Progress, Weekly, Settings
     components/         botões, campos, cronômetro, fluxo de revisão, gráfico
 scripts/generate-icons.mjs
 ```
@@ -126,11 +132,12 @@ Para só testar na rede local, sem instalar, abra `http://IP-DO-PC:5173` com `pn
 
 ## Banco de dados
 
-IndexedDB, banco `deepstash-english`. Tabelas: `settings`, `sessions`, `cards`, `vocab`, `chunks`, `reviews`, `speaking`, `reflections`, `weeklyReviews`, `writings`, `aiFeedback`.
+IndexedDB, banco `deepstash-english`. Tabelas: `settings`, `sessions`, `ideas`, `cards`, `vocab`, `chunks`, `reviews`, `speaking`, `reflections`, `weeklyReviews`, `writings`, `aiFeedback`.
 
-- Uma sessão por data. O Card of the Day é `session.cardOfDayId`, sem campo duplicado no card.
+- Uma sessão por data. A Idea of the Day é `session.ideaOfDayId`, sem campo duplicado na ideia.
+- `ideas` guarda livro, título e ideia principal; `cards` guarda o texto de cada card, com `ideaId` e `position` (ordem de leitura).
 - `reviews` só recebe inclusões: cada tentativa de revisão fica registrada.
-- **Migrations:** para mudar o esquema, acrescente `this.version(2).stores({...}).upgrade(...)` em `src/data/db.ts`. Nunca edite uma versão já publicada.
+- **Migrations:** para mudar o esquema, acrescente uma nova `this.version(n).stores({...}).upgrade(...)` em `src/data/db.ts`. Nunca edite uma versão já publicada. A versão 2 converte os cards antigos em ideias (`src/data/migrations.ts`); backups antigos são convertidos na importação.
 
 ### Repetição espaçada
 
@@ -181,13 +188,13 @@ pnpm lint        # oxlint
 pnpm format      # oxfmt
 ```
 
-Cobertura: criação de sessão, Card of the Day, limite de 3 chunks, cálculo D1–D30, revisão atrasada, avaliações AGAIN/HARD/GOOD/EASY, finalização da sessão, estatísticas semanais, ciclo de 4 semanas e leitura do retorno da IA.
+Cobertura: criação de sessão, ideias e cards em sequência, Idea of the Day, migração do banco, limite de 3 chunks, cálculo D1–D30, revisão atrasada, avaliações AGAIN/HARD/GOOD/EASY, finalização da sessão, estatísticas semanais, ciclo de 4 semanas e leitura do retorno da IA.
 
 ## Roadmap
 
 | Versão | Conteúdo | Situação |
 |---|---|---|
-| 0.1 | Sessão diária, cards, Card of the Day, chunks, frases, reflexão, So What? | feito |
+| 0.1 | Sessão diária, ideias com cards em sequência, Idea of the Day, chunks, frases, reflexão, So What? | feito |
 | 0.2 | Repetição espaçada, tela Review, histórico | feito |
 | 0.3 | Dashboard, My Knowledge, My English, Weekly Review e Writing | feito |
 | 0.4 | PWA, offline, backup | feito |

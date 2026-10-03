@@ -1,27 +1,33 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { weekPlan } from '../../domain/cycle';
 import { formatDate, formatDuration } from '../../domain/dates';
-import { CARD_GOAL, looksLikeSingleWord, MAX_CHUNKS_PER_DAY } from '../../domain/session';
+import { looksLikeSingleWord, MAX_CHUNKS_PER_DAY } from '../../domain/session';
 import { scheduler } from '../../domain/srs';
-import type { SourceCard, StepId } from '../../domain/types';
+import type { StepId } from '../../domain/types';
 import { ChunkLimitError } from '../../services/errors';
 import { getUpcoming } from '../../services/reviews';
 import {
-  addCard,
+  addCards,
   addChunk,
+  addIdea,
   addVocab,
   type ChunkInput,
   deleteCard,
   deleteChunk,
+  deleteIdea,
   deleteVocab,
+  type IdeaWithCards,
+  lastBookTitle,
   recordSpeaking,
   replaceChunk,
   saveReflection,
   type SessionBundle,
-  setCardOfDay,
+  setIdeaOfDay,
+  splitIntoCards,
   updateCard,
   updateChunk,
+  updateIdea,
   updateSessionNotes,
 } from '../../services/sessions';
 import { AIFeedbackPanel } from '../components/AIFeedbackPanel';
@@ -48,12 +54,27 @@ export interface StepProps {
   goTo: (step: StepId) => void;
 }
 
-function NeedsCardOfDay({ goTo }: Pick<StepProps, 'goTo'>) {
+const cardCount = (n: number): string => `${n} ${n === 1 ? 'card' : 'cards'}`;
+
+function NeedsIdeaOfDay({ goTo }: Pick<StepProps, 'goTo'>) {
   return (
-    <EmptyState title="Nenhum Card of the Day escolhido.">
-      <p className="mb-4">Esta etapa aprofunda um único card. Escolha qual merece isso hoje.</p>
-      <Button onClick={() => goTo('focus')}>Escolher o card</Button>
+    <EmptyState title="Nenhuma Idea of the Day escolhida.">
+      <p className="mb-4">Esta etapa aprofunda uma única ideia. Escolha qual merece isso hoje.</p>
+      <Button onClick={() => goTo('focus')}>Escolher a ideia</Button>
     </EmptyState>
+  );
+}
+
+/** Cabeçalho da ideia em aprofundamento, com o livro de onde ela vem. */
+function IdeaHeading({ item }: { item: IdeaWithCards }) {
+  return (
+    <div>
+      <Eyebrow>⭐ Idea of the Day</Eyebrow>
+      <h3 className="mt-1 font-serif text-xl">{item.idea.title}</h3>
+      <p className="text-sm text-muted">
+        {[item.idea.bookTitle, cardCount(item.cards.length)].filter(Boolean).join(' · ')}
+      </p>
+    </div>
   );
 }
 
@@ -70,59 +91,101 @@ export function ReviewStep({ bundle }: StepProps) {
 
 // ---------- 2. READ ----------
 
-function CardEditor({ card, isCardOfDay }: { card: SourceCard; isCardOfDay: boolean }) {
-  const [open, setOpen] = useState(false);
+/** Os cards da ideia, na ordem em que são lidos. O texto é opcional. */
+function CardSequence({ item }: { item: IdeaWithCards }) {
+  const [pasted, setPasted] = useState('');
+  const blocks = splitIntoCards(pasted);
+
+  return (
+    <div className="space-y-3">
+      {item.cards.length > 0 && (
+        <ol className="space-y-3">
+          {item.cards.map((card) => (
+            <li key={card.id}>
+              <AutoTextArea
+                label={`Card ${card.position + 1}`}
+                value={card.content}
+                onSave={(content) => updateCard(card.id, content)}
+                rows={3}
+                lang="en"
+                placeholder="Texto do card (opcional)."
+              />
+              <Button small variant="ghost" aria-label={`Remover card ${card.position + 1}`} onClick={() => attempt(deleteCard(card.id))}>
+                Remover card
+              </Button>
+            </li>
+          ))}
+        </ol>
+      )}
+      <Button small variant="secondary" onClick={() => attempt(addCards(item.idea.id, ['']))}>
+        + Card
+      </Button>
+      <TextArea
+        label="Ou cole vários cards de uma vez"
+        value={pasted}
+        onChange={setPasted}
+        rows={3}
+        lang="en"
+        placeholder="Separe um card do outro com uma linha em branco."
+      />
+      {blocks.length > 0 && (
+        <Button small variant="secondary" onClick={() => attempt(addCards(item.idea.id, blocks).then(() => setPasted('')))}>
+          Adicionar {cardCount(blocks.length)}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function IdeaEditor({ item, isIdeaOfDay }: { item: IdeaWithCards; isIdeaOfDay: boolean }) {
+  const [open, setOpen] = useState<'cards' | 'details' | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const { idea, cards } = item;
+  const toggle = (panel: 'cards' | 'details') => setOpen(open === panel ? null : panel);
+
   return (
     <Card>
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-serif text-lg leading-snug">{card.title}</h3>
-        {isCardOfDay && <Badge tone="accent">⭐ Card of the Day</Badge>}
+        <div>
+          {idea.bookTitle && <p className="text-xs text-muted">{idea.bookTitle}</p>}
+          <h3 className="font-serif text-lg leading-snug">{idea.title}</h3>
+        </div>
+        {isIdeaOfDay && <Badge tone="accent">⭐ Idea of the Day</Badge>}
       </div>
       <div className="mt-3">
         <AutoTextArea
           label="What is the main idea?"
-          value={card.mainIdea}
-          onSave={(mainIdea) => updateCard(card.id, { mainIdea })}
+          value={idea.mainIdea}
+          onSave={(mainIdea) => updateIdea(idea.id, { mainIdea })}
           rows={2}
           lang="en"
           placeholder="Uma frase curta, em inglês simples."
         />
       </div>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className="mt-3 min-h-10 text-sm font-medium text-accent"
-      >
-        {open ? 'Ocultar detalhes' : 'Texto, tema e observações'}
-      </button>
-      {open && (
+      <div className="mt-3 flex flex-wrap gap-x-5">
+        <button type="button" aria-expanded={open === 'cards'} onClick={() => toggle('cards')} className="min-h-10 text-sm font-medium text-accent">
+          Cards da ideia ({cards.length})
+        </button>
+        <button type="button" aria-expanded={open === 'details'} onClick={() => toggle('details')} className="min-h-10 text-sm font-medium text-accent">
+          Livro, tema e observações
+        </button>
+      </div>
+
+      {open === 'cards' && (
+        <div className="mt-2">
+          <CardSequence item={item} />
+        </div>
+      )}
+
+      {open === 'details' && (
         <div className="mt-2 space-y-3">
-          <AutoTextArea
-            label="Texto do card"
-            value={card.content}
-            onSave={(content) => updateCard(card.id, { content })}
-            rows={4}
-            lang="en"
-            placeholder="Cole aqui o texto do card, se quiser guardá-lo."
-          />
-          <AutoTextArea
-            label="Tema / categoria"
-            value={card.category}
-            onSave={(category) => updateCard(card.id, { category })}
-            rows={1}
-          />
-          <AutoTextArea
-            label="Observações"
-            value={card.notes}
-            onSave={(notes) => updateCard(card.id, { notes })}
-            rows={2}
-          />
+          <AutoTextArea label="Livro" value={idea.bookTitle} onSave={(bookTitle) => updateIdea(idea.id, { bookTitle })} rows={1} />
+          <AutoTextArea label="Tema / categoria" value={idea.category} onSave={(category) => updateIdea(idea.id, { category })} rows={1} />
+          <AutoTextArea label="Observações" value={idea.notes} onSave={(notes) => updateIdea(idea.id, { notes })} rows={2} />
           {confirming ? (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm">Apagar este card?</span>
-              <Button small variant="danger" onClick={() => attempt(deleteCard(card.id))}>
+              <span className="text-sm">Apagar esta ideia e os cards dela?</span>
+              <Button small variant="danger" onClick={() => attempt(deleteIdea(idea.id))}>
                 Apagar
               </Button>
               <Button small variant="ghost" onClick={() => setConfirming(false)}>
@@ -131,7 +194,7 @@ function CardEditor({ card, isCardOfDay }: { card: SourceCard; isCardOfDay: bool
             </div>
           ) : (
             <Button small variant="danger" onClick={() => setConfirming(true)}>
-              Apagar card
+              Apagar ideia
             </Button>
           )}
         </div>
@@ -141,64 +204,70 @@ function CardEditor({ card, isCardOfDay }: { card: SourceCard; isCardOfDay: bool
 }
 
 export function ReadStep({ bundle }: StepProps) {
+  const { session, ideas } = bundle;
   const [title, setTitle] = useState('');
-  const { session, cards } = bundle;
+  const [book, setBook] = useState<string | null>(null);
+  const remembered = useLiveQuery(lastBookTitle, [ideas.length]);
+
+  // Sugere o livro da última ideia registrada, até o usuário digitar outro.
+  useEffect(() => {
+    if (book === null && remembered !== undefined) setBook(remembered);
+  }, [book, remembered]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    attempt(addCard(session.id, { title }).then(() => setTitle('')));
+    attempt(addIdea(session.id, { title, bookTitle: book ?? '' }).then(() => setTitle('')));
   };
+
+  const totalCards = ideas.reduce((sum, i) => sum + i.cards.length, 0);
 
   return (
     <div className="space-y-4">
       <Notice>
-        Leia todos em inglês antes de traduzir. Para cada um, pergunte: <em>“What is the main idea?”</em> Não pare em
-        toda palavra desconhecida.
+        Cada ideia do livro é uma sequência de cards, lida como uma história. Leia tudo em inglês antes de traduzir e,
+        ao fim de cada ideia, pergunte: <em>“What is the main idea?”</em> Não pare em toda palavra desconhecida.
       </Notice>
 
       <div className="flex items-baseline justify-between">
-        <Eyebrow>Cards de hoje</Eyebrow>
+        <Eyebrow>Ideias de hoje</Eyebrow>
         <p className="text-sm text-muted">
-          {cards.length}/{CARD_GOAL}
+          {ideas.length} {ideas.length === 1 ? 'ideia' : 'ideias'}
+          {totalCards > 0 && ` · ${cardCount(totalCards)}`}
         </p>
       </div>
 
-      {cards.map((card) => (
-        <CardEditor key={card.id} card={card} isCardOfDay={card.id === session.cardOfDayId} />
+      {ideas.map((item) => (
+        <IdeaEditor key={item.idea.id} item={item} isIdeaOfDay={item.idea.id === session.ideaOfDayId} />
       ))}
 
-      <form onSubmit={submit} className="flex items-end gap-2">
+      <form onSubmit={submit} className="space-y-3 rounded-2xl border border-line p-4">
+        <TextInput label="Livro" value={book ?? ''} onChange={setBook} autoComplete="off" placeholder="Atomic Habits" />
         <TextInput
-          className="flex-1"
-          label={cards.length === 0 ? 'Título do primeiro card' : 'Título do próximo card'}
+          label={ideas.length === 0 ? 'Título da primeira ideia' : 'Título da próxima ideia'}
           value={title}
           onChange={setTitle}
           lang="en"
           placeholder="Thought Into Action"
           autoComplete="off"
         />
-        <Button type="submit" disabled={!title.trim()}>
-          Adicionar
+        <Button type="submit" variant="secondary" block disabled={!title.trim()}>
+          Adicionar ideia
         </Button>
       </form>
-      {cards.length >= CARD_GOAL ? (
-        <Hint>Meta de {CARD_GOAL} cards atingida. Pode seguir.</Hint>
-      ) : (
-        <Hint>{CARD_GOAL} é uma meta, não uma regra. Siga quando tiver lido o que conseguiu hoje.</Hint>
-      )}
+      <Hint>Registre quantas ideias você leu hoje; não há número certo. O texto dos cards é opcional.</Hint>
     </div>
   );
 }
 
-// ---------- 3. CARD OF THE DAY ----------
+// ---------- 3. IDEA OF THE DAY ----------
 
 export function FocusStep({ bundle, goTo }: StepProps) {
-  const { session, cards } = bundle;
-  if (cards.length === 0) {
+  const { session, ideas } = bundle;
+  if (ideas.length === 0) {
     return (
-      <EmptyState title="Nenhum card registrado ainda.">
-        <Button onClick={() => goTo('read')}>Registrar cards</Button>
+      <EmptyState title="Nenhuma ideia registrada ainda.">
+        <Button onClick={() => goTo('read')}>Registrar ideias</Button>
       </EmptyState>
     );
   }
@@ -206,28 +275,31 @@ export function FocusStep({ bundle, goTo }: StepProps) {
     <fieldset className="space-y-3">
       <legend className="mb-3">
         <Prompt>Qual ideia merece ser aprofundada hoje?</Prompt>
-        <Hint>Escolha o card mais útil ou interessante. Só ele recebe o aprofundamento.</Hint>
+        <Hint>Escolha a mais útil ou interessante. Só ela recebe o aprofundamento, com todos os seus cards.</Hint>
       </legend>
-      {cards.map((card) => {
-        const selected = card.id === session.cardOfDayId;
+      {ideas.map(({ idea, cards }) => {
+        const selected = idea.id === session.ideaOfDayId;
         return (
           <label
-            key={card.id}
+            key={idea.id}
             className={`flex min-h-16 cursor-pointer items-start gap-3 rounded-2xl border p-4 transition-colors ${
               selected ? 'border-accent bg-accent-soft' : 'border-line bg-surface'
             }`}
           >
             <input
               type="radio"
-              name="card-of-day"
+              name="idea-of-day"
               className="mt-1.5 size-4 accent-(--accent)"
               checked={selected}
-              onChange={() => attempt(setCardOfDay(session.id, card.id))}
+              onChange={() => attempt(setIdeaOfDay(session.id, idea.id))}
             />
             <span className="flex-1">
-              <span className="block font-serif text-lg leading-snug">{card.title}</span>
-              {card.mainIdea && <span className="mt-1 block text-sm text-muted">{card.mainIdea}</span>}
-              {selected && <span className="mt-2 block text-xs font-semibold tracking-wide text-accent">⭐ CARD OF THE DAY</span>}
+              <span className="block font-serif text-lg leading-snug">{idea.title}</span>
+              <span className="block text-xs text-muted">
+                {[idea.bookTitle, cardCount(cards.length)].filter(Boolean).join(' · ')}
+              </span>
+              {idea.mainIdea && <span className="mt-1 block text-sm text-muted">{idea.mainIdea}</span>}
+              {selected && <span className="mt-2 block text-xs font-semibold tracking-wide text-accent">⭐ IDEA OF THE DAY</span>}
             </span>
           </label>
         );
@@ -239,16 +311,18 @@ export function FocusStep({ bundle, goTo }: StepProps) {
 // ---------- 4. CHECK ----------
 
 export function CheckStep({ bundle, goTo }: StepProps) {
-  const { session, cardOfDay, vocab } = bundle;
+  const { session, ideaOfDay, vocab } = bundle;
   const [term, setTerm] = useState('');
   const [meaning, setMeaning] = useState('');
-  if (!cardOfDay) return <NeedsCardOfDay goTo={goTo} />;
+  if (!ideaOfDay) return <NeedsIdeaOfDay goTo={goTo} />;
+  const { idea, cards } = ideaOfDay;
+  const withText = cards.filter((c) => c.content.trim());
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!term.trim()) return;
     attempt(
-      addVocab(session.id, cardOfDay.id, term, meaning).then(() => {
+      addVocab(session.id, idea.id, term, meaning).then(() => {
         setTerm('');
         setMeaning('');
       }),
@@ -257,24 +331,40 @@ export function CheckStep({ bundle, goTo }: StepProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Eyebrow>⭐ Card of the Day</Eyebrow>
-        <h3 className="mt-1 font-serif text-xl">{cardOfDay.title}</h3>
-      </div>
+      <IdeaHeading item={ideaOfDay} />
 
       <div className="space-y-3">
         <Prompt>What is the main idea?</Prompt>
+        <Hint>Uma frase que resuma a história inteira dos cards, não só o primeiro.</Hint>
         <AutoTextArea
           label="Ideia principal, em uma frase em inglês"
           hideLabel
-          value={cardOfDay.mainIdea}
-          onSave={(mainIdea) => updateCard(cardOfDay.id, { mainIdea })}
+          value={idea.mainIdea}
+          onSave={(mainIdea) => updateIdea(idea.id, { mainIdea })}
           rows={3}
           lang="en"
           placeholder="The main idea is that…"
         />
-        <AIFeedbackPanel targetType="mainIdea" targetId={cardOfDay.id} text={cardOfDay.mainIdea} context={`Card: ${cardOfDay.title}`} />
+        <AIFeedbackPanel targetType="mainIdea" targetId={idea.id} text={idea.mainIdea} context={`Ideia: ${idea.title}`} />
       </div>
+
+      {withText.length > 0 && (
+        <details className="rounded-2xl border border-line bg-surface p-4">
+          <summary className="min-h-8 cursor-pointer text-sm font-medium">
+            Reler os cards depois de tentar ({withText.length})
+          </summary>
+          <ol className="mt-3 space-y-3">
+            {withText.map((card) => (
+              <li key={card.id} className="border-l-2 border-line pl-3">
+                <p className="text-xs font-semibold text-muted">Card {card.position + 1}</p>
+                <p className="whitespace-pre-wrap font-serif leading-relaxed" lang="en">
+                  {card.content}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
 
       <Notice>
         Só agora consulte tradução ou dicionário e compare com a sua primeira interpretação.{' '}
@@ -291,7 +381,7 @@ export function CheckStep({ bundle, goTo }: StepProps) {
       <div className="space-y-3">
         <div>
           <Eyebrow>Vocabulário de compreensão</Eyebrow>
-          <Hint>Só para entender este card. Não entra na revisão; para isso existem os chunks da próxima etapa.</Hint>
+          <Hint>Só para entender esta ideia. Não entra na revisão; para isso existem os chunks da próxima etapa.</Hint>
         </div>
         {vocab.length > 0 && (
           <ul className="divide-y divide-line rounded-xl border border-line">
@@ -325,13 +415,14 @@ export function CheckStep({ bundle, goTo }: StepProps) {
 // ---------- 5. MINE ----------
 
 export function MineStep({ bundle }: StepProps) {
-  const { session, cards, chunks, cardOfDay } = bundle;
+  const { session, ideas, chunks, ideaOfDay } = bundle;
   const [text, setText] = useState('');
   const [meaning, setMeaning] = useState('');
   const [original, setOriginal] = useState('');
   const [sourceId, setSourceId] = useState('');
   /** Chunk que ficou de fora por causa do limite, esperando o usuário escolher qual trocar. */
   const [overflow, setOverflow] = useState<ChunkInput | null>(null);
+  const defaultSource = ideaOfDay?.idea.id ?? '';
 
   const reset = () => {
     setText('');
@@ -347,7 +438,7 @@ export function MineStep({ bundle }: StepProps) {
       text,
       meaning,
       originalSentence: original,
-      sourceCardId: sourceId || cardOfDay?.id || null,
+      sourceIdeaId: sourceId || defaultSource || null,
     };
     addChunk(session.id, input)
       .then(reset)
@@ -360,8 +451,8 @@ export function MineStep({ bundle }: StepProps) {
   return (
     <div className="space-y-5">
       <Notice>
-        Prefira expressões reutilizáveis a palavras isoladas. Ex.: <em lang="en">one thing at a time</em>,{' '}
-        <em lang="en">in your head</em>, <em lang="en">it turns out that</em>.
+        Escolha no conjunto das ideias lidas hoje. Prefira expressões reutilizáveis a palavras isoladas. Ex.:{' '}
+        <em lang="en">one thing at a time</em>, <em lang="en">in your head</em>, <em lang="en">it turns out that</em>.
       </Notice>
 
       <div className="flex items-baseline justify-between">
@@ -382,12 +473,7 @@ export function MineStep({ bundle }: StepProps) {
             </Button>
           </div>
           <div className="mt-3 space-y-3">
-            <AutoTextArea
-              label="Significado"
-              value={chunk.meaning}
-              onSave={(value) => updateChunk(chunk.id, { meaning: value })}
-              rows={1}
-            />
+            <AutoTextArea label="Significado" value={chunk.meaning} onSave={(value) => updateChunk(chunk.id, { meaning: value })} rows={1} />
             <AutoTextArea
               label="Frase original (contexto no card)"
               value={chunk.originalSentence}
@@ -406,21 +492,21 @@ export function MineStep({ bundle }: StepProps) {
         )}
         <TextInput label="Significado (depois de tentar deduzir)" value={meaning} onChange={setMeaning} autoComplete="off" />
         <TextArea label="Frase original" value={original} onChange={setOriginal} rows={2} lang="en" />
-        {cards.length > 1 && (
+        {ideas.length > 1 && (
           <div>
             <label htmlFor="chunk-source" className="mb-1.5 block text-sm font-medium">
-              Card de origem
+              Ideia de origem
             </label>
             <select
               id="chunk-source"
-              value={sourceId || cardOfDay?.id || ''}
+              value={sourceId || defaultSource}
               onChange={(e) => setSourceId(e.target.value)}
               className="min-h-12 w-full rounded-xl border border-line bg-paper px-3"
             >
-              {!cardOfDay && <option value="">Sem card</option>}
-              {cards.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title}
+              {!ideaOfDay && <option value="">Sem ideia</option>}
+              {ideas.map(({ idea }) => (
+                <option key={idea.id} value={idea.id}>
+                  {idea.title}
                 </option>
               ))}
             </select>
@@ -460,6 +546,7 @@ export function MineStep({ bundle }: StepProps) {
 const RETELL_PROMPTS = [
   'Today I read about…',
   'The main idea is…',
+  'First… / Then… / Finally…',
   'One interesting point is…',
   'I think this is important because…',
   'In my experience…',
@@ -470,17 +557,19 @@ const RETELL_PROMPTS = [
 ] as const;
 
 export function RetellStep({ bundle, goTo }: StepProps) {
-  const { session, cardOfDay, speaking } = bundle;
-  if (!cardOfDay) return <NeedsCardOfDay goTo={goTo} />;
+  const { session, ideaOfDay, speaking } = bundle;
+  if (!ideaOfDay) return <NeedsIdeaOfDay goTo={goTo} />;
   const plan = weekPlan(session.cycleWeek);
   const total = speaking.reduce((sum, s) => sum + s.durationSec, 0);
 
   return (
     <div className="space-y-6">
+      <IdeaHeading item={ideaOfDay} />
       <div>
-        <Prompt>Feche o card e explique a ideia em voz alta.</Prompt>
+        <Prompt>Feche o Deepstash e reconte a ideia em voz alta.</Prompt>
         <Hint>
-          Semana {session.cycleWeek}: {plan.focus} Não reinicie por causa de erros.
+          Conte a história dos cards do começo ao fim, com as suas palavras. Semana {session.cycleWeek}: {plan.focus}{' '}
+          Não reinicie por causa de erros.
         </Hint>
       </div>
 
@@ -505,7 +594,7 @@ export function RetellStep({ bundle, goTo }: StepProps) {
               recordSpeaking({
                 kind: 'daily',
                 sessionId: session.id,
-                cardId: cardOfDay.id,
+                ideaId: ideaOfDay.idea.id,
                 date: session.date,
                 durationSec,
                 targetSec: plan.speakingMaxSec,
@@ -580,23 +669,24 @@ const REFLECT_STARTERS = [
 ] as const;
 
 export function ReflectStep({ bundle, goTo }: StepProps) {
-  const { session, cardOfDay, reflection } = bundle;
-  if (!cardOfDay) return <NeedsCardOfDay goTo={goTo} />;
+  const { session, ideaOfDay, reflection } = bundle;
+  if (!ideaOfDay) return <NeedsIdeaOfDay goTo={goTo} />;
+  const { idea } = ideaOfDay;
   return (
     <div className="space-y-4">
       <div>
         <Prompt>Do I agree with this idea? Why?</Prompt>
-        <Hint>Questione a ideia de “{cardOfDay.title}”: concorde, discorde ou qualifique.</Hint>
+        <Hint>Questione a ideia de “{idea.title}”: concorde, discorde ou qualifique.</Hint>
       </div>
       <AutoTextArea
         label="My view"
         value={reflection?.userOpinion ?? ''}
-        onSave={(userOpinion) => saveReflection(session.id, cardOfDay.id, { userOpinion })}
+        onSave={(userOpinion) => saveReflection(session.id, idea.id, { userOpinion })}
         rows={5}
         lang="en"
         starters={REFLECT_STARTERS}
       />
-      <AIFeedbackPanel targetType="opinion" targetId={cardOfDay.id} text={reflection?.userOpinion ?? ''} context={`Opinião sobre o card "${cardOfDay.title}".`} />
+      <AIFeedbackPanel targetType="opinion" targetId={idea.id} text={reflection?.userOpinion ?? ''} context={`Opinião sobre a ideia "${idea.title}".`} />
     </div>
   );
 }
@@ -604,8 +694,9 @@ export function ReflectStep({ bundle, goTo }: StepProps) {
 // ---------- 9. SO WHAT? ----------
 
 export function SoWhatStep({ bundle, goTo }: StepProps) {
-  const { session, cardOfDay, reflection } = bundle;
-  if (!cardOfDay) return <NeedsCardOfDay goTo={goTo} />;
+  const { session, ideaOfDay, reflection } = bundle;
+  if (!ideaOfDay) return <NeedsIdeaOfDay goTo={goTo} />;
+  const { idea } = ideaOfDay;
   return (
     <div className="space-y-4">
       <div>
@@ -615,12 +706,12 @@ export function SoWhatStep({ bundle, goTo }: StepProps) {
       <AutoTextArea
         label="So what?"
         value={reflection?.soWhat ?? ''}
-        onSave={(soWhat) => saveReflection(session.id, cardOfDay.id, { soWhat })}
+        onSave={(soWhat) => saveReflection(session.id, idea.id, { soWhat })}
         rows={3}
         lang="en"
         placeholder="I’ll…"
       />
-      <AIFeedbackPanel targetType="soWhat" targetId={cardOfDay.id} text={reflection?.soWhat ?? ''} context={`Ação a partir do card "${cardOfDay.title}".`} />
+      <AIFeedbackPanel targetType="soWhat" targetId={idea.id} text={reflection?.soWhat ?? ''} context={`Ação a partir da ideia "${idea.title}".`} />
     </div>
   );
 }
@@ -633,13 +724,17 @@ function inDaysLabel(days: number): string {
 }
 
 export function ScheduleStep({ bundle }: StepProps) {
-  const { session, cards, cardOfDay, chunks, speaking, reflection } = bundle;
+  const { session, ideas, ideaOfDay, chunks, speaking, reflection } = bundle;
   const upcoming = useLiveQuery(() => getUpcoming(session.date, 30), [session.date, chunks.length]);
   const speakingSec = speaking.reduce((sum, s) => sum + s.durationSec, 0);
+  const totalCards = ideas.reduce((sum, i) => sum + i.cards.length, 0);
 
   const lines: [string, boolean][] = [
-    [`${cards.length} ${cards.length === 1 ? 'card read' : 'cards read'}`, cards.length > 0],
-    [cardOfDay ? '1 Card of the Day' : 'No Card of the Day', cardOfDay !== null],
+    [
+      `${ideas.length} ${ideas.length === 1 ? 'idea' : 'ideas'} read${totalCards > 0 ? ` (${cardCount(totalCards)})` : ''}`,
+      ideas.length > 0,
+    ],
+    [ideaOfDay ? '1 Idea of the Day' : 'No Idea of the Day', ideaOfDay !== null],
     [`${chunks.length} ${chunks.length === 1 ? 'chunk' : 'chunks'} learned`, chunks.length > 0],
     [`${formatDuration(speakingSec)} speaking`, speakingSec > 0],
     [reflection?.userOpinion.trim() ? '1 reflection' : 'No reflection', Boolean(reflection?.userOpinion.trim())],

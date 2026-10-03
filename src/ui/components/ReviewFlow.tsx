@@ -18,7 +18,7 @@ const RATINGS: { rating: Rating; label: string; hint: string }[] = [
 function ReviewCard({ item, date, remaining }: { item: DueItem; date: ISODate; remaining: number }) {
   const [revealed, setRevealed] = useState(false);
   const [sentence, setSentence] = useState('');
-  const { chunk, sourceCard, lastReviewSentence } = item;
+  const { chunk, sourceIdea, lastReviewSentence } = item;
   const late = overdueDays(chunk, date);
 
   return (
@@ -56,8 +56,8 @@ function ReviewCard({ item, date, remaining }: { item: DueItem; date: ISODate; r
             <Detail label="Frase que você criou" value={lastReviewSentence || chunk.userSentence} serif />
             {sentence.trim() && <Detail label="Sua frase de agora" value={sentence} serif />}
             <Detail
-              label="Card de origem"
-              value={sourceCard ? `${sourceCard.title} · ${formatDate(chunk.createdDate, 'medium')}` : ''}
+              label="Ideia de origem"
+              value={sourceIdea ? `${sourceIdea.title} · ${formatDate(chunk.createdDate, 'medium')}` : ''}
             />
           </dl>
           <div>

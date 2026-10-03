@@ -2,17 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { db } from '../data/db';
 import { isDifficult, overdueDays } from '../domain/chunks';
 import { getDueChunks, getDueItems, getUpcoming, rateChunk, reactivateChunk, retireChunk } from './reviews';
-import { addCard, addChunk, setCardOfDay, startSession } from './sessions';
+import { addChunk, addIdea, setIdeaOfDay, startSession } from './sessions';
 
 const D0 = '2026-10-03';
 
 async function seed(texts: string[] = ['one thing at a time']) {
   const session = await startSession(D0);
-  const card = await addCard(session.id, { title: 'Thought Into Action' });
-  await setCardOfDay(session.id, card.id);
+  const idea = await addIdea(session.id, { title: 'Thought Into Action' });
+  await setIdeaOfDay(session.id, idea.id);
   const chunks = [];
   for (const text of texts) chunks.push(await addChunk(session.id, { text }));
-  return { session, card, chunks };
+  return { session, idea, chunks };
 }
 
 describe('revisões pendentes', () => {
@@ -21,11 +21,11 @@ describe('revisões pendentes', () => {
     expect(await getDueChunks(D0)).toHaveLength(0);
   });
 
-  it('o chunk aparece em D1 com o card de origem', async () => {
-    const { card } = await seed();
+  it('o chunk aparece em D1 com a ideia de origem', async () => {
+    const { idea } = await seed();
     const due = await getDueItems('2026-10-04');
     expect(due).toHaveLength(1);
-    expect(due[0]?.sourceCard?.id).toBe(card.id);
+    expect(due[0]?.sourceIdea?.id).toBe(idea.id);
   });
 
   it('revisão atrasada continua pendente e informa os dias de atraso', async () => {

@@ -4,7 +4,7 @@ import { HashRouter, Route, Routes } from 'react-router-dom';
 import './index.css';
 import { useApplyTheme, useSettings } from './ui/hooks';
 import { Layout } from './ui/Layout';
-import { CardDetailPage } from './ui/pages/CardDetailPage';
+import { IdeaDetailPage } from './ui/pages/IdeaDetailPage';
 import { KnowledgePage } from './ui/pages/KnowledgePage';
 import { ProgressPage } from './ui/pages/ProgressPage';
 import { ReviewPage } from './ui/pages/ReviewPage';
@@ -54,7 +54,7 @@ function App() {
           <Route path="session" element={<SessionPage />} />
           <Route path="review" element={<ReviewPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
-          <Route path="knowledge/card/:cardId" element={<CardDetailPage />} />
+          <Route path="knowledge/idea/:ideaId" element={<IdeaDetailPage />} />
           <Route path="progress" element={<ProgressPage />} />
           <Route path="weekly/:weekStart?" element={<WeeklyPage />} />
           <Route path="settings" element={<SettingsPage />} />

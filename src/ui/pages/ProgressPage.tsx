@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { addDays, formatDate, formatDuration, startOfWeek } from '../../domain/dates';
-import { CARD_GOAL, MAX_CHUNKS_PER_DAY } from '../../domain/session';
+import { MAX_CHUNKS_PER_DAY } from '../../domain/session';
 import { totals, weeklyHistory, type WeekStats, weekStats } from '../../domain/stats';
 import { loadStatsInput } from '../../services/library';
 import { BarChart, type BarDatum } from '../components/BarChart';
@@ -69,8 +69,8 @@ export function ProgressPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Tile label="Cards read" value={String(week.cardsRead)} goal={String(CARD_GOAL * 7)} />
-        <Tile label="Cards studied" value={String(week.cardsStudied)} goal="7" />
+        <Tile label="Ideas read" value={String(week.ideasRead)} />
+        <Tile label="Ideas studied" value={String(week.ideasStudied)} goal="7" />
         <Tile label="Chunks" value={String(week.chunksCreated)} goal={String(MAX_CHUNKS_PER_DAY * 7)} />
         <Tile label="Reviews" value={String(week.reviewsDone)} />
         <Tile label="Speaking (min:s)" value={formatDuration(week.speakingSec)} />
@@ -95,7 +95,8 @@ export function ProgressPage() {
                 <p className="text-sm text-muted">
                   {d.studied
                     ? [
-                        `${d.cards} ${d.cards === 1 ? 'card' : 'cards'}`,
+                        d.ideas > 0 && `${d.ideas} ${d.ideas === 1 ? 'ideia' : 'ideias'}`,
+                        d.cards > 0 && `${d.cards} ${d.cards === 1 ? 'card' : 'cards'}`,
                         d.speakingSec > 0 && formatDuration(d.speakingSec),
                         d.reviews > 0 && `${d.reviews} rev.`,
                         d.sessionCompleted && '✓',
@@ -107,7 +108,7 @@ export function ProgressPage() {
                       : 'sem estudo'}
                 </p>
               </div>
-              {d.cardOfDayTitle && <p className="font-serif text-sm">⭐ {d.cardOfDayTitle}</p>}
+              {d.ideaOfDayTitle && <p className="font-serif text-sm">⭐ {d.ideaOfDayTitle}</p>}
               {d.chunks.length > 0 && (
                 <p className="font-serif text-sm text-muted" lang="en">
                   {d.chunks.join(' • ')}
@@ -121,7 +122,7 @@ export function ProgressPage() {
       <section className="space-y-3">
         <Eyebrow>Evolução · últimas {HISTORY_WEEKS} semanas</Eyebrow>
         <div className="grid gap-3 sm:grid-cols-2">
-          <BarChart title="Cards lidos por semana" data={series(history, (w) => w.cardsRead, '')} />
+          <BarChart title="Ideias lidas por semana" data={series(history, (w) => w.ideasRead, '')} />
           <BarChart title="Chunks novos por semana" data={series(history, (w) => w.chunksCreated, '')} />
           <BarChart title="Revisões concluídas por semana" data={series(history, (w) => w.reviewsDone, '')} />
           <BarChart title="Minutos de speaking por semana" data={series(history, (w) => minutes(w.speakingSec), 'min')} />
@@ -134,7 +135,7 @@ export function ProgressPage() {
               <thead className="text-xs text-muted">
                 <tr>
                   <th scope="col" className="py-1 text-left font-medium">Semana</th>
-                  <th scope="col" className="px-2 font-medium">Cards</th>
+                  <th scope="col" className="px-2 font-medium">Ideias</th>
                   <th scope="col" className="px-2 font-medium">Chunks</th>
                   <th scope="col" className="px-2 font-medium">Revisões</th>
                   <th scope="col" className="px-2 font-medium">Speaking</th>
@@ -145,7 +146,7 @@ export function ProgressPage() {
                 {history.map((w) => (
                   <tr key={w.weekStart} className="border-t border-line">
                     <th scope="row" className="py-1.5 text-left font-normal">{formatDate(w.weekStart, 'short')}</th>
-                    <td className="px-2">{w.cardsRead}</td>
+                    <td className="px-2">{w.ideasRead}</td>
                     <td className="px-2">{w.chunksCreated}</td>
                     <td className="px-2">{w.reviewsDone}</td>
                     <td className="px-2">{minutes(w.speakingSec)} min</td>
@@ -163,8 +164,9 @@ export function ProgressPage() {
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
           {(
             [
+              ['Ideias lidas', all.ideasRead],
               ['Cards lidos', all.cardsRead],
-              ['Cards aprofundados', all.cardsStudied],
+              ['Ideias aprofundadas', all.ideasStudied],
               ['Chunks criados', all.chunksCreated],
               ['Chunks aprendidos', all.chunksLearned],
               ['Revisões concluídas', all.reviewsDone],

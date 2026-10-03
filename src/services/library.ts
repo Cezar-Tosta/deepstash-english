@@ -6,6 +6,7 @@ import type {
   Chunk,
   ChunkReview,
   ComprehensionVocab,
+  Idea,
   ISODate,
   Reflection,
   SourceCard,
@@ -16,7 +17,7 @@ import type {
 const normalize = (text: string): string =>
   text
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/\p{Diacritic}/gu, '')
     .toLowerCase();
 
 function matchesQuery(query: string, ...fields: string[]): boolean {
@@ -27,88 +28,98 @@ function matchesQuery(query: string, ...fields: string[]): boolean {
 
 // ---------- MY KNOWLEDGE ----------
 
-export interface CardListItem {
-  card: SourceCard;
-  isCardOfDay: boolean;
+export interface IdeaListItem {
+  idea: Idea;
+  isIdeaOfDay: boolean;
+  cardCount: number;
   chunks: string[];
 }
 
-/** Pesquisa por título, tema, palavra do texto, chunk ou data (dd/mm/aaaa ou aaaa-mm-dd). */
-export async function searchCards(query: string, onlyCardOfDay: boolean): Promise<CardListItem[]> {
-  const [cards, sessions, chunks] = await Promise.all([
+/** Pesquisa por título, livro, tema, palavra dos cards, chunk ou data (dd/mm/aaaa ou aaaa-mm-dd). */
+export async function searchIdeas(query: string, onlyIdeaOfDay: boolean): Promise<IdeaListItem[]> {
+  const [ideas, cards, sessions, chunks] = await Promise.all([
+    db.ideas.toArray(),
     db.cards.toArray(),
     db.sessions.toArray(),
     db.chunks.toArray(),
   ]);
-  const cardOfDayIds = new Set(sessions.map((s) => s.cardOfDayId));
-  return cards
-    .map((card): CardListItem => ({
-      card,
-      isCardOfDay: cardOfDayIds.has(card.id),
-      chunks: chunks.filter((c) => c.sourceCardId === card.id).map((c) => c.text),
-    }))
-    .filter((item) => !onlyCardOfDay || item.isCardOfDay)
-    .filter((item) =>
-      matchesQuery(
+  const ideaOfDayIds = new Set(sessions.map((s) => s.ideaOfDayId));
+  return ideas
+    .filter((idea) => !onlyIdeaOfDay || ideaOfDayIds.has(idea.id))
+    .flatMap((idea): IdeaListItem[] => {
+      const own = cards.filter((c) => c.ideaId === idea.id);
+      const item: IdeaListItem = {
+        idea,
+        isIdeaOfDay: ideaOfDayIds.has(idea.id),
+        cardCount: own.length,
+        chunks: chunks.filter((c) => c.sourceIdeaId === idea.id).map((c) => c.text),
+      };
+      const found = matchesQuery(
         query,
-        item.card.title,
-        item.card.category,
-        item.card.content,
-        item.card.mainIdea,
-        item.card.notes,
-        item.card.date,
-        formatDate(item.card.date, 'medium'),
-        new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(item.card.date)),
+        idea.title,
+        idea.bookTitle,
+        idea.category,
+        idea.mainIdea,
+        idea.notes,
+        idea.date,
+        formatDate(idea.date, 'medium'),
+        new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(idea.date)),
+        ...own.map((c) => c.content),
         ...item.chunks,
-      ),
-    )
-    .sort((a, b) => b.card.createdAt.localeCompare(a.card.createdAt));
+      );
+      return found ? [item] : [];
+    })
+    .sort((a, b) => b.idea.createdAt.localeCompare(a.idea.createdAt));
 }
 
 export interface ChunkWithHistory {
   chunk: Chunk;
   reviews: ChunkReview[];
   recall: RecallCount;
-  sourceCard: SourceCard | null;
+  sourceIdea: Idea | null;
 }
 
-export interface CardDetail {
-  card: SourceCard;
+export interface IdeaDetail {
+  idea: Idea;
+  /** Na ordem de leitura. */
+  cards: SourceCard[];
   session: StudySession | null;
-  isCardOfDay: boolean;
+  isIdeaOfDay: boolean;
   vocab: ComprehensionVocab[];
   chunks: ChunkWithHistory[];
   speaking: SpeakingSession[];
   reflection: Reflection | null;
 }
 
-async function withHistory(chunk: Chunk, sourceCard: SourceCard | null): Promise<ChunkWithHistory> {
+async function withHistory(chunk: Chunk, sourceIdea: Idea | null): Promise<ChunkWithHistory> {
   const reviews = await db.reviews.where('chunkId').equals(chunk.id).sortBy('createdAt');
-  return { chunk, reviews, recall: countRecall(reviews), sourceCard };
+  return { chunk, reviews, recall: countRecall(reviews), sourceIdea };
 }
 
-export async function getCardDetail(cardId: string): Promise<CardDetail | null> {
-  const card = await db.cards.get(cardId);
-  if (!card) return null;
-  const session = (await db.sessions.get(card.sessionId)) ?? null;
-  const isCardOfDay = session?.cardOfDayId === card.id;
-  const [vocab, ownChunks, sessionChunks, speaking, reflection] = await Promise.all([
-    db.vocab.where('cardId').equals(cardId).toArray(),
-    db.chunks.where('sourceCardId').equals(cardId).toArray(),
-    db.chunks.where('sessionId').equals(card.sessionId).toArray(),
-    db.speaking.where('cardId').equals(cardId).toArray(),
-    db.reflections.where('cardId').equals(cardId).first(),
+export async function getIdeaDetail(ideaId: string): Promise<IdeaDetail | null> {
+  const idea = await db.ideas.get(ideaId);
+  if (!idea) return null;
+  const session = (await db.sessions.get(idea.sessionId)) ?? null;
+  const isIdeaOfDay = session?.ideaOfDayId === idea.id;
+  const [cards, vocab, ownChunks, sessionChunks, speaking, reflection] = await Promise.all([
+    db.cards.where('ideaId').equals(ideaId).sortBy('position'),
+    db.vocab.where('ideaId').equals(ideaId).toArray(),
+    db.chunks.where('sourceIdeaId').equals(ideaId).toArray(),
+    db.chunks.where('sessionId').equals(idea.sessionId).toArray(),
+    db.speaking.where('ideaId').equals(ideaId).toArray(),
+    db.reflections.where('ideaId').equals(ideaId).first(),
   ]);
-  // A página do Card of the Day mostra os 3 chunks do dia, que saem do conjunto dos cards.
-  const chunks = (isCardOfDay ? sessionChunks : ownChunks).sort((a, b) =>
+  // A página da Idea of the Day mostra os 3 chunks do dia, que saem do conjunto das ideias lidas.
+  const chunks = (isIdeaOfDay ? sessionChunks : ownChunks).sort((a, b) =>
     a.createdAt.localeCompare(b.createdAt),
   );
   return {
-    card,
+    idea,
+    cards,
     session,
-    isCardOfDay,
+    isIdeaOfDay,
     vocab,
-    chunks: await Promise.all(chunks.map((c) => withHistory(c, card))),
+    chunks: await Promise.all(chunks.map((c) => withHistory(c, idea))),
     speaking,
     reflection: reflection ?? null,
   };
@@ -121,12 +132,12 @@ export async function searchChunks(
   filter: ChunkFilter,
   date: ISODate = today(),
 ): Promise<ChunkWithHistory[]> {
-  const [chunks, reviews, cards] = await Promise.all([
+  const [chunks, reviews, ideas] = await Promise.all([
     db.chunks.toArray(),
     db.reviews.toArray(),
-    db.cards.toArray(),
+    db.ideas.toArray(),
   ]);
-  const cardsById = new Map(cards.map((c) => [c.id, c]));
+  const ideasById = new Map(ideas.map((i) => [i.id, i]));
   return chunks
     .map((chunk): ChunkWithHistory => {
       const own = reviews
@@ -136,7 +147,7 @@ export async function searchChunks(
         chunk,
         reviews: own,
         recall: countRecall(own),
-        sourceCard: chunk.sourceCardId ? (cardsById.get(chunk.sourceCardId) ?? null) : null,
+        sourceIdea: chunk.sourceIdeaId ? (ideasById.get(chunk.sourceIdeaId) ?? null) : null,
       };
     })
     .filter((item) => matchesFilter(item.chunk, item.reviews, filter, date))
@@ -147,7 +158,8 @@ export async function searchChunks(
         item.chunk.meaning,
         item.chunk.originalSentence,
         item.chunk.userSentence,
-        item.sourceCard?.title ?? '',
+        item.sourceIdea?.title ?? '',
+        item.sourceIdea?.bookTitle ?? '',
       ),
     )
     .sort((a, b) => b.chunk.createdAt.localeCompare(a.chunk.createdAt));
@@ -157,12 +169,13 @@ export async function searchChunks(
 
 /** Os dados são locais e pequenos; carregar tudo e calcular no domínio mantém as regras testáveis. */
 export async function loadStatsInput(): Promise<StatsInput> {
-  const [sessions, cards, chunks, reviews, speaking] = await Promise.all([
+  const [sessions, ideas, cards, chunks, reviews, speaking] = await Promise.all([
     db.sessions.toArray(),
+    db.ideas.toArray(),
     db.cards.toArray(),
     db.chunks.toArray(),
     db.reviews.toArray(),
     db.speaking.toArray(),
   ]);
-  return { sessions, cards, chunks, reviews, speaking };
+  return { sessions, ideas, cards, chunks, reviews, speaking };
 }

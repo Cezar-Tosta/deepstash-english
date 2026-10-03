@@ -3,19 +3,23 @@ import { db } from '../data/db';
 import { sessionProgress } from '../domain/session';
 import { ChunkLimitError, DomainError } from './errors';
 import {
-  addCard,
+  addCards,
   addChunk,
+  addIdea,
   addVocab,
   deleteCard,
+  deleteIdea,
   finishSession,
+  lastBookTitle,
   loadSessionBundle,
   recordSpeaking,
   replaceChunk,
   saveReflection,
-  setCardOfDay,
+  setIdeaOfDay,
+  splitIntoCards,
   startSession,
-  updateCard,
   updateChunk,
+  updateIdea,
 } from './sessions';
 
 const DAY = '2026-10-03'; // sábado
@@ -29,7 +33,7 @@ describe('criação de sessão', () => {
       cycleWeek: 1,
       status: 'in_progress',
       currentStep: 'review',
-      cardOfDayId: null,
+      ideaOfDayId: null,
     });
     expect((await db.settings.get('settings'))?.cycleStartDate).toBe('2026-09-28');
   });
@@ -49,44 +53,110 @@ describe('criação de sessão', () => {
   });
 });
 
-describe('Card of the Day', () => {
-  it('mantém apenas um card escolhido por sessão', async () => {
+describe('ideias e seus cards', () => {
+  it('uma ideia guarda o livro e os cards na ordem de leitura', async () => {
     const session = await startSession(DAY);
-    const a = await addCard(session.id, { title: 'Thought Into Action' });
-    const b = await addCard(session.id, { title: 'Deep Work' });
-
-    await setCardOfDay(session.id, a.id);
-    await setCardOfDay(session.id, b.id);
+    await addIdea(session.id, {
+      title: 'Thought Into Action',
+      bookTitle: 'Getting Things Done',
+      cards: ['First card.', 'Second card.', 'Third card.'],
+    });
 
     const bundle = await loadSessionBundle(DAY);
-    expect(bundle?.cardOfDay?.id).toBe(b.id);
-    expect(bundle?.cards).toHaveLength(2);
+    expect(bundle?.ideas).toHaveLength(1);
+    expect(bundle?.ideas[0]?.idea.bookTitle).toBe('Getting Things Done');
+    expect(bundle?.ideas[0]?.cards.map((c) => [c.position, c.content])).toEqual([
+      [0, 'First card.'],
+      [1, 'Second card.'],
+      [2, 'Third card.'],
+    ]);
   });
 
-  it('recusa card de outra sessão', async () => {
-    const today = await startSession(DAY);
-    const other = await startSession('2026-10-04');
-    const card = await addCard(other.id, { title: 'Outro dia' });
-    await expect(setCardOfDay(today.id, card.id)).rejects.toBeInstanceOf(DomainError);
-  });
-
-  it('apagar o card escolhido limpa a escolha e preserva os chunks', async () => {
+  it('a quantidade de ideias e de cards por ideia é livre', async () => {
     const session = await startSession(DAY);
-    const card = await addCard(session.id, { title: 'Thought Into Action' });
-    await setCardOfDay(session.id, card.id);
-    await addChunk(session.id, { text: 'one thing at a time' });
-
-    await deleteCard(card.id);
+    await addIdea(session.id, { title: 'Sem cards registrados' });
+    await addIdea(session.id, { title: 'Um card', cards: ['only one'] });
+    await addIdea(session.id, { title: 'Sete cards', cards: ['1', '2', '3', '4', '5', '6', '7'] });
 
     const bundle = await loadSessionBundle(DAY);
-    expect(bundle?.session.cardOfDayId).toBeNull();
-    expect(bundle?.chunks).toHaveLength(1);
-    expect(bundle?.chunks[0]?.sourceCardId).toBeNull();
+    expect(bundle?.ideas.map((i) => i.cards.length)).toEqual([0, 1, 7]);
+  });
+
+  it('novos cards entram no fim e remover um mantém a sequência sem buracos', async () => {
+    const session = await startSession(DAY);
+    const idea = await addIdea(session.id, { title: 'Story', cards: ['a', 'b'] });
+    await addCards(idea.id, ['c', 'd']);
+
+    const before = (await loadSessionBundle(DAY))?.ideas[0]?.cards ?? [];
+    expect(before.map((c) => c.content)).toEqual(['a', 'b', 'c', 'd']);
+
+    await deleteCard(before[1]!.id);
+    const after = (await loadSessionBundle(DAY))?.ideas[0]?.cards ?? [];
+    expect(after.map((c) => [c.position, c.content])).toEqual([
+      [0, 'a'],
+      [1, 'c'],
+      [2, 'd'],
+    ]);
+  });
+
+  it('texto colado vira um card por bloco separado por linha em branco', () => {
+    expect(splitIntoCards('First card\nsecond line.\n\n  Second card.  \n\n\n\nThird card.')).toEqual([
+      'First card\nsecond line.',
+      'Second card.',
+      'Third card.',
+    ]);
+    expect(splitIntoCards('   \n\n ')).toEqual([]);
+  });
+
+  it('lembra o último livro para a próxima ideia', async () => {
+    const session = await startSession(DAY);
+    expect(await lastBookTitle()).toBe('');
+    await addIdea(session.id, { title: 'A', bookTitle: 'Atomic Habits' });
+    await addIdea(session.id, { title: 'B', bookTitle: 'Deep Work' });
+    await addIdea(session.id, { title: 'C' });
+    expect(await lastBookTitle()).toBe('Deep Work');
   });
 
   it('exige título', async () => {
     const session = await startSession(DAY);
-    await expect(addCard(session.id, { title: '   ' })).rejects.toBeInstanceOf(DomainError);
+    await expect(addIdea(session.id, { title: '   ' })).rejects.toBeInstanceOf(DomainError);
+  });
+});
+
+describe('Idea of the Day', () => {
+  it('mantém apenas uma ideia escolhida por sessão', async () => {
+    const session = await startSession(DAY);
+    const a = await addIdea(session.id, { title: 'Thought Into Action' });
+    const b = await addIdea(session.id, { title: 'Deep Work' });
+
+    await setIdeaOfDay(session.id, a.id);
+    await setIdeaOfDay(session.id, b.id);
+
+    const bundle = await loadSessionBundle(DAY);
+    expect(bundle?.ideaOfDay?.idea.id).toBe(b.id);
+    expect(bundle?.ideas).toHaveLength(2);
+  });
+
+  it('recusa ideia de outra sessão', async () => {
+    const today = await startSession(DAY);
+    const other = await startSession('2026-10-04');
+    const idea = await addIdea(other.id, { title: 'Outro dia' });
+    await expect(setIdeaOfDay(today.id, idea.id)).rejects.toBeInstanceOf(DomainError);
+  });
+
+  it('apagar a ideia escolhida limpa a escolha, apaga os cards e preserva os chunks', async () => {
+    const session = await startSession(DAY);
+    const idea = await addIdea(session.id, { title: 'Thought Into Action', cards: ['a', 'b'] });
+    await setIdeaOfDay(session.id, idea.id);
+    await addChunk(session.id, { text: 'one thing at a time' });
+
+    await deleteIdea(idea.id);
+
+    const bundle = await loadSessionBundle(DAY);
+    expect(bundle?.session.ideaOfDayId).toBeNull();
+    expect(await db.cards.count()).toBe(0);
+    expect(bundle?.chunks).toHaveLength(1);
+    expect(bundle?.chunks[0]?.sourceIdeaId).toBeNull();
   });
 });
 
@@ -137,22 +207,22 @@ describe('limite de 3 chunks por dia', () => {
 describe('vocabulário de compreensão', () => {
   it('não entra na repetição espaçada', async () => {
     const session = await startSession(DAY);
-    const card = await addCard(session.id, { title: 'Thought Into Action' });
-    await addVocab(session.id, card.id, 'rut', 'rotina sem saída');
+    const idea = await addIdea(session.id, { title: 'Thought Into Action' });
+    await addVocab(session.id, idea.id, 'rut', 'rotina sem saída');
     expect(await db.vocab.count()).toBe(1);
     expect(await db.chunks.count()).toBe(0);
   });
 });
 
 describe('finalização da sessão', () => {
-  it('recusa finalizar sem nenhum card', async () => {
+  it('recusa finalizar sem nenhuma ideia', async () => {
     const session = await startSession(DAY);
     await expect(finishSession(session.id)).rejects.toBeInstanceOf(DomainError);
   });
 
-  it('finaliza com menos de 5 cards e menos de 3 chunks', async () => {
+  it('finaliza com uma única ideia e menos de 3 chunks', async () => {
     const session = await startSession(DAY);
-    await addCard(session.id, { title: 'Só um card' });
+    await addIdea(session.id, { title: 'Só uma ideia' });
     await finishSession(session.id);
     const stored = await db.sessions.get(session.id);
     expect(stored?.status).toBe('completed');
@@ -161,12 +231,14 @@ describe('finalização da sessão', () => {
 
   it('registra o fluxo completo do exemplo "Thought Into Action"', async () => {
     const session = await startSession(DAY);
-    const card = await addCard(session.id, { title: 'Thought Into Action', category: 'Focus' });
-    for (const title of ['Card 2', 'Card 3', 'Card 4', 'Card 5']) {
-      await addCard(session.id, { title });
-    }
-    await setCardOfDay(session.id, card.id);
-    await updateCard(card.id, {
+    const idea = await addIdea(session.id, {
+      title: 'Thought Into Action',
+      bookTitle: 'Getting Things Done',
+      cards: ['Card one.', 'Card two.', 'Card three.'],
+    });
+    await addIdea(session.id, { title: 'Another idea', cards: ['x', 'y'] });
+    await setIdeaOfDay(session.id, idea.id);
+    await updateIdea(idea.id, {
       mainIdea: 'The main idea is that we should focus on one task at a time.',
     });
 
@@ -180,25 +252,26 @@ describe('finalização da sessão', () => {
     await recordSpeaking({
       kind: 'daily',
       sessionId: session.id,
-      cardId: card.id,
+      ideaId: idea.id,
       date: DAY,
       durationSec: 73,
       targetSec: 60,
     });
-    await saveReflection(session.id, card.id, {
+    await saveReflection(session.id, idea.id, {
       userOpinion: 'I agree, but sometimes we need to manage several problems at the same time.',
     });
-    await saveReflection(session.id, card.id, {
+    await saveReflection(session.id, idea.id, {
       soWhat: "I'll finish my current task before moving to the next one.",
     });
     await finishSession(session.id);
 
     const bundle = await loadSessionBundle(DAY);
     expect(bundle?.session.status).toBe('completed');
-    expect(bundle?.cards).toHaveLength(5);
-    expect(bundle?.cardOfDay?.title).toBe('Thought Into Action');
+    expect(bundle?.ideas).toHaveLength(2);
+    expect(bundle?.ideaOfDay?.idea.title).toBe('Thought Into Action');
+    expect(bundle?.ideaOfDay?.cards).toHaveLength(3);
     expect(bundle?.chunks.map((c) => c.text)).toEqual(texts);
-    expect(bundle?.chunks.every((c) => c.sourceCardId === card.id)).toBe(true);
+    expect(bundle?.chunks.every((c) => c.sourceIdeaId === idea.id)).toBe(true);
     expect(bundle?.speaking[0]?.durationSec).toBe(73);
     // As duas gravações da reflexão caem no mesmo registro.
     expect(await db.reflections.count()).toBe(1);
@@ -210,22 +283,23 @@ describe('finalização da sessão', () => {
 });
 
 describe('progresso da sessão', () => {
+  const empty = {
+    ideas: 0,
+    hasIdeaOfDay: false,
+    hasMainIdea: false,
+    chunks: 0,
+    sentences: 0,
+    spoke: false,
+    hasView: false,
+    hasSoWhat: false,
+  };
+
   it('vai de 0 a 100', () => {
-    const empty = {
-      cards: 0,
-      hasCardOfDay: false,
-      hasMainIdea: false,
-      chunks: 0,
-      sentences: 0,
-      spoke: false,
-      hasView: false,
-      hasSoWhat: false,
-    };
     expect(sessionProgress(empty)).toBe(0);
     expect(
       sessionProgress({
-        cards: 7,
-        hasCardOfDay: true,
+        ideas: 2,
+        hasIdeaOfDay: true,
         hasMainIdea: true,
         chunks: 3,
         sentences: 3,
@@ -234,6 +308,10 @@ describe('progresso da sessão', () => {
         hasSoWhat: true,
       }),
     ).toBe(100);
-    expect(sessionProgress({ ...empty, cards: 5, hasCardOfDay: true })).toBe(25);
+  });
+
+  it('não há meta de quantidade: uma ideia lida vale o mesmo que várias', () => {
+    expect(sessionProgress({ ...empty, ideas: 1 })).toBe(sessionProgress({ ...empty, ideas: 6 }));
+    expect(sessionProgress({ ...empty, ideas: 1, hasIdeaOfDay: true })).toBe(25);
   });
 });

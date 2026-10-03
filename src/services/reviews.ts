@@ -3,12 +3,12 @@ import { isDue } from '../domain/chunks';
 import { addDays, nowISO, today } from '../domain/dates';
 import { newId } from '../domain/ids';
 import { scheduler } from '../domain/srs';
-import type { Chunk, ChunkReview, ISODate, Rating, SourceCard } from '../domain/types';
+import type { Chunk, ChunkReview, Idea, ISODate, Rating } from '../domain/types';
 import { DomainError } from './errors';
 
 export interface DueItem {
   chunk: Chunk;
-  sourceCard: SourceCard | null;
+  sourceIdea: Idea | null;
   /** Última frase que o usuário criou numa revisão, se houver. */
   lastReviewSentence: string;
 }
@@ -33,7 +33,7 @@ export async function getDueItems(date: ISODate = today()): Promise<DueItem[]> {
       const lastWithSentence = reviews.reverse().find((r) => r.userSentence);
       return {
         chunk,
-        sourceCard: chunk.sourceCardId ? ((await db.cards.get(chunk.sourceCardId)) ?? null) : null,
+        sourceIdea: chunk.sourceIdeaId ? ((await db.ideas.get(chunk.sourceIdeaId)) ?? null) : null,
         lastReviewSentence: lastWithSentence?.userSentence ?? '',
       };
     }),

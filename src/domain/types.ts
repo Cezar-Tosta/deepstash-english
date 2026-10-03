@@ -44,7 +44,7 @@ export interface StudySession {
   cycleWeek: number;
   startedAt: ISODateTime;
   completedAt: ISODateTime | null;
-  cardOfDayId: string | null;
+  ideaOfDayId: string | null;
   currentStep: StepId;
   status: SessionStatus;
   /** CHECK: o que entendi errado ou não sabia. */
@@ -53,22 +53,38 @@ export interface StudySession {
   retellNotes: string;
 }
 
-export interface SourceCard {
+/**
+ * Uma ideia de um livro, como o Deepstash a apresenta. É a unidade de leitura e de
+ * aprofundamento: a "Idea of the Day" é uma ideia inteira, não um card isolado.
+ */
+export interface Idea {
   id: string;
   sessionId: string;
   date: ISODate;
+  bookTitle: string;
   title: string;
-  content: string;
   mainIdea: string;
   category: string;
   notes: string;
   createdAt: ISODateTime;
 }
 
+/** Um card da ideia. Os cards de uma ideia são lidos em sequência, como uma história. */
+export interface SourceCard {
+  id: string;
+  ideaId: string;
+  sessionId: string;
+  date: ISODate;
+  /** Ordem do card dentro da ideia, começando em 0. */
+  position: number;
+  content: string;
+  createdAt: ISODateTime;
+}
+
 /** Vocabulário só para entender o card. Nunca entra na repetição espaçada. */
 export interface ComprehensionVocab {
   id: string;
-  cardId: string;
+  ideaId: string;
   sessionId: string;
   term: string;
   meaning: string;
@@ -78,7 +94,7 @@ export interface ComprehensionVocab {
 export interface Chunk {
   id: string;
   sessionId: string;
-  sourceCardId: string | null;
+  sourceIdeaId: string | null;
   text: string;
   meaning: string;
   originalSentence: string;
@@ -108,7 +124,7 @@ export interface SpeakingSession {
   id: string;
   kind: 'daily' | 'weekly';
   sessionId: string | null;
-  cardId: string | null;
+  ideaId: string | null;
   date: ISODate;
   durationSec: number;
   targetSec: number;
@@ -120,7 +136,7 @@ export interface SpeakingSession {
 
 export interface Reflection {
   id: string;
-  cardId: string;
+  ideaId: string;
   sessionId: string;
   /** MY VIEW — Do I agree? Why? */
   userOpinion: string;
@@ -134,10 +150,10 @@ export interface WeeklyReview {
   /** Igual a weekStart: existe no máximo um fechamento por semana. */
   id: ISODate;
   weekStart: ISODate;
-  /** cardId → o que o usuário lembrou antes de revelar. */
+  /** ideaId → o que o usuário lembrou antes de revelar. */
   recalls: Record<string, string>;
-  topCardIds: string[];
-  speakingCardId: string | null;
+  topIdeaIds: string[];
+  speakingIdeaId: string | null;
   wentWell: string;
   difficulty: string;
   consistency: number | null;
@@ -148,7 +164,7 @@ export interface WeeklyReview {
 export interface WritingExercise {
   id: string;
   weekStart: ISODate;
-  cardId: string | null;
+  ideaId: string | null;
   /** Primeira versão. Congelada ao finalizar. */
   text: string;
   finalizedAt: ISODateTime | null;
