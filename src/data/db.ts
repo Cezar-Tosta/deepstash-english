@@ -2,6 +2,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import type {
   AIFeedback,
   BookNote,
+  ChatMessage,
   PracticeStat,
   Recording,
   Chunk,
@@ -13,6 +14,7 @@ import type {
   SpeakingSession,
   StudySession,
   UserSettings,
+  VerbEntry,
   WeeklyReview,
   WritingExercise,
 } from '../domain/types';
@@ -53,6 +55,8 @@ export class AppDB extends Dexie {
   bookNotes!: EntityTable<BookNote, 'id'>;
   practiceStats!: EntityTable<PracticeStat, 'id'>;
   recordings!: EntityTable<Recording, 'id'>;
+  ideaChats!: EntityTable<ChatMessage, 'id'>;
+  verbs!: EntityTable<VerbEntry, 'id'>;
 
   constructor(name = DB_NAME) {
     super(name);
@@ -99,6 +103,12 @@ export class AppDB extends Dexie {
 
     // v4: desempenho nos exercícios e áudios das falas. Só acrescenta tabelas.
     this.version(4).stores({ practiceStats: 'id', recordings: 'id, createdAt' });
+
+    // v5: conversa com a IA em cada ideia. Só acrescenta uma tabela.
+    this.version(5).stores({ ideaChats: 'id, ideaId' });
+
+    // v6: verbos de cada ideia, para o estudo de tempos verbais. Só acrescenta uma tabela.
+    this.version(6).stores({ verbs: 'id, ideaId' });
   }
 }
 
@@ -119,5 +129,7 @@ export const DATA_TABLES = [
   'aiFeedback',
   'bookNotes',
   'practiceStats',
+  'ideaChats',
+  'verbs',
 ] as const;
 export type DataTableName = (typeof DATA_TABLES)[number];

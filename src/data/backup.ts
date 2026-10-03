@@ -1,6 +1,6 @@
 import { DATA_TABLES, type DataTableName, db } from './db';
 import { DEFAULT_SETTINGS } from '../domain/defaults';
-import type { UserSettings } from '../domain/types';
+import type { AISettings, UserSettings } from '../domain/types';
 import { migrateV1toV2, type Tables } from './migrations';
 
 export const BACKUP_APP = 'deepstash-english';
@@ -8,11 +8,19 @@ export const BACKUP_VERSION = 2;
 
 type Row = Record<string, unknown>;
 
+export interface BackupSettings extends Pick<UserSettings, 'theme' | 'cycleStartDate'> {
+  /**
+   * Provedor, modelos e chave de API. Só vai na cópia da nuvem, que fica na conta do
+   * usuário; o arquivo de backup exportado nunca leva a chave.
+   */
+  ai?: AISettings;
+}
+
 export interface BackupFile {
   app: typeof BACKUP_APP;
   version: number;
   exportedAt: string;
-  settings: Pick<UserSettings, 'theme' | 'cycleStartDate'> | null;
+  settings: BackupSettings | null;
   data: Record<DataTableName, Row[]>;
 }
 
@@ -20,8 +28,11 @@ export class BackupError extends Error {
   override readonly name = 'BackupError';
 }
 
-/** Tudo o que o usuário produziu. A chave de API fica de fora de propósito. */
-export async function exportBackup(): Promise<BackupFile> {
+/**
+ * Tudo o que o usuário produziu. A configuração de IA (com a chave) só entra quando
+ * `includeAI` é pedido, o que acontece apenas na sincronização com a conta.
+ */
+export async function exportBackup(options: { includeAI?: boolean } = {}): Promise<BackupFile> {
   const data = {} as Record<DataTableName, Row[]>;
   for (const name of DATA_TABLES) {
     data[name] = (await db.table(name).toArray()) as Row[];
@@ -31,8 +42,36 @@ export async function exportBackup(): Promise<BackupFile> {
     app: BACKUP_APP,
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    settings: settings ? { theme: settings.theme, cycleStartDate: settings.cycleStartDate } : null,
+    settings: settings
+      ? {
+          theme: settings.theme,
+          cycleStartDate: settings.cycleStartDate,
+          ...(options.includeAI ? { ai: settings.ai } : {}),
+        }
+      : null,
     data,
+  };
+}
+
+/** A cópia que vai para a conta do usuário: inclui a configuração de IA. */
+export function exportForCloud(): Promise<BackupFile> {
+  return exportBackup({ includeAI: true });
+}
+
+const AI_PROVIDERS: readonly string[] = ['none', 'anthropic', 'groq', 'openai-compatible'];
+
+/** Lê a configuração de IA de uma cópia, se ela existir e tiver a forma esperada. */
+function parseAI(raw: unknown): AISettings | null {
+  if (!isRecord(raw)) return null;
+  const provider = raw['provider'];
+  if (typeof provider !== 'string' || !AI_PROVIDERS.includes(provider)) return null;
+  const text = (key: string): string => (typeof raw[key] === 'string' ? raw[key] : '');
+  return {
+    provider: provider as AISettings['provider'],
+    baseUrl: text('baseUrl'),
+    model: text('model'),
+    apiKey: text('apiKey'),
+    visionModel: text('visionModel'),
   };
 }
 
@@ -80,13 +119,18 @@ export function parseBackup(json: string): BackupFile {
   const rawSettings = raw['settings'];
   const theme = isRecord(rawSettings) ? rawSettings['theme'] : null;
   const cycleStartDate = isRecord(rawSettings) ? rawSettings['cycleStartDate'] : null;
+  const ai = isRecord(rawSettings) ? parseAI(rawSettings['ai']) : null;
   return {
     app: BACKUP_APP,
     version: BACKUP_VERSION,
     exportedAt: typeof raw['exportedAt'] === 'string' ? raw['exportedAt'] : '',
     settings:
       theme === 'system' || theme === 'light' || theme === 'dark'
-        ? { theme, cycleStartDate: typeof cycleStartDate === 'string' ? cycleStartDate : null }
+        ? {
+            theme,
+            cycleStartDate: typeof cycleStartDate === 'string' ? cycleStartDate : null,
+            ...(ai ? { ai } : {}),
+          }
         : null,
     data,
   };
@@ -125,7 +169,13 @@ export async function clearLocalData(): Promise<void> {
   });
 }
 
-/** Verdadeiro quando ainda não há nenhuma sessão de estudo neste navegador. */
+/**
+ * Verdadeiro quando este navegador ainda não tem nada que valha enviar: nenhuma
+ * sessão de estudo e nenhuma IA configurada. Uma IA configurada antes da primeira
+ * sessão já conta, para que a chave chegue à conta e aos outros navegadores.
+ */
 export async function isLocalEmpty(): Promise<boolean> {
-  return (await db.sessions.count()) === 0;
+  const settings = await db.settings.get('settings');
+  const hasAI = settings !== undefined && settings.ai.provider !== 'none';
+  return (await db.sessions.count()) === 0 && !hasAI;
 }

@@ -2,6 +2,7 @@ import {
   AIError,
   type AIProvider,
   type AIRequest,
+  type ChatTurn,
   type ImageInput,
   OPENAI_TRANSCRIPTION_MODEL,
 } from './AIProvider';
@@ -72,6 +73,10 @@ export function createOpenAICompatibleProvider(options: OpenAICompatibleOptions)
         { role: 'system', content: system },
         { role: 'user', content: user },
       ]);
+    },
+
+    chat(system: string, turns: ChatTurn[]): Promise<string> {
+      return chat(model, [{ role: 'system', content: system }, ...turns]);
     },
 
     readImages(prompt: string, images: ImageInput[]): Promise<string> {

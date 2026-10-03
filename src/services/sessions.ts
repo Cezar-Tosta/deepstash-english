@@ -184,7 +184,7 @@ export async function updateIdea(
 export function deleteIdea(ideaId: string): Promise<void> {
   return db.transaction(
     'rw',
-    [db.ideas, db.cards, db.sessions, db.vocab, db.chunks, db.reflections],
+    [db.ideas, db.cards, db.sessions, db.vocab, db.chunks, db.reflections, db.ideaChats, db.verbs, db.practiceStats],
     async () => {
       const idea = await db.ideas.get(ideaId);
       if (!idea) return;
@@ -195,6 +195,11 @@ export function deleteIdea(ideaId: string): Promise<void> {
           if (s.ideaOfDayId === ideaId) s.ideaOfDayId = null;
         });
       await db.cards.where('ideaId').equals(ideaId).delete();
+      await db.ideaChats.where('ideaId').equals(ideaId).delete();
+      const verbs = await db.verbs.where('ideaId').equals(ideaId).toArray();
+      const verbKeys = verbs.flatMap((v) => v.drills.map((_, i) => `verb:${v.id}:${i}`));
+      await db.practiceStats.bulkDelete(verbKeys);
+      await db.verbs.bulkDelete(verbs.map((v) => v.id));
       await db.vocab.where('ideaId').equals(ideaId).delete();
       await db.reflections.where('ideaId').equals(ideaId).delete();
       await db.chunks.where('sourceIdeaId').equals(ideaId).modify({ sourceIdeaId: null });
@@ -326,6 +331,35 @@ export async function updateChunk(
   await db.chunks.update(chunkId, patch);
 }
 
+/** Guarda mais uma frase escrita com o chunk. As anteriores são mantidas. */
+export function addChunkSentence(chunkId: string, sentence: string): Promise<void> {
+  return db.transaction('rw', db.chunks, async () => {
+    const text = sentence.trim();
+    const chunk = await db.chunks.get(chunkId);
+    if (!chunk || !text) return;
+    const all = [chunk.userSentence, ...(chunk.extraSentences ?? [])];
+    if (all.includes(text)) return;
+    // A primeira frase do chunk ocupa o campo principal; as demais vão para a lista.
+    if (!chunk.userSentence.trim()) await db.chunks.update(chunkId, { userSentence: text });
+    else await db.chunks.update(chunkId, { extraSentences: [...(chunk.extraSentences ?? []), text] });
+  });
+}
+
+/**
+ * Chunks de dias anteriores para treinar de novo: primeiro os mais difíceis nas
+ * revisões, depois os que têm menos frases escritas.
+ */
+export async function chunksToPractice(sessionId: string, count: number, skip: readonly string[] = []): Promise<Chunk[]> {
+  const [chunks, reviews] = await Promise.all([db.chunks.toArray(), db.reviews.toArray()]);
+  const trouble = (id: string): number =>
+    reviews.filter((r) => r.chunkId === id).reduce((n, r) => n + (r.rating === 'AGAIN' ? 2 : r.rating === 'HARD' ? 1 : 0), 0);
+  const written = (c: Chunk): number => (c.userSentence.trim() ? 1 : 0) + (c.extraSentences?.length ?? 0);
+  return chunks
+    .filter((c) => c.sessionId !== sessionId && c.status !== 'retired' && !skip.includes(c.id))
+    .sort((a, b) => trouble(b.id) - trouble(a.id) || written(a) - written(b) || a.createdAt.localeCompare(b.createdAt))
+    .slice(0, count);
+}
+
 export function deleteChunk(chunkId: string): Promise<void> {
   return db.transaction('rw', db.chunks, db.reviews, async () => {
     await db.reviews.where('chunkId').equals(chunkId).delete();
@@ -371,7 +405,7 @@ export async function saveTranscript(speakingId: string, transcript: string): Pr
 export function saveReflection(
   sessionId: string,
   ideaId: string,
-  patch: Partial<Pick<Reflection, 'userOpinion' | 'soWhat'>>,
+  patch: Partial<Pick<Reflection, 'userOpinion' | 'soWhat' | 'opinionPt' | 'soWhatPt'>>,
 ): Promise<void> {
   return db.transaction('rw', db.reflections, async () => {
     const existing = await db.reflections.where('ideaId').equals(ideaId).first();
@@ -384,8 +418,10 @@ export function saveReflection(
       id: newId(),
       sessionId,
       ideaId,
-      userOpinion: patch.userOpinion ?? '',
-      soWhat: patch.soWhat ?? '',
+      userOpinion: '',
+      soWhat: '',
+      // Qualquer campo pode ser o primeiro a ser escrito, inclusive os rascunhos.
+      ...patch,
       createdAt: now,
       updatedAt: now,
     });

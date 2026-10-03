@@ -1,10 +1,15 @@
 import { db } from '../data/db';
 import { type BookSummary, bookKey, groupByBook } from '../domain/books';
-import { addDays, nowISO, today } from '../domain/dates';
-import type { PracticeMaterial } from '../domain/exercises';
+import { isDue, overdueDays } from '../domain/chunks';
+import { cyclePosition, weekPlan } from '../domain/cycle';
+import { addDays, diffDays, nowISO, startOfWeek, today } from '../domain/dates';
+import { coreTerm, hardest, type PracticeMaterial, questionsFor, studyItems } from '../domain/exercises';
+import { stepIndex, STEPS } from '../domain/session';
+import { type Suggestion, suggestToday } from '../domain/suggestion';
 import { newId } from '../domain/ids';
 import type {
   BookNote,
+  Chunk,
   ComprehensionVocab,
   FollowUpStatus,
   Idea,
@@ -101,6 +106,7 @@ export interface DictionaryInput {
   context?: string | undefined;
   explanation?: string | undefined;
   phonetic?: string | undefined;
+  wordClass?: string | undefined;
 }
 
 const sameText = (a: string | undefined, b: string | undefined): boolean =>
@@ -136,6 +142,7 @@ export function addToDictionary(input: DictionaryInput): Promise<ComprehensionVo
       ...(input.context?.trim() ? { context: input.context.trim() } : {}),
       ...(input.explanation?.trim() ? { explanation: input.explanation.trim() } : {}),
       ...(input.phonetic?.trim() ? { phonetic: input.phonetic.trim() } : {}),
+      ...(input.wordClass?.trim() ? { wordClass: input.wordClass.trim() } : {}),
       createdAt: existing?.createdAt ?? nowISO(),
     };
     await db.vocab.put(entry);
@@ -150,6 +157,40 @@ export function addToDictionary(input: DictionaryInput): Promise<ComprehensionVo
 export async function findInDictionary(term: string, context: string): Promise<ComprehensionVocab | null> {
   const all = await db.vocab.toArray();
   return all.find((v) => sameText(v.term, term) && sameText(v.context, context) && v.meaning) ?? null;
+}
+
+/** Todas as entradas salvas para este termo, em qualquer ideia ou frase. */
+export async function findEntries(term: string): Promise<ComprehensionVocab[]> {
+  const all = await db.vocab.toArray();
+  return all.filter((v) => sameText(v.term, term)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/** Chunks cujo texto é este termo (as reticências de chunks abertos não contam). */
+export async function findChunks(term: string): Promise<Chunk[]> {
+  const all = await db.chunks.toArray();
+  return all.filter((c) => sameText(coreTerm(c.text), term)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/**
+ * Exclui o termo do dicionário por inteiro: todos os registros dele, de qualquer
+ * ideia ou frase. Com isso ele deixa de aparecer destacado em todos os textos.
+ */
+export function deleteTerm(term: string): Promise<number> {
+  return db.transaction('rw', db.vocab, db.practiceStats, async () => {
+    const entries = (await db.vocab.toArray()).filter((v) => sameText(v.term, term));
+    await db.practiceStats.bulkDelete(entries.map((e) => `vocab:${e.id}`));
+    await db.vocab.bulkDelete(entries.map((e) => e.id));
+    return entries.length;
+  });
+}
+
+export async function updateDictionaryEntry(
+  id: string,
+  patch: { meaning: string; explanation?: string | undefined },
+): Promise<void> {
+  const meaning = patch.meaning.trim();
+  if (!meaning) throw new DomainError('Informe a tradução.');
+  await db.vocab.update(id, { meaning, explanation: patch.explanation?.trim() ?? '' });
 }
 
 export interface DictionaryItem {
@@ -191,7 +232,7 @@ export async function loadGlossary(): Promise<GlossaryEntry[]> {
   const byKey = new Map<string, GlossaryEntry>();
   const add = (term: string, sense: Sense) => {
     const clean = term.replace(/[.…]+$/, '').trim();
-    if (!clean || !sense.meaning) return;
+    if (!clean) return;
     const key = clean.toLowerCase();
     const entry = byKey.get(key) ?? { term: clean, senses: [] };
     if (!entry.senses.some((s) => sameText(s.meaning, sense.meaning) && sameText(s.context, sense.context))) {
@@ -223,11 +264,52 @@ export async function loadGlossary(): Promise<GlossaryEntry[]> {
 // ---------- Exercícios ----------
 
 export async function loadPracticeMaterial(): Promise<PracticeMaterial> {
-  const [vocab, chunks, stats, reviews] = await Promise.all([
+  const [vocab, chunks, stats, reviews, verbs] = await Promise.all([
     db.vocab.toArray(),
     db.chunks.toArray(),
     db.practiceStats.toArray(),
     db.reviews.toArray(),
+    db.verbs.toArray(),
   ]);
-  return { vocab, chunks, stats, reviews };
+  return { vocab, chunks, stats, reviews, verbs };
+}
+
+// ---------- Sugestão de estudo para o dia ----------
+
+/** Junta o estado atual (revisões, sessão, ações, treino, semana) e monta o plano de hoje. */
+export async function loadSuggestion(date: ISODate = today()): Promise<Suggestion[]> {
+  const weekStart = startOfWeek(date);
+  const [session, dueCandidates, actions, material, weekSessions, weekly, settings] = await Promise.all([
+    db.sessions.where('date').equals(date).first(),
+    db.chunks.where('nextReviewDate').belowOrEqual(date).toArray(),
+    getPendingActions(date),
+    loadPracticeMaterial(),
+    db.sessions.where('date').between(weekStart, addDays(weekStart, 6), true, true).toArray(),
+    db.weeklyReviews.get(weekStart),
+    db.settings.get('settings'),
+  ]);
+
+  const due = dueCandidates.filter((c) => isDue(c, date));
+  const items = studyItems(material);
+  const lastPractice = material.stats.reduce((latest, s) => (s.lastAt > latest ? s.lastAt : latest), '');
+  const index = session ? stepIndex(session.currentStep) : 0;
+  const cycleStart = settings?.cycleStartDate ?? weekStart;
+
+  return suggestToday({
+    date,
+    weekday: new Date(`${date}T00:00:00Z`).getUTCDay(),
+    dueReviews: due.length,
+    overdueReviews: due.filter((c) => overdueDays(c, date) > 0).length,
+    session: !session ? 'none' : session.status === 'completed' ? 'completed' : 'in_progress',
+    currentStepLabel: STEPS[index]?.label ?? '',
+    remainingMinutes: STEPS.slice(index).reduce((sum, s) => sum + s.minutes, 0),
+    sessionMinutes: STEPS.reduce((sum, s) => sum + s.minutes, 0),
+    speakingLabel: weekPlan(session?.cycleWeek ?? cyclePosition(cycleStart, date).week).speakingLabel,
+    pendingActions: actions.length,
+    trainableItems: items.filter((i) => questionsFor(i).length > 0).length,
+    hardItems: hardest(items, 99).length,
+    daysSincePractice: lastPractice ? diffDays(lastPractice.slice(0, 10), date) : null,
+    weekIdeas: weekSessions.filter((s) => s.ideaOfDayId).length,
+    weeklyDone: Boolean(weekly?.completedAt),
+  });
 }

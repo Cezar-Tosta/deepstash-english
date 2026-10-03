@@ -4,6 +4,12 @@ export interface ImageInput {
   base64: string;
 }
 
+/** Um turno de conversa. O primeiro da lista é sempre do usuário. */
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface AIRequest {
   system: string;
   user: string;
@@ -18,6 +24,8 @@ export interface AIProvider {
   readonly model: string;
   /** Devolve o texto da resposta ou lança AIError com mensagem pronta para a tela. */
   complete(request: AIRequest): Promise<string>;
+  /** Continua uma conversa: recebe o histórico e devolve a próxima resposta. */
+  chat(system: string, turns: ChatTurn[]): Promise<string>;
   /** Transcreve uma gravação em inglês. Só existe nos provedores que oferecem esse serviço. */
   transcribe?(audio: Blob): Promise<string>;
   /** Responde ao pedido olhando as imagens. Só existe nos provedores com modelo de visão. */

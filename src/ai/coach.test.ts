@@ -10,6 +10,7 @@ const base: CoachContext = {
   mainIdea: 'We should focus on one task at a time.',
   chunks: ['one thing at a time'],
   attempt: '',
+  draftPt: '',
 };
 
 describe('orientação da IA por etapa', () => {
@@ -70,5 +71,36 @@ describe('modelos em uso', () => {
       audio: null,
     });
     expect(modelsInUse({ ...base, provider: 'none' })).toBeNull();
+  });
+});
+
+describe('rascunho em português', () => {
+  it('a orientação parte do que o aluno quer dizer, sem traduzir por ele', () => {
+    const { system, user } = buildCoachPrompt({
+      ...base,
+      step: 'reflect',
+      draftPt: 'Concordo, mas no meu trabalho preciso cuidar de várias coisas ao mesmo tempo.',
+    });
+    expect(user).toContain('rascunho dele em português: Concordo, mas no meu trabalho');
+    expect(system).toContain('Parta desse rascunho');
+    expect(system).toContain('Não traduza o rascunho inteiro');
+  });
+
+  it('sem rascunho, a instrução extra não aparece', () => {
+    expect(buildCoachPrompt({ ...base, step: 'reflect' }).system).not.toContain('Parta desse rascunho');
+  });
+});
+
+describe('importação por imagens com qualquer quantidade de cards', () => {
+  it('junta os lotes mantendo a ordem e o primeiro título encontrado', async () => {
+    const { mergeImported } = await import('./coach');
+    expect(
+      mergeImported([
+        { title: 'Make It Obvious', cards: ['1', '2', '3', '4'] },
+        { title: '', cards: ['5', '6', '7', '8'] },
+        { title: 'Outro', cards: ['9'] },
+      ]),
+    ).toEqual({ title: 'Make It Obvious', cards: ['1', '2', '3', '4', '5', '6', '7', '8', '9'] });
+    expect(mergeImported([])).toEqual({ title: '', cards: [] });
   });
 });

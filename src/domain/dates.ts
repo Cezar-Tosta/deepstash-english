@@ -70,3 +70,9 @@ export function formatDuration(totalSec: number): string {
   const s = Math.max(0, Math.round(totalSec));
   return `${Math.floor(s / 60)}:${pad(s % 60)}`;
 }
+
+/** Sábado ou domingo: dias sem sessão nova, só de revisões. */
+export function isWeekend(date: ISODate): boolean {
+  const day = new Date(toUTC(date)).getUTCDay();
+  return day === 0 || day === 6;
+}

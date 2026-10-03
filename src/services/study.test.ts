@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { buildLookupPrompt, canTranscribe, markTerm, parseLookup } from '../ai/feedback';
 import { AIError } from '../ai/AIProvider';
 import { db } from '../data/db';
-import { addChunk, addIdea, saveReflection, startSession } from './sessions';
+import { annotate, selectionText, tokenize } from '../domain/reader';
+import { addChunk, addIdea, deleteChunk, saveReflection, startSession } from './sessions';
 import {
   addToDictionary,
+  deleteTerm,
+  findChunks,
+  findEntries,
   findInDictionary,
   getBook,
   getNeighbors,
@@ -14,6 +18,7 @@ import {
   saveBookNote,
   saveFollowUp,
   searchDictionary,
+  updateDictionaryEntry,
 } from './study';
 
 async function seed() {
@@ -123,6 +128,26 @@ describe('dicionário', () => {
   });
 });
 
+describe('editar uma entrada do dicionário', () => {
+  it('acha as entradas do termo e altera tradução e explicação sem mexer no resto', async () => {
+    const { a } = await seed();
+    await addToDictionary({ ideaId: a.id, term: 'cue', meaning: 'deixa', context: 'Wait for your cue.', phonetic: '/kjuː/' });
+    await addToDictionary({ ideaId: a.id, term: 'habit', meaning: 'hábito' });
+
+    const [entry] = await findEntries('CUE');
+    expect(await findEntries('CUE')).toHaveLength(1);
+    await updateDictionaryEntry(entry!.id, { meaning: ' gatilho ', explanation: 'Sinal que dispara o hábito.' });
+
+    expect(await db.vocab.get(entry!.id)).toMatchObject({
+      meaning: 'gatilho',
+      explanation: 'Sinal que dispara o hábito.',
+      context: 'Wait for your cue.',
+      phonetic: '/kjuː/',
+    });
+    await expect(updateDictionaryEntry(entry!.id, { meaning: '  ' })).rejects.toThrow('Informe a tradução');
+    expect(await findEntries('inexistente')).toEqual([]);
+  });
+});
 describe('glossário para sublinhar nos textos', () => {
   it('reúne dicionário e chunks de todas as ideias, agrupando os sentidos de um mesmo termo', async () => {
     const { day1, a, c } = await seed();
@@ -133,7 +158,7 @@ describe('glossário para sublinhar nos textos', () => {
 
     const glossary = await loadGlossary();
     // A grafia e a ordem dos sentidos seguem a ordem de leitura do banco, que não é fixa.
-    expect(glossary.map((g) => g.term.toLowerCase())).toEqual(['before you', 'cue']);
+    expect(glossary.map((g) => g.term.toLowerCase())).toEqual(['before you', 'cue', 'grit']);
     expect(glossary[1]?.senses.map((s) => [s.meaning, s.context]).sort()).toEqual([
       ['deixa', 'Wait for your cue.'],
       ['gatilho', 'Every habit starts with a cue.'],
@@ -163,8 +188,10 @@ describe('IA: significado e transcrição', () => {
       meaning: 'gatilho',
       explanation: 'Sinal que dispara o hábito.',
       phonetic: '/kjuː/',
+      wordClass: '',
     });
     expect(parseLookup('{"meaning": "gatilho"}').phonetic).toBe('');
+    expect(parseLookup('{"meaning": "segurar", "wordClass": "**Verbo**"}').wordClass).toBe('verbo');
     expect(() => parseLookup('não sei')).toThrow(AIError);
   });
 
@@ -184,5 +211,51 @@ describe('IA: significado e transcrição', () => {
     expect(canTranscribe({ ...base, provider: 'groq' })).toBe(true);
     expect(canTranscribe({ ...base, provider: 'anthropic' })).toBe(false);
     expect(canTranscribe({ ...base, provider: 'none' })).toBe(false);
+  });
+});
+
+describe('destaque em todos os textos e exclusão', () => {
+  /** Os termos que apareceriam sublinhados num texto. */
+  async function highlighted(text: string): Promise<string[]> {
+    const tokens = tokenize(text);
+    return annotate(tokens, await loadGlossary()).map((a) => selectionText(tokens, a));
+  }
+  const OTHER_BOOK = 'In Deep Work, every cue matters. Decide before you start.';
+
+  it('palavra do dicionário e chunk cadastrados numa ideia são destacados no texto de outro livro', async () => {
+    const { day1, a } = await seed();
+    await addToDictionary({ ideaId: a.id, term: 'cue', meaning: 'gatilho', context: 'Every habit starts with a cue.' });
+    await addChunk(day1.id, { text: 'before you...', meaning: 'antes de você' });
+    expect(await highlighted(OTHER_BOOK)).toEqual(['cue', 'before you']);
+  });
+
+  it('destaca também o que ainda não tem tradução anotada', async () => {
+    const { day1, a } = await seed();
+    await addToDictionary({ ideaId: a.id, term: 'cue', meaning: '' });
+    await addChunk(day1.id, { text: 'before you...' });
+    expect(await highlighted(OTHER_BOOK)).toEqual(['cue', 'before you']);
+  });
+
+  it('excluir o termo apaga todos os registros dele e o destaque some de todos os textos', async () => {
+    const { a, c } = await seed();
+    await addToDictionary({ ideaId: a.id, term: 'cue', meaning: 'gatilho', context: 'Every habit starts with a cue.' });
+    await addToDictionary({ ideaId: c.id, term: 'Cue', meaning: 'deixa', context: 'Wait for your cue.' });
+    await addToDictionary({ ideaId: a.id, term: 'habit', meaning: 'hábito' });
+
+    expect(await deleteTerm('CUE')).toBe(2);
+
+    expect(await highlighted(OTHER_BOOK)).toEqual([]);
+    expect(await highlighted('Every habit starts with a cue.')).toEqual(['habit']);
+    expect(await findEntries('cue')).toEqual([]);
+  });
+
+  it('excluir um chunk tira o destaque dele de todos os textos', async () => {
+    const { day1 } = await seed();
+    const chunk = await addChunk(day1.id, { text: 'before you...', meaning: 'antes de você' });
+    expect((await findChunks('before you')).map((c) => c.id)).toEqual([chunk.id]);
+
+    await deleteChunk(chunk.id);
+    expect(await highlighted(OTHER_BOOK)).toEqual([]);
+    expect(await findChunks('before you')).toEqual([]);
   });
 });

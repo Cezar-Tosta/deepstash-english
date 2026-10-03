@@ -12,11 +12,21 @@ import {
   tokenize,
 } from '../../domain/reader';
 import type { SourceCard } from '../../domain/types';
-import { addToDictionary, findInDictionary, type GlossaryEntry, loadGlossary } from '../../services/study';
+import { deleteChunk, updateChunk } from '../../services/sessions';
+import {
+  addToDictionary,
+  deleteTerm,
+  findChunks,
+  findEntries,
+  type GlossaryEntry,
+  loadGlossary,
+  updateDictionaryEntry,
+} from '../../services/study';
 import { useOnline, useSettings } from '../hooks';
 import { attempt, showToast } from '../toast';
 import { ListenButton, ListenSettings } from './Listen';
-import { Button, Hint, TextInput } from './ui';
+import { InlineRich, RichText } from './RichText';
+import { Button, Hint, TextArea, TextInput } from './ui';
 
 /** Espera o usuário terminar de escolher a expressão antes de consultar a IA. */
 const LOOKUP_DELAY_MS = 600;
@@ -38,8 +48,12 @@ function Gloss({ entry }: { entry: GlossaryEntry }) {
       </span>
       {entry.senses.slice(0, MAX_SENSES).map((sense, i) => (
         <span key={i} className="mt-2 block border-t border-paper/20 pt-2">
-          <span className="block font-semibold">{sense.meaning}</span>
-          {sense.explanation && <span className="block opacity-90">{sense.explanation}</span>}
+          <span className="block font-semibold">{sense.meaning || 'Sem tradução anotada'}</span>
+          {sense.explanation && (
+            <span className="block opacity-90">
+              <InlineRich text={sense.explanation} />
+            </span>
+          )}
           {sense.context && (
             <span className="mt-1 block text-xs italic opacity-75" lang="en">
               “{sense.context}”
@@ -148,10 +162,30 @@ interface Picked {
   selection: Selection;
 }
 
+/** O que já se sabe do termo clicado: uma entrada do dicionário ou um chunk. */
+interface Known {
+  kind: 'vocab' | 'chunk';
+  id: string;
+  term: string;
+  meaning: string;
+  explanation: string;
+  phonetic: string;
+  wordClass: string;
+  /** Frase em que foi registrado. */
+  context: string;
+  /** Quantos registros o termo tem (um por frase, no dicionário). */
+  count: number;
+}
+
+const sameText = (a: string | undefined, b: string): boolean => (a ?? '').trim().toLowerCase() === b.trim().toLowerCase();
+
 /**
- * Cards em sequência, com cada palavra clicável. Um clique escolhe a palavra e já
- * traz tradução e fonética no contexto; um segundo clique, em outra palavra do
- * mesmo card, estende até formar a expressão. A tradução vem num campo editável.
+ * Cards em sequência, com cada palavra clicável. Um clique escolhe a palavra; um
+ * segundo clique, em outra palavra do mesmo card, estende até formar a expressão.
+ *
+ * Se o termo já está no dicionário ou é um chunk, o painel mostra o que foi salvo,
+ * com Editar e Excluir. Excluir tira o termo de todos os textos em que ele aparecia
+ * destacado. Se o termo é novo, o painel traz tradução e fonética no contexto.
  */
 export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly SourceCard[] }) {
   const settings = useSettings();
@@ -163,14 +197,55 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
   const [meaning, setMeaning] = useState('');
   const [explanation, setExplanation] = useState('');
   const [phonetic, setPhonetic] = useState('');
+  const [wordClass, setWordClass] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  /** `view`: mostra o que está salvo. `edit`: altera o que está salvo. `new`: analisa nesta frase. */
+  const [mode, setMode] = useState<'view' | 'edit' | 'new'>('view');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const tokens = picked ? (tokensByCard.get(picked.cardId) ?? []) : [];
   const term = picked ? selectionText(tokens, picked.selection) : '';
   const context = picked ? sentenceAround(tokens, picked.selection) : '';
   const aiReady = Boolean(settings && isAIConfigured(settings.ai));
   const wordCount = picked ? tokens.slice(picked.selection.start, picked.selection.end + 1).filter((t) => t.isWord).length : 0;
+
+  // O dicionário tem preferência (e, nele, a entrada desta mesma frase); depois os chunks.
+  const found = useLiveQuery(
+    async () => (term ? { entries: await findEntries(term), chunks: await findChunks(term) } : { entries: [], chunks: [] }),
+    [term],
+  );
+  const entry = found?.entries.find((e) => sameText(e.context, context)) ?? found?.entries[0];
+  const chunk = found?.chunks[0];
+  const known: Known | null = entry
+    ? {
+        kind: 'vocab',
+        id: entry.id,
+        term: entry.term,
+        meaning: entry.meaning,
+        explanation: entry.explanation ?? '',
+        phonetic: entry.phonetic ?? '',
+        wordClass: entry.wordClass ?? '',
+        context: entry.context ?? '',
+        count: found?.entries.length ?? 1,
+      }
+    : chunk
+      ? {
+          kind: 'chunk',
+          id: chunk.id,
+          term: chunk.text,
+          meaning: chunk.meaning,
+          explanation: '',
+          phonetic: '',
+          wordClass: '',
+          context: chunk.originalSentence,
+          count: 1,
+        }
+      : null;
+  const showKnown = known !== null && mode !== 'new';
+  const otherSentence = known !== null && known.context !== '' && !sameText(known.context, context);
+  // Só consulta a IA quando não há nada salvo, ou quando o usuário pede a análise nesta frase.
+  const needsLookup = term !== '' && found !== undefined && (known === null || mode === 'new');
 
   const pick = (cardId: string, index: number) => {
     const current = picked?.cardId === cardId ? picked.selection : null;
@@ -179,29 +254,26 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
     setMeaning('');
     setExplanation('');
     setPhonetic('');
+    setWordClass('');
     setError('');
+    setMode('view');
+    setConfirmingDelete(false);
   };
 
   // A análise aparece sozinha pouco depois do clique. Se a seleção mudar antes da
   // resposta chegar, a resposta antiga é descartada.
   useEffect(() => {
-    if (!term) return;
+    if (!needsLookup || !aiReady || !online) return;
     let cancelled = false;
     const timer = setTimeout(async () => {
       setBusy(true);
       try {
-        // Só reaproveita o que foi salvo para esta mesma frase: em outro contexto
-        // o sentido pode ser outro, então a análise é refeita.
-        const existing = await findInDictionary(term, context);
-        const result = existing
-          ? { meaning: existing.meaning, explanation: existing.explanation ?? '', phonetic: existing.phonetic ?? '' }
-          : aiReady && online
-            ? await lookupMeaning(term, context)
-            : null;
-        if (cancelled || !result) return;
+        const result = await lookupMeaning(term, context);
+        if (cancelled) return;
         setMeaning(result.meaning);
         setExplanation(result.explanation);
         setPhonetic(result.phonetic);
+        setWordClass(result.wordClass);
       } catch (e) {
         if (!cancelled) setError(e instanceof AIError ? e.message : 'Não foi possível buscar a tradução.');
       } finally {
@@ -213,12 +285,45 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
       clearTimeout(timer);
       setBusy(false);
     };
-  }, [term, context, aiReady, online]);
+  }, [needsLookup, term, context, aiReady, online]);
 
-  const save = () => {
+  const add = () => {
     attempt(
-      addToDictionary({ ideaId, term, meaning, context, explanation, phonetic }).then(() => {
+      addToDictionary({ ideaId, term, meaning, context, explanation, phonetic, wordClass }).then(() => {
         showToast(`"${term}" adicionado ao dicionário.`);
+        setMode('view');
+      }),
+    );
+  };
+
+  const startEdit = () => {
+    if (!known) return;
+    setMeaning(known.meaning);
+    setExplanation(known.explanation);
+    setMode('edit');
+    setConfirmingDelete(false);
+  };
+
+  const saveEdit = () => {
+    if (!known) return;
+    const saving =
+      known.kind === 'chunk' ? updateChunk(known.id, { meaning: meaning.trim() }) : updateDictionaryEntry(known.id, { meaning, explanation });
+    attempt(
+      saving.then(() => {
+        showToast(known.kind === 'chunk' ? 'Chunk atualizado.' : 'Entrada atualizada.');
+        setMode('view');
+      }),
+    );
+  };
+
+  // Excluir vale para o termo inteiro: ele deixa de aparecer destacado em todos os textos.
+  const remove = () => {
+    if (!known) return;
+    const removing = known.kind === 'chunk' ? deleteChunk(known.id) : deleteTerm(known.term);
+    attempt(
+      Promise.resolve(removing).then(() => {
+        showToast(`"${known.term}" excluído. O destaque saiu de todos os textos.`);
+        setConfirmingDelete(false);
         setPicked(null);
       }),
     );
@@ -228,7 +333,8 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
     <div>
       <Hint>
         Clique em uma palavra para ver tradução e pronúncia. Para uma expressão, clique na primeira e depois na última
-        palavra. O que já está no dicionário ou nos chunks aparece sublinhado: passe o mouse para ver.
+        palavra. O que está no seu dicionário ou nos seus chunks aparece sublinhado em todos os textos, de qualquer
+        livro: passe o mouse para ver, clique para editar ou excluir.
       </Hint>
       <div className="mt-2">
         <ListenSettings />
@@ -255,9 +361,11 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
       {picked && term && (
         <div className="sticky bottom-20 z-30 mt-4 rounded-2xl border border-accent bg-surface p-4 shadow-lg md:bottom-4" role="region" aria-label="Tradução">
           <div className="flex items-start justify-between gap-3">
-            <p className="font-serif text-xl" lang="en">
+            <p className="min-w-0 font-serif text-xl break-words" lang="en">
               {term}
-              {phonetic && <span className="ml-3 font-sans text-sm text-muted">{phonetic}</span>}
+              {(showKnown ? known.phonetic : phonetic) && (
+                <span className="ml-3 font-sans text-sm text-muted">{showKnown ? known.phonetic : phonetic}</span>
+              )}
             </p>
             <div className="flex shrink-0 items-center gap-3">
               <ListenButton text={term} />
@@ -268,31 +376,113 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
           </div>
           <p className="mt-1 text-xs font-semibold tracking-wide text-accent uppercase">
             {wordCount > 1 ? `Expressão · ${wordCount} palavras, analisadas em conjunto` : 'Palavra'}
+            {(showKnown ? known.wordClass : wordClass) && ` · ${showKnown ? known.wordClass : wordClass}`}
+            {showKnown && (known.kind === 'chunk' ? ' · chunk seu' : ' · no dicionário')}
           </p>
           <p className="mt-1 text-sm text-muted" lang="en">
             “{context}”
           </p>
 
-          <div className="mt-3 space-y-3">
-            <TextInput
-              label={wordCount > 1 ? 'Tradução da expressão (pode editar)' : 'Tradução em português (pode editar)'}
-              value={meaning}
-              onChange={setMeaning}
-              autoComplete="off"
-              placeholder={
-                busy ? 'Analisando no contexto…' : aiReady ? 'Tradução' : 'Sem IA configurada: escreva você a tradução'
-              }
-            />
-            {error && (
-              <p role="alert" className="text-sm text-danger">
-                {error}
-              </p>
-            )}
-            {explanation && <p className="text-sm leading-relaxed">{explanation}</p>}
-            <Button small variant="secondary" disabled={!meaning.trim()} onClick={save}>
-              Adicionar ao dicionário
-            </Button>
-          </div>
+          {showKnown && mode === 'view' && (
+            <div className="mt-3 space-y-3">
+              <p className="text-lg">{known.meaning || 'Sem tradução anotada.'}</p>
+              {known.explanation && <RichText text={known.explanation} className="text-sm" />}
+              {otherSentence && (
+                <p className="text-xs text-muted">
+                  Registrado em outra frase: <span lang="en">“{known.context}”</span>
+                </p>
+              )}
+              {confirmingDelete ? (
+                <div role="alert" className="space-y-2 text-sm">
+                  <p>
+                    Excluir <span className="font-serif" lang="en">“{known.term}”</span>
+                    {known.kind === 'chunk'
+                      ? ' dos seus chunks? O histórico de revisões dele também é apagado.'
+                      : known.count > 1
+                        ? ` do dicionário? Os ${known.count} registros deste termo serão apagados.`
+                        : ' do dicionário?'}{' '}
+                    O destaque some de todos os textos.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button small variant="danger" onClick={remove}>
+                      Confirmar exclusão
+                    </Button>
+                    <Button small variant="ghost" onClick={() => setConfirmingDelete(false)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <Button small variant="secondary" onClick={startEdit}>
+                    Editar
+                  </Button>
+                  <Button small variant="danger" onClick={() => setConfirmingDelete(true)}>
+                    Excluir
+                  </Button>
+                  {otherSentence && aiReady && (
+                    <Button
+                      small
+                      variant="ghost"
+                      onClick={() => {
+                        setMeaning('');
+                        setExplanation('');
+                        setPhonetic('');
+                        setMode('new');
+                      }}
+                    >
+                      Analisar nesta frase
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {showKnown && mode === 'edit' && (
+            <div className="mt-3 space-y-3">
+              <TextInput label="Tradução em português" value={meaning} onChange={setMeaning} autoComplete="off" />
+              {known.kind === 'vocab' && <TextArea label="Explicação" value={explanation} onChange={setExplanation} rows={2} />}
+              <div className="flex flex-wrap gap-2">
+                <Button small disabled={!meaning.trim()} onClick={saveEdit}>
+                  Salvar
+                </Button>
+                <Button small variant="ghost" onClick={() => setMode('view')}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!showKnown && (
+            <div className="mt-3 space-y-3">
+              <TextInput
+                label={wordCount > 1 ? 'Tradução da expressão (pode editar)' : 'Tradução em português (pode editar)'}
+                value={meaning}
+                onChange={setMeaning}
+                autoComplete="off"
+                placeholder={
+                  busy ? 'Analisando no contexto…' : aiReady ? 'Tradução' : 'Sem IA configurada: escreva você a tradução'
+                }
+              />
+              {error && (
+                <p role="alert" className="text-sm text-danger">
+                  {error}
+                </p>
+              )}
+              {explanation && <RichText text={explanation} className="text-sm" />}
+              <div className="flex flex-wrap gap-2">
+                <Button small variant="secondary" disabled={!meaning.trim()} onClick={add}>
+                  Adicionar ao dicionário
+                </Button>
+                {known && (
+                  <Button small variant="ghost" onClick={() => setMode('view')}>
+                    Voltar ao que está salvo
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

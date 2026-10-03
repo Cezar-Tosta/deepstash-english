@@ -6,8 +6,6 @@ import { type ImportedIdea, parseIdeaText } from '../../domain/ideaImport';
 import { useOnline, useSettings } from '../hooks';
 import { Button, Hint, Spinner, TextArea } from './ui';
 
-const MAX_IMAGES = 8;
-
 function toImageInput(file: File): Promise<ImageInput> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -32,17 +30,20 @@ export function IdeaImport({ onImported }: { onImported: (idea: ImportedIdea) =>
   const online = useOnline();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const aiReady = Boolean(settings && isAIConfigured(settings.ai));
   const parsed = parseIdeaText(text);
 
   const readImages = async (files: File[]) => {
-    const images = files.filter((f) => f.type.startsWith('image/')).slice(0, MAX_IMAGES);
+    const images = files.filter((f) => f.type.startsWith('image/'));
     if (images.length === 0) return;
     setBusy(true);
+    setProgress(`0 de ${images.length}`);
     setError('');
     try {
-      onImported(await importIdeaFromImages(await Promise.all(images.map(toImageInput))));
+      const inputs = await Promise.all(images.map(toImageInput));
+      onImported(await importIdeaFromImages(inputs, (done, total) => setProgress(`${done} de ${total}`)));
     } catch (e) {
       setError(e instanceof AIError ? e.message : 'Não foi possível ler as imagens.');
     } finally {
@@ -96,7 +97,7 @@ export function IdeaImport({ onImported }: { onImported: (idea: ImportedIdea) =>
           >
             {busy ? (
               <span className="inline-flex items-center gap-2" role="status">
-                <Spinner /> Lendo as imagens…
+                <Spinner /> Lendo as imagens… {progress}
               </span>
             ) : (
               'Ler screenshots com a IA'
@@ -107,8 +108,8 @@ export function IdeaImport({ onImported }: { onImported: (idea: ImportedIdea) =>
       </div>
       {aiReady ? (
         <Hint>
-          Screenshots: escolha as imagens ou cole com Ctrl+V (até {MAX_IMAGES}). A IA transcreve título e cards; confira
-          antes de salvar.
+          Screenshots: escolha as imagens, quantas forem, ou cole com Ctrl+V. A IA transcreve título e cards; confira antes
+          de salvar.
         </Hint>
       ) : (
         <Hint>Com a IA configurada em Ajustes, também dá para importar a partir de screenshots dos cards.</Hint>

@@ -7,6 +7,7 @@ import { searchChunks, searchIdeas } from '../../services/library';
 import { listBooks, searchDictionary } from '../../services/study';
 import { ChunkItem } from '../components/ChunkItem';
 import { DeleteEntry } from '../components/DictionaryItems';
+import { RichText } from '../components/RichText';
 import { ListenButton, ListenSettings } from '../components/Listen';
 import { EmptyState, PageTitle, Segmented, TextInput } from '../components/ui';
 import { useToday } from '../hooks';
@@ -171,7 +172,7 @@ function DictionaryList({ query }: { query: string }) {
                 “{entry.context}”
               </p>
             )}
-            {entry.explanation && <p className="mt-1 text-sm">{entry.explanation}</p>}
+            {entry.explanation && <RichText text={entry.explanation} className="mt-1 text-sm" />}
             {idea && (
               <p className="mt-2 text-xs text-muted">
                 <Link to={`/knowledge/idea/${idea.id}`} className="underline underline-offset-2">

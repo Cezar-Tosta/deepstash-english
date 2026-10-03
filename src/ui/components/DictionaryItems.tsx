@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { ComprehensionVocab } from '../../domain/types';
 import { deleteVocab } from '../../services/sessions';
+import { findEntries } from '../../services/study';
 import { attempt, showToast } from '../toast';
 import { ListenButton } from './Listen';
+import { RichText } from './RichText';
 import { Button } from './ui';
 
 /** Excluir do dicionário, sempre em dois passos: pedir e confirmar. */
@@ -24,7 +26,19 @@ export function DeleteEntry({ entry }: { entry: ComprehensionVocab }) {
       <Button
         small
         variant="danger"
-        onClick={() => attempt(deleteVocab(entry.id).then(() => showToast(`"${entry.term}" excluído do dicionário.`)))}
+        onClick={() =>
+          attempt(
+            deleteVocab(entry.id)
+              .then(() => findEntries(entry.term))
+              .then((rest) =>
+                showToast(
+                  rest.length > 0
+                    ? `Registro excluído. "${entry.term}" continua no dicionário por outra frase.`
+                    : `"${entry.term}" excluído. O destaque saiu de todos os textos.`,
+                ),
+              ),
+          )
+        }
       >
         Confirmar exclusão
       </Button>
@@ -64,7 +78,7 @@ function Row({ entry }: { entry: ComprehensionVocab }) {
               “{entry.context}”
             </p>
           )}
-          {entry.explanation && <p className="leading-relaxed">{entry.explanation}</p>}
+          {entry.explanation && <RichText text={entry.explanation} />}
           <div className="flex flex-wrap items-center gap-3">
             <ListenButton text={entry.term} />
             <DeleteEntry entry={entry} />

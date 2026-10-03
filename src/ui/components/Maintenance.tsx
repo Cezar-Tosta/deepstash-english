@@ -5,6 +5,7 @@ import { ROUTINE, STEPS } from '../../domain/session';
 import type { ISODate } from '../../domain/types';
 import {
   deleteRecordingsBefore,
+  deleteSpeaking,
   listWeekSpeaking,
   recordingsUsage,
   resetAll,
@@ -155,10 +156,12 @@ export function DataSection() {
 
 // ---------- Falas da semana ----------
 
-const KIND_LABEL = { daily: 'Retelling', weekly: 'Fala da semana', book: 'Explicação do livro' } as const;
+const KIND_LABEL = { daily: 'Retelling', weekly: 'Fala da semana', book: 'Livro' } as const;
 
+/** Uma fala em poucas linhas: quando, o quê, o player e, sob demanda, a transcrição. */
 function SpokenRow({ item }: { item: SpokenItem }) {
   const { speaking, idea, audio } = item;
+  const [confirming, setConfirming] = useState(false);
   const url = useMemo(() => (audio ? URL.createObjectURL(audio) : null), [audio]);
   useEffect(
     () => () => {
@@ -168,38 +171,79 @@ function SpokenRow({ item }: { item: SpokenItem }) {
   );
 
   return (
-    <li className="rounded-2xl border border-line bg-surface p-4">
-      <p className="text-xs text-muted">
-        {formatDate(speaking.date, 'weekday').replace('.', '')} {formatDate(speaking.date, 'short')} ·{' '}
-        {KIND_LABEL[speaking.kind]} · {formatDuration(speaking.durationSec)}
-      </p>
-      {idea && <p className="mt-1 font-serif text-lg leading-snug break-words">{idea.title}</p>}
-      <div className="mt-2">
-        {url ? (
-          <RecordingPlayer src={url} showSettings={false} />
-        ) : (
-          <p className="text-sm text-muted">Áudio não disponível neste navegador.</p>
+    <li className="rounded-xl border border-line bg-surface px-3 py-2">
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 text-sm">
+          <span className="font-medium break-words">{idea?.title ?? KIND_LABEL[speaking.kind]}</span>
+          <span className="block text-xs text-muted">
+            {formatDate(speaking.date, 'weekday').replace('.', '')} {formatDate(speaking.date, 'short')} ·{' '}
+            {KIND_LABEL[speaking.kind]} · {formatDuration(speaking.durationSec)}
+          </span>
+        </p>
+        {!confirming && (
+          <button
+            type="button"
+            aria-label={`Excluir a fala de ${formatDate(speaking.date, 'short')}`}
+            onClick={() => setConfirming(true)}
+            className="min-h-8 shrink-0 text-xs font-medium text-danger"
+          >
+            Excluir
+          </button>
         )}
       </div>
+
+      {confirming && (
+        <div role="alert" className="mt-2 rounded-lg bg-sunken p-2 text-sm">
+          <p>Excluir esta fala? O áudio, a transcrição e o tempo deixam de contar. Não dá para desfazer.</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button
+              small
+              variant="danger"
+              onClick={() => attempt(deleteSpeaking(speaking.id).then(() => showToast('Fala excluída.')))}
+            >
+              Confirmar exclusão
+            </Button>
+            <Button small variant="ghost" onClick={() => setConfirming(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {url ? (
+        <div className="mt-2 [&_audio]:h-9">
+          <RecordingPlayer src={url} showSettings={false} />
+        </div>
+      ) : (
+        <p className="mt-1 text-xs text-muted">Áudio não disponível neste navegador.</p>
+      )}
       {speaking.transcript && (
-        <p className="mt-2 border-l-2 border-line pl-3 font-serif break-words whitespace-pre-wrap" lang="en">
-          {speaking.transcript}
-        </p>
+        <details className="mt-1 text-sm">
+          <summary className="min-h-8 cursor-pointer text-xs font-medium text-accent">Ver transcrição</summary>
+          <p className="font-serif break-words whitespace-pre-wrap" lang="en">
+            {speaking.transcript}
+          </p>
+        </details>
       )}
     </li>
   );
 }
 
-/** Todas as falas gravadas na semana, para ouvir de novo e comparar a evolução. */
+/** Todas as falas gravadas na semana, em lista compacta, para ouvir de novo ou excluir. */
 export function SpokenWeek({ weekStart }: { weekStart: ISODate }) {
   const items = useLiveQuery(() => listWeekSpeaking(weekStart), [weekStart]);
   if (!items) return null;
   if (items.length === 0) return <Hint>Nenhuma fala registrada nesta semana.</Hint>;
+  const total = items.reduce((sum, i) => sum + i.speaking.durationSec, 0);
   return (
-    <div className="space-y-3">
-      <Hint>Ouça da primeira para a última: o que ficou mais fluido? Onde você ainda trava?</Hint>
-      <ListenSettings />
-      <ul className="space-y-3">
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="text-sm text-muted">
+          {items.length} {items.length === 1 ? 'fala' : 'falas'} · {formatDuration(total)}
+        </p>
+        <ListenSettings />
+      </div>
+      <ul className="grid items-start gap-2 sm:grid-cols-2">
         {items.map((item) => (
           <SpokenRow key={item.speaking.id} item={item} />
         ))}

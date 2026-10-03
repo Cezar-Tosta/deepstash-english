@@ -4,12 +4,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../../data/db';
 import { overdueDays } from '../../domain/chunks';
 import { cyclePosition, weekPlan } from '../../domain/cycle';
-import { formatDate, formatDuration, startOfWeek } from '../../domain/dates';
+import { formatDate, formatDuration, isWeekend, startOfWeek } from '../../domain/dates';
 import { MAX_CHUNKS_PER_DAY, sessionProgress } from '../../domain/session';
 import { getDueChunks } from '../../services/reviews';
 import { getPendingActions } from '../../services/study';
 import { ActionFollowUp } from '../components/ActionFollowUp';
 import { Routine } from '../components/Maintenance';
+import { TodaySuggestion } from '../components/TodaySuggestion';
 import { loadSessionBundle, startSession } from '../../services/sessions';
 import { Button, Card, Eyebrow, PageTitle, ProgressBar } from '../components/ui';
 import { useSettings, useToday } from '../hooks';
@@ -59,6 +60,10 @@ export function TodayPage() {
   const ideasToday = bundle?.ideas.length ?? 0;
   const cardsToday = bundle?.ideas.reduce((sum, i) => sum + i.cards.length, 0) ?? 0;
 
+  const weekend = isWeekend(date);
+  // No fim de semana a sessão só aparece se o usuário já tiver decidido fazer uma.
+  const restDay = weekend && !bundle;
+
   const open = () => {
     attempt(startSession(date).then(() => navigate('/session')));
   };
@@ -84,6 +89,25 @@ export function TodayPage() {
         </Card>
       )}
 
+      {restDay ? (
+        <Card>
+          <Eyebrow>Fim de semana</Eyebrow>
+          <p className="mt-2 text-lg font-medium">
+            {due.length === 0 ? 'Nada agendado para hoje.' : `Hoje é dia só de revisão: ${due.length} ${due.length === 1 ? 'expressão' : 'expressões'}.`}
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            Sábado e domingo não têm sessão nova. A próxima é na segunda-feira.
+          </p>
+          {due.length > 0 && (
+            <Button block className="mt-4" onClick={() => void navigate('/review')}>
+              FAZER {due.length} {due.length === 1 ? 'REVISÃO' : 'REVISÕES'}
+            </Button>
+          )}
+          <Button block className="mt-2" variant="ghost" onClick={open}>
+            Fazer uma sessão mesmo assim
+          </Button>
+        </Card>
+      ) : (
       <Card>
         <div className="mb-1 flex items-baseline justify-between">
           <Eyebrow>Sessão</Eyebrow>
@@ -118,8 +142,10 @@ export function TodayPage() {
           </Button>
         )}
       </Card>
+      )}
 
-      <ActionFollowUp actions={actions ?? []} />
+      <TodaySuggestion date={date} />
+      {!weekend && <ActionFollowUp actions={actions ?? []} />}
       <Routine />
 
       {totalSessions > 0 && (

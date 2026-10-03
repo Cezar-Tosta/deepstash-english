@@ -143,6 +143,7 @@ function BackupSection({ lastBackupAt }: { lastBackupAt: string | null }) {
 // ---------- IA ----------
 
 function AISection({ saved }: { saved: AISettings }) {
+  const cloud = useCloud();
   const [draft, setDraft] = useState(saved);
   useEffect(() => setDraft(saved), [saved]);
   const patch = (p: Partial<AISettings>) => setDraft({ ...draft, ...p });
@@ -198,8 +199,10 @@ function AISection({ saved }: { saved: AISettings }) {
 
         {draft.provider !== 'none' && (
           <Notice>
-            A chave fica guardada apenas neste navegador: não entra no backup nem vai para a nuvem, então é preciso
-            informá-la de novo em cada navegador. Ao pedir um retorno, o texto que você
+            {cloud.user
+              ? 'A chave e os modelos ficam guardados na sua conta e valem em qualquer navegador onde você entrar. Eles não entram no arquivo de backup.'
+              : 'A chave fica guardada apenas neste navegador e não entra no arquivo de backup.'}{' '}
+            Ao pedir um retorno, o texto que você
             escreveu é enviado ao provedor escolhido.
           </Notice>
         )}

@@ -1,6 +1,6 @@
 import { liveQuery, type Subscription } from 'dexie';
 import { useSyncExternalStore } from 'react';
-import { clearLocalData, exportBackup, isLocalEmpty, restoreBackup } from '../data/backup';
+import { clearLocalData, exportForCloud, isLocalEmpty, restoreBackup } from '../data/backup';
 import { type MetaStore, type SyncMeta, SyncEngine, type SyncOutcome } from './engine';
 import { cloudEnabled, createSupabaseStore, getClient } from './supabase';
 
@@ -110,7 +110,7 @@ function run(task: (e: SyncEngine) => Promise<SyncOutcome>): Promise<SyncOutcome
 function watchLocalChanges(): void {
   watcher?.unsubscribe();
   // liveQuery dispara de novo sempre que qualquer tabela exportada muda.
-  watcher = liveQuery(exportBackup).subscribe(() => {
+  watcher = liveQuery(exportForCloud).subscribe(() => {
     clearTimeout(debounce);
     debounce = setTimeout(() => {
       if (state.hydrated && state.status !== 'choose') void run((e) => e.pushIfChanged());
@@ -123,7 +123,7 @@ function startFor(user: { id: string; email: string }): void {
   engine = new SyncEngine(
     user.id,
     createSupabaseStore(getClient(), user.id),
-    { export: exportBackup, restore: restoreBackup, isEmpty: isLocalEmpty },
+    { export: exportForCloud, restore: restoreBackup, isEmpty: isLocalEmpty },
     metaStore,
   );
   update({ user, authReady: true, hydrated: false, status: 'idle', error: '' });

@@ -13,7 +13,10 @@ export interface StepDef {
   minutes: number;
 }
 
-const DAILY = 'Todo dia';
+const DAILY = 'Segunda a sexta';
+
+/** A sessão acontece nos dias úteis; sábado e domingo são só de revisões. */
+export const SESSION_DAYS_PER_WEEK = 5;
 
 export const STEPS: readonly StepDef[] = [
   { id: 'review', label: 'REVIEW', hint: 'Recupere antes de olhar.', frequency: `${DAILY}, antes de ler`, minutes: 5 },
@@ -38,8 +41,13 @@ export interface RoutineItem {
 export const ROUTINE: readonly RoutineItem[] = [
   {
     activity: 'Sessão de estudo',
-    frequency: 'Todo dia',
+    frequency: 'Segunda a sexta',
     detail: `${STEPS.reduce((sum, s) => sum + s.minutes, 0)} min: as 10 etapas, do REVIEW ao SCHEDULE REVIEW.`,
+  },
+  {
+    activity: 'Fim de semana',
+    frequency: 'Sábado e domingo',
+    detail: 'Sem sessão nova: só as revisões que caírem nesses dias.',
   },
   {
     activity: 'Revisão de cada chunk',
@@ -54,8 +62,8 @@ export const ROUTINE: readonly RoutineItem[] = [
   { activity: 'Exercícios', frequency: '2 a 3 vezes por semana', detail: 'Treino curto com os termos em que você mais erra.' },
   {
     activity: 'Weekly review',
-    frequency: '1 vez por semana',
-    detail: 'No fim da semana: relembrar as ideias, Top 3, ouvir suas falas, fala livre e texto de 80 a 120 palavras.',
+    frequency: 'Sexta-feira',
+    detail: 'Depois da última sessão da semana: relembrar as ideias, Top 3, ouvir suas falas, fala livre e texto de 80 a 120 palavras.',
   },
   {
     activity: 'Fechamento do livro',

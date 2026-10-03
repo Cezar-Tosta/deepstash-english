@@ -4,13 +4,15 @@ import {
   type Flashcard,
   type FlashSource,
   pickFlashcards,
+  splitAround,
   type StudyItem,
 } from '../../domain/exercises';
 import { recordPractice } from '../../services/maintenance';
 import { stopSpeaking } from '../speech';
 import { attempt } from '../toast';
 import { ListenButton, ListenSettings } from './Listen';
-import { Button, Card, EmptyState, Eyebrow, Prompt, Segmented, TextInput } from './ui';
+import { RichText } from './RichText';
+import { Badge, Button, Card, EmptyState, Eyebrow, Prompt, Segmented, TextInput } from './ui';
 
 const SOURCES: readonly { value: FlashSource; label: string }[] = [
   { value: 'both', label: 'Palavras e chunks' },
@@ -38,13 +40,14 @@ export function FlashcardSetup({ items, onStart }: { items: readonly StudyItem[]
     <Card>
       <Prompt>Flashcards</Prompt>
       <p className="mt-1 text-sm text-muted">
-        A expressão em inglês na frente; você tenta lembrar e vira o cartão para conferir.
+        A expressão aparece dentro da frase em que você a encontrou. Tente lembrar o sentido e vire para conferir a
+        tradução, a classe gramatical e o uso naquele contexto.
       </p>
       <div className="mt-3 space-y-3">
         <Segmented label="O que entra nos flashcards" value={source} options={SOURCES} onChange={setSource} />
         {available.length === 0 ? (
           <EmptyState title="Ainda sem material.">
-            Adicione palavras ao dicionário pela leitura ou escolha chunks nas sessões.
+            Adicione palavras ao dicionário clicando nelas nos cards, ou escolha chunks com a frase original.
           </EmptyState>
         ) : (
           <>
@@ -79,6 +82,24 @@ export function FlashcardSetup({ items, onStart }: { items: readonly StudyItem[]
         )}
       </div>
     </Card>
+  );
+}
+
+/** A frase com o termo em destaque: o flashcard nunca mostra a palavra solta. */
+function InContext({ card }: { card: Flashcard }) {
+  const parts = splitAround(card.context, card.front);
+  return (
+    <p className="font-serif text-xl leading-relaxed break-words" lang="en">
+      {parts ? (
+        <>
+          {parts.before}
+          <mark className="rounded bg-accent-soft px-1 font-semibold text-ink">{parts.match}</mark>
+          {parts.after}
+        </>
+      ) : (
+        card.context
+      )}
+    </p>
   );
 }
 
@@ -146,24 +167,36 @@ export function FlashcardRound({ cards, onExit }: { cards: Flashcard[]; onExit: 
         </span>
       </div>
 
-      <Card className="text-center">
-        <Eyebrow>{current.source === 'chunks' ? 'Chunk' : 'Dicionário'}</Eyebrow>
-        <p className="mt-6 font-serif text-3xl leading-tight break-words" lang="en">
-          {current.front}
-        </p>
-        <p className="mb-4 min-h-6 text-muted">{current.phonetic}</p>
-        <ListenButton text={current.front} />
+      <Card>
+        <Eyebrow>{current.source === 'chunks' ? 'Chunk' : 'Dicionário'} · o que significa o trecho destacado?</Eyebrow>
+        <div className="mt-4">
+          <InContext card={current} />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          <ListenButton text={current.context} label="Ouvir a frase" />
+          <ListenButton text={current.front} label="Ouvir o termo" />
+        </div>
 
         {flipped ? (
           <div className="mt-5 space-y-3 border-t border-line pt-5" aria-live="polite">
-            <p className="text-xl">{current.back || 'Sem significado anotado.'}</p>
-            {current.context && (
+            <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-serif text-xl" lang="en">
+                {current.front}
+              </span>
+              {current.phonetic && <span className="text-sm text-muted">{current.phonetic}</span>}
+              {current.wordClass && <Badge tone="accent">{current.wordClass}</Badge>}
+            </p>
+            <p className="text-xl">{current.back || 'Sem tradução anotada.'}</p>
+            {current.explanation ? (
               <div>
-                <p className="font-serif text-lg text-muted" lang="en">
-                  “{current.context}”
-                </p>
-                <ListenButton text={current.context} label="Ouvir a frase" />
+                <p className="text-xs font-semibold tracking-wide text-muted uppercase">Neste contexto</p>
+                <RichText text={current.explanation} className="text-sm" />
               </div>
+            ) : (
+              <p className="text-sm text-muted">
+                Sem explicação de contexto registrada. Clique no termo no card da ideia para a IA analisar o uso e a
+                classe gramatical.
+              </p>
             )}
             <div className="grid grid-cols-2 gap-2 pt-2">
               <Button variant="secondary" onClick={() => answer(false)}>

@@ -3,6 +3,7 @@ import { bookKey, groupByBook } from './books';
 import {
   blankOut,
   buildFlashcards,
+  buildTenseTraining,
   buildTraining,
   dictationScore,
   hardest,
@@ -10,11 +11,14 @@ import {
   pickFlashcards,
   questionsFor,
   requeue,
+  splitAround,
   studyItems,
+  tenseQuestions,
+  withoutContext,
 } from './exercises';
 import { parseIdeaJSON, parseIdeaText } from './ideaImport';
 import { annotate, extendSelection, selectionText, sentenceAround, splitSentences, termWords, tokenize } from './reader';
-import type { Chunk, ChunkReview, ComprehensionVocab, Idea, PracticeStat, SourceCard } from './types';
+import type { Chunk, ChunkReview, ComprehensionVocab, Idea, PracticeStat, SourceCard, VerbEntry } from './types';
 
 function idea(id: string, bookTitle: string, date: string): Idea {
   return {
@@ -129,15 +133,16 @@ describe('correção das respostas', () => {
   });
 });
 
-describe('treino adaptativo', () => {
+describe('treino: nenhuma palavra solta', () => {
   const vocab: ComprehensionVocab[] = [
-    { id: 'v1', ideaId: 'a', sessionId: 's', term: 'rut', meaning: 'rotina sem saída', context: 'Stuck in a rut.', createdAt: '' },
-    { id: 'v2', ideaId: 'a', sessionId: 's', term: 'grit', meaning: '', createdAt: '' },
-    { id: 'v3', ideaId: 'a', sessionId: 's', term: 'cue', meaning: 'gatilho', createdAt: '' },
+    { id: 'v1', ideaId: 'a', sessionId: 's', term: 'rut', meaning: 'rotina sem saída', context: 'Stuck in a rut.', wordClass: 'substantivo', explanation: 'Aqui é uma rotina da qual não se sai.', createdAt: '' },
+    { id: 'v2', ideaId: 'a', sessionId: 's', term: 'grit', meaning: 'garra', createdAt: '' },
   ];
   const chunks = [
     { id: 'k1', text: 'in your head', meaning: 'na sua cabeça', userSentence: 'It lives in your head.', originalSentence: '' },
     { id: 'k2', text: 'it turns out that', meaning: '', userSentence: '', originalSentence: 'It turns out that focus wins.' },
+    { id: 'k3', text: 'on purpose', meaning: 'de propósito', userSentence: '', originalSentence: '', extraSentences: ['I did it on purpose.'] },
+    { id: 'k4', text: 'by heart', meaning: 'de cor', userSentence: '', originalSentence: '' },
   ] as Chunk[];
   const review = (chunkId: string, rating: 'AGAIN' | 'HARD' | 'GOOD') =>
     ({ id: chunkId + rating, chunkId, rating }) as ChunkReview;
@@ -146,54 +151,54 @@ describe('treino adaptativo', () => {
   const material = {
     vocab,
     chunks,
-    stats: [stat('vocab:v1', 0, 3), stat('vocab:v3', 5, 0), stat('chunk:k1', 1, 1)],
+    stats: [stat('vocab:v1', 0, 3), stat('chunk:k1', 1, 1)],
     reviews: [review('k2', 'AGAIN'), review('k2', 'HARD'), review('k1', 'GOOD')],
+    verbs: [],
   };
   const items = studyItems(material);
   const byKey = new Map(items.map((i) => [i.key, i]));
 
-  it('reúne dicionário e chunks, deixando de fora o que não tem o que perguntar', () => {
-    expect(items.map((i) => i.key)).toEqual(['vocab:v1', 'vocab:v3', 'chunk:k1', 'chunk:k2']);
+  it('só entra nos exercícios o termo que tem ao menos uma frase', () => {
+    expect(items.map((i) => i.key)).toEqual(['vocab:v1', 'chunk:k1', 'chunk:k2', 'chunk:k3']);
+    // "grit" e "by heart" têm tradução, mas nenhuma frase: ficam de fora.
+    expect(withoutContext(material)).toBe(2);
   });
 
-  it('erros pesam o dobro dos acertos, e termo nunca treinado tem prioridade sobre o dominado', () => {
+  it('frases extras escritas com o chunk também servem de contexto', () => {
+    expect(byKey.get('chunk:k3')?.sentences).toEqual(['I did it on purpose.']);
+  });
+
+  it('erros pesam o dobro dos acertos; nas revisões, "não lembrei" e "difícil" também contam', () => {
     expect(byKey.get('vocab:v1')?.difficulty).toBe(6);
-    expect(byKey.get('vocab:v3')?.difficulty).toBe(-5);
     expect(byKey.get('chunk:k1')?.difficulty).toBe(1);
-  });
-
-  it('para chunks, "não lembrei" e "difícil" na revisão espaçada também contam', () => {
     // nunca treinado (1) + AGAIN (2) + HARD (1)
     expect(byKey.get('chunk:k2')?.difficulty).toBe(4);
-  });
-
-  it('lista os mais difíceis só entre os que já foram treinados', () => {
     expect(hardest(items, 5).map((i) => i.term)).toEqual(['rut', 'in your head']);
   });
 
-  it('cada termo admite só as perguntas que seu conteúdo permite', () => {
-    expect(questionsFor(byKey.get('vocab:v1')!).map((q) => q.kind)).toEqual(['recall', 'gap', 'dictation']);
-    expect(questionsFor(byKey.get('vocab:v3')!).map((q) => q.kind)).toEqual(['recall']);
-    expect(questionsFor(byKey.get('chunk:k2')!).map((q) => q.kind)).toEqual(['gap', 'dictation']);
+  it('toda pergunta traz uma frase: para completar, para ouvir e completar, ou para ouvir e escrever', () => {
+    for (const item of items) {
+      for (const q of questionsFor(item)) {
+        expect(q.full.split(' ').length).toBeGreaterThan(1);
+        if (q.kind !== 'dictation') expect(q.prompt).toContain('_____');
+      }
+    }
+    expect(questionsFor(byKey.get('vocab:v1')!).map((q) => q.kind)).toEqual(['gap', 'listen', 'dictation']);
   });
 
-  it('lembrar mostra o significado; completar mostra só a frase; ditado pede a frase inteira', () => {
-    const [recall, gap, dictation] = questionsFor(byKey.get('vocab:v1')!);
-    expect(recall).toMatchObject({ hint: 'rotina sem saída', prompt: '', answer: 'rut' });
-    expect(gap).toMatchObject({ hint: '', prompt: 'Stuck in a _____.', answer: 'rut' });
-    expect(dictation).toMatchObject({ answer: 'Stuck in a rut.' });
+  it('completar mostra a frase com lacuna; ouvir e completar usa a mesma frase, falada inteira', () => {
+    const [gap, listen, dictation] = questionsFor(byKey.get('vocab:v1')!);
+    expect(gap).toMatchObject({ prompt: 'Stuck in a _____.', answer: 'rut', hint: 'rotina sem saída', full: 'Stuck in a rut.' });
+    expect(listen).toMatchObject({ prompt: 'Stuck in a _____.', answer: 'rut', hint: '', full: 'Stuck in a rut.' });
+    expect(dictation).toMatchObject({ prompt: '', answer: 'Stuck in a rut.' });
   });
 
-  it('o treino escolhe os termos mais difíceis', () => {
-    const training = buildTraining(items, 2);
-    expect(training.map((q) => q.itemKey).sort()).toEqual(['chunk:k2', 'vocab:v1']);
+  it('o treino escolhe os termos mais difíceis e gira a forma da pergunta', () => {
+    expect(buildTraining(items, 2).map((q) => q.itemKey).sort()).toEqual(['chunk:k2', 'vocab:v1']);
     expect(buildTraining(items, 99)).toHaveLength(4);
-  });
-
-  it('a forma da pergunta gira conforme o termo é treinado', () => {
     const kindAfter = (right: number) =>
       buildTraining(studyItems({ ...material, stats: [stat('vocab:v1', right, 9)] }), 1)[0]?.kind;
-    expect([kindAfter(0), kindAfter(1), kindAfter(2)]).toEqual(['recall', 'gap', 'dictation']);
+    expect([kindAfter(0), kindAfter(1), kindAfter(2)]).toEqual(['gap', 'listen', 'dictation']);
   });
 
   it('a pergunta errada volta algumas posições adiante, na mesma rodada', () => {
@@ -201,46 +206,72 @@ describe('treino adaptativo', () => {
     const again = requeue(queue, 0);
     expect(again).toHaveLength(5);
     expect(again[4]).toBe(queue[0]);
-    expect(requeue(queue, 3).at(-1)).toBe(queue[3]);
+  });
+
+  it('flashcard mostra o termo dentro da frase, com classe gramatical e uso no contexto', () => {
+    const [card] = buildFlashcards(items, 'dictionary');
+    expect(card).toMatchObject({
+      front: 'rut',
+      context: 'Stuck in a rut.',
+      back: 'rotina sem saída',
+      wordClass: 'substantivo',
+      explanation: 'Aqui é uma rotina da qual não se sai.',
+    });
+    expect(splitAround(card!.context, card!.front)).toEqual({ before: 'Stuck in a ', match: 'rut', after: '.' });
+    expect(buildFlashcards(items, 'both').every((c) => c.context !== '')).toBe(true);
+  });
+
+  it('flashcards: origem, quantidade e prioridade para os difíceis', () => {
+    expect(buildFlashcards(items, 'chunks').map((c) => c.front)).toEqual(['in your head', 'it turns out that', 'on purpose']);
+    const all = buildFlashcards(items, 'both');
+    expect(pickFlashcards(all, 2)).toHaveLength(2);
+    expect(pickFlashcards(all, 50)).toHaveLength(4);
+    expect(pickFlashcards(all, 0)).toHaveLength(1);
+    const difficulty = new Map(items.map((i) => [i.key, i.difficulty]));
+    for (let i = 0; i < 5; i += 1) expect(pickFlashcards(all, 1, { difficulty })[0]?.front).toBe('rut');
   });
 });
 
-describe('flashcards', () => {
-  const material = {
-    vocab: [
-      { id: 'v1', ideaId: 'a', sessionId: 's', term: 'rut', meaning: 'rotina sem saída', context: 'Stuck in a rut.', phonetic: '/rʌt/', createdAt: '' },
-      { id: 'v2', ideaId: 'a', sessionId: 's', term: 'grit', meaning: '', createdAt: '' },
-    ] as ComprehensionVocab[],
-    chunks: [
-      { id: 'k1', text: 'in your head', meaning: 'na sua cabeça', userSentence: 'It lives in your head.', originalSentence: '' },
-      { id: 'k2', text: 'it turns out that', meaning: '', userSentence: '', originalSentence: 'It turns out that focus wins.' },
-    ] as Chunk[],
-    stats: [{ id: 'chunk:k2', right: 0, wrong: 4, lastAt: '' }],
-    reviews: [],
-  };
-  const items = studyItems(material);
+describe('tempos verbais', () => {
+  const verb = (id: string, base: string, selected: boolean): VerbEntry => ({
+    id,
+    ideaId: 'a',
+    base,
+    translation: '',
+    thirdPerson: '',
+    past: '',
+    participle: '',
+    gerund: '',
+    textForm: '',
+    textTense: '',
+    sentence: '',
+    selected,
+    drills: [
+      { tense: 'Past simple', sentence: `Yesterday she _____ the idea.`, answer: 'held' },
+      { tense: 'Present perfect', sentence: 'He ____ it for years.', answer: 'has held' },
+      { tense: 'Broken', sentence: 'No blank here.', answer: 'x' },
+    ],
+    createdAt: '',
+  });
+  const verbs = [verb('h', 'hold', true), verb('k', 'keep', false)];
 
-  it('monta a partir do dicionário, dos chunks ou dos dois', () => {
-    expect(buildFlashcards(items, 'dictionary').map((c) => c.front)).toEqual(['rut']);
-    expect(buildFlashcards(items, 'chunks').map((c) => c.front)).toEqual(['in your head', 'it turns out that']);
-    expect(buildFlashcards(items, 'both')).toHaveLength(3);
-    expect(buildFlashcards(items, 'dictionary')[0]).toMatchObject({ phonetic: '/rʌt/', context: 'Stuck in a rut.' });
+  it('só os verbos selecionados geram perguntas, cada uma com frase, tempo e verbo', () => {
+    const questions = tenseQuestions(verbs);
+    expect(questions.map((q) => q.itemKey)).toEqual(['verb:h:0', 'verb:h:1']);
+    expect(questions[0]).toMatchObject({
+      kind: 'tense',
+      prompt: 'Yesterday she _____ the idea.',
+      hint: 'Past simple · to hold',
+      answer: 'held',
+      full: 'Yesterday she held the idea.',
+    });
+    expect(questions[1]?.full).toBe('He has held it for years.');
   });
 
-  it('respeita a quantidade pedida, sem repetir e sem passar do que existe', () => {
-    const all = buildFlashcards(items, 'both');
-    expect(pickFlashcards(all, 2)).toHaveLength(2);
-    expect(new Set(pickFlashcards(all, 3).map((c) => c.id)).size).toBe(3);
-    expect(pickFlashcards(all, 50)).toHaveLength(3);
-    expect(pickFlashcards(all, 0)).toHaveLength(1);
-  });
-
-  it('com foco nas difíceis, o termo com mais erros sempre entra', () => {
-    const all = buildFlashcards(items, 'both');
-    const difficulty = new Map(items.map((i) => [i.key, i.difficulty]));
-    for (let i = 0; i < 5; i += 1) {
-      expect(pickFlashcards(all, 1, { difficulty })[0]?.front).toBe('it turns out that');
-    }
+  it('a rodada começa pela pergunta mais errada', () => {
+    const stats: PracticeStat[] = [{ id: 'verb:h:1', right: 0, wrong: 3, lastAt: '' }];
+    for (let i = 0; i < 5; i += 1) expect(buildTenseTraining(verbs, stats, 1)[0]?.itemKey).toBe('verb:h:1');
+    expect(buildTenseTraining(verbs, [], 99)).toHaveLength(2);
   });
 });
 

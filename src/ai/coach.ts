@@ -38,6 +38,8 @@ export interface CoachContext {
   chunks: string[];
   /** O que o aluno já escreveu nesta etapa, se houver. */
   attempt: string;
+  /** Rascunho em português do que ele quer dizer (REFLECT e SO WHAT). */
+  draftPt: string;
 }
 
 export function buildCoachPrompt(ctx: CoachContext): { system: string; user: string } {
@@ -48,6 +50,11 @@ export function buildCoachPrompt(ctx: CoachContext): { system: string; user: str
       `Etapa atual e o tipo de ajuda esperada: ${STEP_GUIDE[ctx.step]}`,
       `Semana ${ctx.cycleWeek} do ciclo de 4 semanas: ajuste a exigência (semana 1 é mais guiada, semana 4 pede mais autonomia).`,
       'Baseie as sugestões no conteúdo abaixo, citando trechos ou palavras dele quando ajudar.',
+      ...(ctx.draftPt
+        ? [
+            'O aluno rascunhou em português o que quer dizer. Parta desse rascunho: aponte o vocabulário e as estruturas em inglês de que ele vai precisar para dizer exatamente isso (palavras-chave, conectores, começo de frase) e, se houver, um ponto fraco no raciocínio. Não traduza o rascunho inteiro: quem escreve a frase em inglês é ele.',
+          ]
+        : []),
       'Responda em português, com no máximo 8 linhas curtas, em tópicos iniciados por "- ". Exemplos de inglês vão entre aspas.',
     ].join('\n'),
     user: [
@@ -56,7 +63,8 @@ export function buildCoachPrompt(ctx: CoachContext): { system: string; user: str
       ctx.cardsText && `Texto dos cards:\n${ctx.cardsText}`,
       ctx.mainIdea && `Ideia principal escrita pelo aluno: ${ctx.mainIdea}`,
       ctx.chunks.length > 0 && `Chunks escolhidos: ${ctx.chunks.join('; ')}`,
-      ctx.attempt && `O que o aluno já escreveu nesta etapa: ${ctx.attempt}`,
+      ctx.draftPt && `O que o aluno quer dizer, no rascunho dele em português: ${ctx.draftPt}`,
+      ctx.attempt && `O que o aluno já escreveu nesta etapa, em inglês: ${ctx.attempt}`,
       !ctx.cardsText && !ctx.ideaTitle && 'Ainda não há conteúdo registrado hoje; oriente sobre a etapa em geral.',
     ]
       .filter(Boolean)
@@ -74,15 +82,39 @@ export async function askCoach(ctx: CoachContext): Promise<string> {
 const IMPORT_PROMPT = [
   'As imagens são capturas de tela de uma ideia do aplicativo Deepstash: um título e uma sequência de cards.',
   'Transcreva o texto exatamente como está, em inglês, sem traduzir, resumir ou corrigir. Ignore botões, menus e contadores da interface.',
-  'Mantenha a ordem das imagens. Cada card vira um item da lista.',
+  'Mantenha a ordem das imagens. Cada card vira um item da lista, sejam quantos forem. Se as imagens não mostrarem o título da ideia, devolva o título vazio.',
   'Responda somente com um objeto JSON: {"title": "<título da ideia>", "cards": ["<texto do card 1>", "<texto do card 2>"]}',
 ].join('\n');
 
-/** Lê screenshots de uma ideia e devolve título e cards, prontos para conferir e salvar. */
-export async function importIdeaFromImages(images: ImageInput[]): Promise<ImportedIdea> {
+/** Imagens por pedido. Os modelos de visão limitam quantas aceitam de uma vez. */
+export const IMAGES_PER_REQUEST = 4;
+
+/** Junta as partes lidas em pedidos separados: o primeiro título encontrado e todos os cards, em ordem. */
+export function mergeImported(parts: readonly ImportedIdea[]): ImportedIdea {
+  return {
+    title: parts.find((p) => p.title)?.title ?? '',
+    cards: parts.flatMap((p) => p.cards),
+  };
+}
+
+/**
+ * Lê screenshots de uma ideia e devolve título e cards, prontos para conferir e salvar.
+ * Não há limite de imagens: uma ideia pode ter qualquer quantidade de cards, então a
+ * leitura é feita em lotes, na ordem, e `onProgress` informa quantas já foram lidas.
+ */
+export async function importIdeaFromImages(
+  images: ImageInput[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<ImportedIdea> {
   const provider = await createProvider((await getSettings()).ai);
   if (!provider?.readImages) throw new AIError('A IA configurada não lê imagens. Use Groq, Anthropic ou cole o texto.');
-  const idea = parseIdeaJSON(await provider.readImages(IMPORT_PROMPT, images));
+  const parts: ImportedIdea[] = [];
+  for (let i = 0; i < images.length; i += IMAGES_PER_REQUEST) {
+    onProgress?.(i, images.length);
+    const batch = images.slice(i, i + IMAGES_PER_REQUEST);
+    parts.push(parseIdeaJSON(await provider.readImages(IMPORT_PROMPT, batch)));
+  }
+  const idea = mergeImported(parts);
   if (!idea.title && idea.cards.length === 0) {
     throw new AIError('Não foi possível ler texto nas imagens. Tente capturas mais nítidas ou cole o texto.');
   }

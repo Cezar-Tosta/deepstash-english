@@ -7,15 +7,17 @@ import { weekPlan } from '../../domain/cycle';
 import { formatDate, formatDuration } from '../../domain/dates';
 import { looksLikeSingleWord, MAX_CHUNKS_PER_DAY } from '../../domain/session';
 import { scheduler } from '../../domain/srs';
-import type { StepId } from '../../domain/types';
+import type { Chunk, StepId } from '../../domain/types';
 import { ChunkLimitError } from '../../services/errors';
 import { saveRecording } from '../../services/maintenance';
 import { getUpcoming } from '../../services/reviews';
 import {
   addChunk,
+  addChunkSentence,
   addIdea,
   addVocab,
   type ChunkInput,
+  chunksToPractice,
   deleteChunk,
   deleteIdea,
   deleteVocab,
@@ -49,6 +51,7 @@ import {
   Notice,
   Prompt,
   StarterChips,
+  type StarterGroup,
   TextArea,
   TextInput,
 } from '../components/ui';
@@ -698,21 +701,114 @@ export function RetellStep({ bundle, goTo }: StepProps) {
 
 // ---------- 7. PERSONALIZE ----------
 
-export function PersonalizeStep({ bundle, goTo }: StepProps) {
-  const { chunks } = bundle;
-  if (chunks.length === 0) {
-    return (
-      <EmptyState title="Nenhum chunk selecionado hoje.">
-        <Button onClick={() => goTo('mine')}>Escolher chunks</Button>
-      </EmptyState>
+/** Um chunk de dias anteriores, para escrever mais uma frase com ele. */
+function ExtraChunk({ chunk }: { chunk: Chunk }) {
+  const [sentence, setSentence] = useState('');
+  const [saved, setSaved] = useState('');
+  const previous = [chunk.userSentence, ...(chunk.extraSentences ?? [])].filter((s) => s.trim());
+
+  const keep = () => {
+    const text = sentence.trim();
+    if (!text) return;
+    attempt(
+      addChunkSentence(chunk.id, text).then(() => {
+        setSaved(text);
+        setSentence('');
+      }),
     );
-  }
+  };
+
+  return (
+    <Card>
+      <p className="font-serif text-lg break-words" lang="en">
+        {chunk.text}
+        {chunk.meaning && <span className="font-sans text-sm text-muted"> — {chunk.meaning}</span>}
+      </p>
+      {previous.length > 0 && (
+        <details className="mt-1 text-sm">
+          <summary className="min-h-8 cursor-pointer text-xs font-medium text-accent">
+            {previous.length === 1 ? 'Ver a frase que já escrevi' : `Ver as ${previous.length} frases que já escrevi`}
+          </summary>
+          <ul className="space-y-1 font-serif text-muted" lang="en">
+            {previous.map((s) => (
+              <li key={s} className="break-words">
+                “{s}”
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      <div className="mt-2 space-y-2">
+        <TextArea label="Uma frase nova, sobre outra situação" value={sentence} onChange={setSentence} rows={2} lang="en" />
+        <Button small variant="secondary" disabled={!sentence.trim()} onClick={keep}>
+          Guardar frase
+        </Button>
+        {saved && (
+          <>
+            <p className="text-sm text-good">Frase guardada.</p>
+            <AIFeedbackPanel
+              targetType="chunkSentence"
+              targetId={chunk.id}
+              text={saved}
+              context={`O aluno está praticando a expressão "${chunk.text}".`}
+            />
+          </>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+const EXTRA_BATCH = 3;
+
+/** Depois dos chunks de hoje, mais chunks antigos para continuar treinando, de três em três. */
+function MoreChunks({ sessionId }: { sessionId: string }) {
+  const [shown, setShown] = useState<Chunk[]>([]);
+  const [exhausted, setExhausted] = useState(false);
+
+  const more = async () => {
+    const next = await chunksToPractice(
+      sessionId,
+      EXTRA_BATCH,
+      shown.map((c) => c.id),
+    );
+    setShown([...shown, ...next]);
+    setExhausted(next.length < EXTRA_BATCH);
+  };
+
+  return (
+    <div className="space-y-3 border-t border-line pt-4">
+      <div>
+        <Eyebrow>Treinar com mais chunks</Eyebrow>
+        <Hint>Chunks de dias anteriores, começando pelos que você mais esquece nas revisões. É opcional.</Hint>
+      </div>
+      {shown.map((chunk) => (
+        <ExtraChunk key={chunk.id} chunk={chunk} />
+      ))}
+      {exhausted ? (
+        <Hint>{shown.length === 0 ? 'Ainda não há chunks de dias anteriores.' : 'Esses são todos os seus chunks anteriores.'}</Hint>
+      ) : (
+        <Button variant="secondary" onClick={() => attempt(more())}>
+          {shown.length === 0 ? `Trazer ${EXTRA_BATCH} chunks anteriores` : `Mais ${EXTRA_BATCH} chunks`}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export function PersonalizeStep({ bundle, goTo }: StepProps) {
+  const { session, chunks } = bundle;
   return (
     <div className="space-y-5">
       <div>
         <Prompt>Create your own sentence.</Prompt>
         <Hint>Relacione a frase ao seu trabalho, estudo, rotina ou experiência.</Hint>
       </div>
+      {chunks.length === 0 && (
+        <EmptyState title="Nenhum chunk selecionado hoje.">
+          <Button onClick={() => goTo('mine')}>Escolher chunks</Button>
+        </EmptyState>
+      )}
       {chunks.map((chunk) => (
         <Card key={chunk.id}>
           <p className="font-serif text-xl uppercase tracking-wide" lang="en">
@@ -735,20 +831,23 @@ export function PersonalizeStep({ bundle, goTo }: StepProps) {
           </div>
         </Card>
       ))}
+      <MoreChunks sessionId={session.id} />
     </div>
   );
 }
 
 // ---------- 8. REFLECT ----------
 
-const REFLECT_STARTERS = [
-  'I agree because',
-  'I disagree because',
-  'I partly agree because',
-  'However,',
-  'It depends on',
-  'In my experience,',
-] as const;
+/** Conectores para montar a opinião, agrupados pelo que fazem na frase. */
+const REFLECT_CONNECTORS: readonly StarterGroup[] = [
+  { label: 'Opinar', items: ['I agree because', 'I disagree because', 'I partly agree because', 'In my opinion,', 'From my perspective,', 'It seems to me that'] },
+  { label: 'Contrastar', items: ['However,', 'On the other hand,', 'Although', 'Even though', 'Nevertheless,', 'While this is true,'] },
+  { label: 'Explicar', items: ['because', 'since', 'That is why', 'As a result,', 'Therefore,', 'This means that'] },
+  { label: 'Exemplificar', items: ['For example,', 'For instance,', 'In my experience,', 'A good example is', 'such as'] },
+  { label: 'Condicionar', items: ['It depends on', 'If', 'Unless', 'As long as', 'In some cases,'] },
+  { label: 'Acrescentar', items: ['Also,', 'In addition,', 'Besides,', 'What is more,', 'Not only … but also'] },
+  { label: 'Concluir', items: ['So,', 'In short,', 'Overall,', 'All things considered,', 'To sum up,'] },
+];
 
 export function ReflectStep({ bundle, goTo }: StepProps) {
   const { session, ideaOfDay, reflection } = bundle;
@@ -761,12 +860,20 @@ export function ReflectStep({ bundle, goTo }: StepProps) {
         <Hint>Questione a ideia de “{idea.title}”: concorde, discorde ou qualifique.</Hint>
       </div>
       <AutoTextArea
+        label="Em português: o que eu penso sobre essa ideia (rascunho)"
+        value={reflection?.opinionPt ?? ''}
+        onSave={(opinionPt) => saveReflection(session.id, idea.id, { opinionPt })}
+        rows={3}
+        placeholder="Organize o raciocínio aqui. Depois escreva em inglês, abaixo."
+      />
+      <Hint>A orientação da IA (“Como fazer esta etapa?”, no topo) leva este rascunho em conta.</Hint>
+      <AutoTextArea
         label="My view"
         value={reflection?.userOpinion ?? ''}
         onSave={(userOpinion) => saveReflection(session.id, idea.id, { userOpinion })}
         rows={5}
         lang="en"
-        starters={REFLECT_STARTERS}
+        starterGroups={REFLECT_CONNECTORS}
       />
       <AIFeedbackPanel targetType="opinion" targetId={idea.id} text={reflection?.userOpinion ?? ''} context={`Opinião sobre a ideia "${idea.title}".`} />
     </div>
@@ -785,6 +892,14 @@ export function SoWhatStep({ bundle, goTo }: StepProps) {
         <Prompt>What will I do differently because I learned this?</Prompt>
         <Hint>Information → Reflection → Action. Uma ação concreta, começando por “I’ll…”.</Hint>
       </div>
+      <AutoTextArea
+        label="Em português: o que vou fazer de diferente (rascunho)"
+        value={reflection?.soWhatPt ?? ''}
+        onSave={(soWhatPt) => saveReflection(session.id, idea.id, { soWhatPt })}
+        rows={2}
+        placeholder="Uma ação pequena e concreta. Depois escreva em inglês, abaixo."
+      />
+      <Hint>A orientação da IA (“Como fazer esta etapa?”, no topo) leva este rascunho em conta.</Hint>
       <AutoTextArea
         label="So what?"
         value={reflection?.soWhat ?? ''}

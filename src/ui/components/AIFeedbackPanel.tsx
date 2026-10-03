@@ -4,6 +4,7 @@ import { AIError } from '../../ai/AIProvider';
 import { FEEDBACK_LABELS, getFeedbackFor, isAIConfigured, requestFeedback } from '../../ai/feedback';
 import type { FeedbackKind, FeedbackTarget } from '../../domain/types';
 import { useOnline, useSettings } from '../hooks';
+import { RichText } from './RichText';
 import { Button } from './ui';
 
 interface Props {
@@ -71,7 +72,9 @@ export function AIFeedbackPanel({ targetType, targetId, text, context = '', kind
           {latest.explanation && (
             <div>
               <dt className="text-xs font-semibold tracking-wide text-muted">WHY?</dt>
-              <dd className="leading-relaxed">{latest.explanation}</dd>
+              <dd>
+                <RichText text={latest.explanation} />
+              </dd>
             </div>
           )}
           {latest.moreNatural && (

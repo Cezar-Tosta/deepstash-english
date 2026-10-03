@@ -3,6 +3,7 @@ import { AIError } from '../../ai/AIProvider';
 import { askCoach, type CoachContext } from '../../ai/coach';
 import { isAIConfigured } from '../../ai/feedback';
 import { useOnline, useSettings } from '../hooks';
+import { RichText } from './RichText';
 import { Button } from './ui';
 
 /**
@@ -44,9 +45,9 @@ export function CoachPanel({ context }: { context: CoachContext }) {
         </p>
       )}
       {advice && (
-        <p className="mt-2 text-sm leading-relaxed break-words whitespace-pre-wrap" aria-live="polite">
-          {advice}
-        </p>
+        <div className="mt-2" aria-live="polite">
+          <RichText text={advice} className="text-sm" />
+        </div>
       )}
       {!advice && !error && (
         <p className="mt-1 text-xs text-muted">Sugestões para esta etapa com base no que você está lendo. Tente primeiro; peça se travar.</p>

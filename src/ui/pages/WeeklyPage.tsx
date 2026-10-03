@@ -312,10 +312,10 @@ function Balance({ bundle }: { bundle: WeekBundle }) {
   if (!input) return null;
   const stats = weekStats(input, bundle.weekStart);
   const rows: [string, string][] = [
-    ['Dias estudados', `${stats.studyDays} / 7`],
+    ['Dias de sessão', `${stats.sessionDays} / 5`],
     ['Ideias lidas', `${stats.ideasRead} (${stats.cardsRead} cards)`],
-    ['Ideias aprofundadas', `${stats.ideasStudied} / 7`],
-    ['Chunks novos', `${stats.chunksCreated} / 21`],
+    ['Ideias aprofundadas', `${stats.ideasStudied} / 5`],
+    ['Chunks novos', `${stats.chunksCreated} / 15`],
     ['Tempo total de speaking', `${Math.round(stats.speakingSec / 60)} min`],
   ];
   return (

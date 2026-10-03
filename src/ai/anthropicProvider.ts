@@ -4,6 +4,7 @@ import {
   ANTHROPIC_DEFAULT_MODEL,
   type AIProvider,
   type AIRequest,
+  type ChatTurn,
   type ImageInput,
 } from './AIProvider';
 
@@ -18,7 +19,7 @@ export function createAnthropicProvider(apiKey: string, model: string): AIProvid
   // O app não tem servidor: a chamada sai do aparelho do usuário, com a chave que ele mesmo salvou.
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
 
-  async function send(system: string | null, content: Anthropic.Beta.BetaMessageParam['content']): Promise<string> {
+  async function send(system: string | null, messages: Anthropic.Beta.BetaMessageParam[]): Promise<string> {
     try {
       const response = await client.beta.messages.create({
         model: resolvedModel,
@@ -26,7 +27,7 @@ export function createAnthropicProvider(apiKey: string, model: string): AIProvid
         // Corrigir frases e transcrever cards são tarefas simples; esforço baixo responde mais rápido.
         output_config: { effort: 'low' },
         ...(system ? { system } : {}),
-        messages: [{ role: 'user', content }],
+        messages,
         ...(FALLBACK_MODELS.has(resolvedModel)
           ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }
           : {}),
@@ -65,7 +66,15 @@ export function createAnthropicProvider(apiKey: string, model: string): AIProvid
     model: resolvedModel,
 
     complete({ system, user }: AIRequest): Promise<string> {
-      return send(system, user);
+      return send(system, [{ role: 'user', content: user }]);
+    },
+
+    chat(system: string, turns: ChatTurn[]): Promise<string> {
+      // Só o texto volta para o modelo; nenhum bloco de raciocínio é reenviado.
+      return send(
+        system,
+        turns.map((turn) => ({ role: turn.role, content: turn.content })),
+      );
     },
 
     readImages(prompt: string, images: ImageInput[]): Promise<string> {
@@ -74,11 +83,16 @@ export function createAnthropicProvider(apiKey: string, model: string): AIProvid
         return Promise.reject(new AIError(`Formato de imagem não aceito: ${unsupported.mediaType}. Use PNG ou JPEG.`));
       }
       return send(null, [
-        ...images.map((image) => ({
-          type: 'image' as const,
-          source: { type: 'base64' as const, media_type: image.mediaType as ImageMediaType, data: image.base64 },
-        })),
-        { type: 'text' as const, text: prompt },
+        {
+          role: 'user',
+          content: [
+            ...images.map((image) => ({
+              type: 'image' as const,
+              source: { type: 'base64' as const, media_type: image.mediaType as ImageMediaType, data: image.base64 },
+            })),
+            { type: 'text' as const, text: prompt },
+          ],
+        },
       ]);
     },
   };

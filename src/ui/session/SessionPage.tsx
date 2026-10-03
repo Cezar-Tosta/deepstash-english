@@ -93,6 +93,7 @@ function coachContext(bundle: SessionBundle, step: StepId): CoachContext {
     mainIdea: ideaOfDay?.idea.mainIdea ?? '',
     chunks: chunks.map((c) => c.text),
     attempt: attempts[step] ?? '',
+    draftPt: (step === 'reflect' ? reflection?.opinionPt : step === 'sowhat' ? reflection?.soWhatPt : '') ?? '',
   };
 }
 

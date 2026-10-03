@@ -96,6 +96,8 @@ export interface ComprehensionVocab {
   explanation?: string;
   /** Transcrição fonética (IPA). */
   phonetic?: string;
+  /** Classe gramatical naquele contexto: verbo, substantivo, phrasal verb… */
+  wordClass?: string;
   createdAt: ISODateTime;
 }
 
@@ -107,6 +109,8 @@ export interface Chunk {
   meaning: string;
   originalSentence: string;
   userSentence: string;
+  /** Frases a mais escritas com o chunk, em treinos posteriores. */
+  extraSentences?: string[];
   createdAt: ISODateTime;
   /** D0. */
   createdDate: ISODate;
@@ -152,6 +156,10 @@ export interface Reflection {
   userOpinion: string;
   /** SO WHAT? — What will I do differently? */
   soWhat: string;
+  /** Rascunho em português da opinião: organiza a ideia antes de escrever em inglês. */
+  opinionPt?: string;
+  /** Rascunho em português da ação. */
+  soWhatPt?: string;
   /** Acompanhamento da ação, dias depois: "Did you do it?" */
   followUpStatus?: FollowUpStatus;
   /** "What happened?" */
@@ -186,6 +194,45 @@ export interface WritingExercise {
   revisedText: string;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
+}
+
+/** Um exercício de tempo verbal: frase com lacuna, o tempo pedido e a resposta. */
+export interface VerbDrill {
+  /** Nome do tempo em inglês, por exemplo "Past simple". */
+  tense: string;
+  /** Frase com "_____" no lugar do verbo conjugado. */
+  sentence: string;
+  answer: string;
+}
+
+/** Um verbo encontrado no texto de uma ideia, com suas formas e exercícios. */
+export interface VerbEntry {
+  id: string;
+  ideaId: string;
+  base: string;
+  translation: string;
+  thirdPerson: string;
+  past: string;
+  participle: string;
+  gerund: string;
+  /** Como aparece no texto, e em que tempo ou forma. */
+  textForm: string;
+  textTense: string;
+  /** A frase do card em que ele aparece. */
+  sentence: string;
+  /** Só os verbos selecionados entram nos exercícios. */
+  selected: boolean;
+  drills: VerbDrill[];
+  createdAt: ISODateTime;
+}
+
+/** Uma mensagem da conversa com a IA sobre uma ideia. */
+export interface ChatMessage {
+  id: string;
+  ideaId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: ISODateTime;
 }
 
 /** Desempenho acumulado de um termo (palavra do dicionário ou chunk) nos exercícios. */

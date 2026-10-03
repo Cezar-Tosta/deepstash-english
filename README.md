@@ -35,7 +35,7 @@ Na página de uma ideia, cada palavra dos cards é clicável. Um clique selecion
 
 A mesma palavra pode ter sentidos diferentes em frases diferentes, então cada par termo + frase é uma entrada própria do dicionário, e clicar numa palavra já conhecida em outra frase refaz a análise naquele contexto.
 
-**Termos conhecidos sublinhados.** Tudo o que está no dicionário ou nos chunks, de qualquer ideia, aparece sublinhado nos textos dos cards (na página da ideia e na releitura da etapa CHECK). Passar o mouse mostra tradução, fonética, explicação e a frase em que cada sentido foi registrado. Expressões são reconhecidas inteiras, e a mais longa vence a palavra contida nela.
+**Termos conhecidos sublinhados.** Tudo o que está no dicionário ou nos chunks aparece sublinhado nos textos dos cards de qualquer ideia, de qualquer livro (na página da ideia e na releitura da etapa CHECK), mesmo que ainda não tenha tradução anotada. Clicar num termo sublinhado mostra o que está salvo, com Editar e Excluir. Excluir vale para o termo inteiro (todos os registros dele no dicionário, ou o chunk com seu histórico) e o destaque some de todos os textos na hora. Chunks também podem ser excluídos em Knowledge → My English. Passar o mouse mostra tradução, fonética, explicação e a frase em que cada sentido foi registrado. Expressões são reconhecidas inteiras, e a mais longa vence a palavra contida nela.
 
 O dicionário, na aba e na página de cada ideia, é listado em ordem alfabética. O dicionário não entra na repetição espaçada; ele alimenta os exercícios.
 
@@ -49,29 +49,45 @@ Três dias depois de registrar um "So what?", a tela Today pergunta "Did you do 
 
 ### Exercícios (menu Practice)
 
-Só dois exercícios, ambos de recuperação ativa (lembrar ou escrever antes de ver a resposta):
+Nenhum exercício mostra palavra solta: o termo sempre aparece dentro de uma frase. Um termo sem frase registrada fica fora dos exercícios até ganhar uma (a tela avisa quantos estão nessa situação).
 
-- **Treino.** Escolhe os termos em que você mais erra e faz uma pergunta para cada um, alternando três formas: lembrar o termo pelo significado, completar a frase (sem tradução) e escrever o que ouviu. A pergunta errada volta algumas posições adiante, na mesma rodada, até duas vezes.
-- **Flashcards.** Você escolhe a origem (dicionário, chunks ou os dois) e a quantidade; por padrão entram primeiro os termos mais difíceis.
+- **Treino.** Escolhe os termos em que você mais erra e alterna três formas: completar a frase (com a tradução como dica opcional), ouvir a frase e escrever a palavra que falta, e ouvir uma frase curta e escrevê-la inteira. A pergunta errada volta algumas posições adiante, na mesma rodada, até duas vezes.
+- **Tempos verbais.** Frases com lacuna para conjugar, no tempo pedido, os verbos selecionados nas suas ideias (ver "Verbos da ideia").
+- **Flashcards.** A frente mostra a frase com o termo destacado; o verso traz a tradução, a classe gramatical (verbo, substantivo, phrasal verb…) e como o termo é usado naquele contexto. Você escolhe a origem e a quantidade; por padrão entram primeiro os mais difíceis.
 
 **Dificuldade de um termo:** erros nos exercícios pesam o dobro dos acertos; para chunks, "não lembrei" e "difícil" nas revisões espaçadas também contam; termos nunca treinados têm prioridade sobre os dominados. O bloco "Onde você mais erra" mostra os campeões de erro. O desempenho por termo é guardado e sincronizado.
+
+A classe gramatical e a explicação de contexto vêm da análise da IA feita ao clicar na palavra no card. Entradas antigas, ou chunks cadastrados à mão, não as têm; basta clicar no termo de novo para a IA analisar.
+
+### Verbos da ideia
+
+Na página de cada ideia, "Encontrar os verbos desta ideia" pede à IA os verbos principais do texto (até 8), com tradução, formas (he/she/it, past simple, past participle, -ing), a forma e o tempo em que cada um aparece no texto, e quatro frases com lacuna em tempos diferentes. Você marca quais quer estudar; só os marcados entram em "Tempos verbais". "Treinar estes verbos" abre a rodada só com os verbos daquela ideia.
+
+### Mais prática dentro da sessão
+
+- **PERSONALIZE:** depois dos chunks do dia, "Treinar com mais chunks" traz, de três em três, chunks de dias anteriores (os mais esquecidos nas revisões primeiro) para escrever frases novas. Elas são guardadas junto do chunk e passam a servir de contexto nos exercícios.
+- **REFLECT:** os conectores ficam disponíveis por função (opinar, contrastar, explicar, exemplificar, condicionar, acrescentar, concluir); tocar em um o insere no texto.
 
 ### Áudio
 
 Onde houver "Ouvir" (cards, termos, dicionário, flashcards, ditado), a leitura usa a voz do navegador e obedece a dois controles: velocidade (1×, 0.75× ou 0.5×) e "Repetir em loop". Os mesmos controles valem para as suas gravações.
 
-As falas gravadas (retelling, fala da semana, explicação do livro) ficam guardadas **neste navegador** e aparecem no Weekly review, em "Minhas falas da semana", com a transcrição. Os áudios não entram no backup nem vão para a nuvem; em Settings dá para ver o espaço ocupado e apagar os de mais de 4 semanas.
+As falas gravadas (retelling, fala da semana, explicação do livro) ficam guardadas **neste navegador** e aparecem no Weekly review, em "Minhas falas da semana", numa lista compacta: ideia, dia, duração, player e a transcrição recolhida. Cada fala pode ser excluída (com confirmação); isso remove o áudio, a transcrição e o tempo das estatísticas. Os áudios não entram no backup nem vão para a nuvem; em Settings dá para ver o espaço ocupado e apagar os de mais de 4 semanas.
 
 ### Cadastrar ideias mais rápido
 
 Na etapa READ, "Importar a ideia inteira" oferece dois caminhos, e em ambos o resultado volta para o formulário para você conferir antes de salvar:
 
 - **Colar o texto:** a primeira linha vira o título e cada bloco separado por linha em branco vira um card. No site do Deepstash (navegador) dá para selecionar e copiar a ideia inteira.
-- **Screenshots da ideia inteira:** escolha as imagens ou cole com Ctrl+V (até 8). A IA transcreve título e cards. Precisa de um modelo que leia imagens: Anthropic, ou Groq com o "Modelo de visão" de Ajustes.
+- **Screenshots da ideia inteira:** escolha as imagens, quantas forem, ou cole com Ctrl+V. A IA transcreve título e cards, lendo em lotes de 4 imagens e mostrando o progresso; uma ideia pode ter qualquer quantidade de cards. Precisa de um modelo que leia imagens: Anthropic, ou Groq com o "Modelo de visão" de Ajustes.
 
 **Imagem por card.** Dentro de uma ideia já criada, em "Cards da ideia", "+ Cards a partir de imagens" lê um screenshot por vez: cada imagem vira um card, na ordem escolhida, com o progresso "Lendo imagem N de M". Cada card também tem "Ler de uma imagem", que preenche ou substitui só aquele card. Um ícone girando indica a leitura em andamento.
 
 O menu lateral mostra o provedor e o modelo usado em cada função: texto, imagens e áudio.
+
+### Conversa sobre a ideia
+
+A página de cada ideia tem um chat com a IA. Ela recebe o livro, o texto dos cards, a ideia principal e o que você já escreveu (opinião, ação, chunks), e foi instruída a trazer insights, exemplos, conexões e contrapontos, em respostas curtas. Responde no idioma em que você escrever; em inglês, acrescenta uma linha apontando até dois erros da sua mensagem. A conversa fica guardada com a ideia (e sincronizada), e pode ser apagada. A cada pergunta seguem as últimas 20 mensagens.
 
 ### Orientação da IA por etapa
 
@@ -79,7 +95,15 @@ Em cada etapa da sessão há o botão "Como fazer esta etapa?". A IA responde co
 
 ### Manual
 
-O menu **Manual** explica, dentro do app, a sequência correta de estudos: a sessão diária etapa por etapa (o que fazer e o que evitar), as revisões, o acompanhamento das ações, a leitura com dicionário, os exercícios, o fechamento da semana e do livro, a progressão de 4 semanas e o que fazer quando algo sai do trilho. Os tempos e frequências vêm das mesmas definições usadas nas telas, então não desatualizam.
+O menu **Manual** mostra o fluxo de estudos em uma tela: a visão geral (ler → aprofundar 1 → guardar 3 → falar 1 → revisar), a sessão diária com as 10 etapas agrupadas em quatro fases e uma linha de instrução cada, o que acontece depois da sessão e três regras. Tempos e frequências vêm das mesmas definições usadas nas telas.
+
+### Sugestão para hoje
+
+A tela Today monta um plano do dia, em ordem e com o tempo de cada item, a partir do estado atual: revisões pendentes, sessão por fazer ou em andamento, ações a responder, treino (a cada 2 dias, se houver o que treinar) e fechamento da semana (na sexta, depois da sessão). No sábado e no domingo só aparecem as revisões, e a tela Today troca o cartão da sessão por um aviso de fim de semana. Só aparece o que há para fazer; com tudo em dia, ela diz isso.
+
+### Rascunho em português
+
+No REFLECT e no SO WHAT há um campo para rascunhar a ideia em português antes de escrever em inglês. Ao pedir "Como fazer esta etapa?", a IA parte desse rascunho e indica o vocabulário e as estruturas necessários para dizer aquilo em inglês, sem traduzir o texto inteiro.
 
 ### Frequência de cada etapa
 
@@ -87,11 +111,12 @@ Cada etapa mostra a frequência e o tempo sugerido, e a tela Today tem o quadro 
 
 | Atividade | Frequência |
 |---|---|
-| Sessão de estudo (10 etapas, ~30 min) | todo dia |
+| Sessão de estudo (10 etapas, ~30 min) | segunda a sexta |
+| Fim de semana | sábado e domingo: só as revisões agendadas |
 | Revisão de cada chunk | 5 vezes: D1, D3, D7, D14, D30 |
 | Did you do it? | 3 dias depois de cada ação |
 | Exercícios | 2 a 3 vezes por semana |
-| Weekly review | 1 vez por semana |
+| Weekly review | sexta-feira, depois da sessão |
 | Fechamento do livro | ao terminar cada livro |
 | Ciclo de progressão | a cada 4 semanas |
 
@@ -225,7 +250,7 @@ O workflow `.github/workflows/deploy.yml` roda lint, testes e build a cada push 
 - **Sem rede:** você continua estudando; o envio acontece quando a conexão volta.
 - **Conflito:** se dois navegadores mudarem dados diferentes sem se sincronizar, o app não sobrescreve nenhum deles. Ele mostra a tela "Qual versão vale?" e você escolhe entre a nuvem e o navegador atual. O lado não escolhido é substituído; não há mesclagem.
 - **Sair da conta:** só é permitido depois de tudo enviado, e apaga os dados daquele navegador (eles continuam na nuvem).
-- **Chave de IA:** não vai para a nuvem; é informada em cada navegador.
+- **Configuração de IA:** provedor, modelos e chave vão para a sua conta e valem em todos os navegadores.
 
 ### Testar a nuvem em desenvolvimento
 
@@ -237,7 +262,7 @@ pnpm dev
 
 ## Banco de dados
 
-No navegador: IndexedDB, banco `deepstash-english`. Na nuvem: uma linha por usuário em `public.user_data` (coluna `data` em JSON, no mesmo formato do backup, e `version` para detectar gravações concorrentes). Tabelas: `settings`, `sessions`, `ideas`, `cards`, `vocab`, `chunks`, `reviews`, `speaking`, `reflections`, `weeklyReviews`, `writings`, `aiFeedback`, `bookNotes`, `practiceStats` e, só neste navegador, `recordings`.
+No navegador: IndexedDB, banco `deepstash-english`. Na nuvem: uma linha por usuário em `public.user_data` (coluna `data` em JSON, no mesmo formato do backup, e `version` para detectar gravações concorrentes). Tabelas: `settings`, `sessions`, `ideas`, `cards`, `vocab`, `chunks`, `reviews`, `speaking`, `reflections`, `weeklyReviews`, `writings`, `aiFeedback`, `bookNotes`, `practiceStats`, `ideaChats`, `verbs` e, só neste navegador, `recordings`.
 
 - Uma sessão por data. A Idea of the Day é `session.ideaOfDayId`, sem campo duplicado na ideia.
 - `ideas` guarda livro, título e ideia principal; `cards` guarda o texto de cada card, com `ideaId` e `position` (ordem de leitura).
@@ -280,7 +305,7 @@ O último cobre OpenAI, Google (endpoint compatível), Ollama (`http://localhost
 
 Com a IA ligada, aparecem três ações abaixo dos textos já salvos: *Check grammar*, *Improve this sentence* e *Suggest a natural expression*. Ela também explica as palavras clicadas na leitura e avalia a transcrição do retelling. A transcrição em si exige Groq ou outro serviço compatível com OpenAI (a Anthropic não transcreve áudio). O retorno vem como MY VERSION / CORRECTED / WHY? / MORE NATURAL e é guardado ao lado do original.
 
-A chave fica no IndexedDB do navegador, nunca no código-fonte nem na nuvem. Como não há servidor, a chamada sai direto do navegador com essa chave; use uma chave com limite de gasto.
+A chave nunca fica no código-fonte. Sem login, ela fica só no IndexedDB do navegador. Com a nuvem ligada, o provedor, os modelos e a chave são guardados na sua conta (na sua linha de `user_data`, protegida por RLS) e passam a valer em qualquer navegador onde você entrar; o arquivo de backup exportado continua sem a chave. Como não há servidor, a chamada sai direto do navegador com essa chave; use uma chave com limite de gasto.
 
 Para outro provedor, implemente `AIProvider` (`src/ai/AIProvider.ts`) e registre-o em `createProvider` (`src/ai/feedback.ts`).
 

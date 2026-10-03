@@ -1,6 +1,6 @@
-import type { Chunk, ChunkReview, ComprehensionVocab, PracticeStat } from './types';
+import type { Chunk, ChunkReview, ComprehensionVocab, PracticeStat, VerbEntry } from './types';
 
-const GAP = '_____';
+export const GAP = '_____';
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -70,18 +70,23 @@ export interface PracticeMaterial {
   chunks: readonly Chunk[];
   stats: readonly PracticeStat[];
   reviews: readonly ChunkReview[];
+  verbs: readonly VerbEntry[];
 }
 
 export type ItemSource = 'dictionary' | 'chunks';
 
-/** Uma palavra do dicionário ou um chunk, com o que se sabe dele e o quanto custa lembrar. */
+/** Uma palavra do dicionário ou um chunk, sempre com ao menos uma frase em que aparece. */
 export interface StudyItem {
   /** `vocab:<id>` ou `chunk:<id>`: a mesma chave usada em PracticeStat. */
   key: string;
   term: string;
   meaning: string;
   phonetic: string;
-  /** Frases em que o termo aparece (do card ou escritas pelo usuário). */
+  /** Classe gramatical (verbo, substantivo, phrasal verb…), quando registrada. */
+  wordClass: string;
+  /** Explicação do uso naquele contexto, quando registrada. */
+  explanation: string;
+  /** Frases em que o termo aparece (do card ou escritas pelo usuário). Nunca vazio. */
   sentences: string[];
   source: ItemSource;
   right: number;
@@ -95,7 +100,7 @@ export interface StudyItem {
  * treinado entra na frente dos já dominados. Para chunks, as revisões espaçadas
  * também contam: "não lembrei" pesa como dois erros e "difícil" como um.
  */
-export function difficultyOf(stat: PracticeStat | undefined, reviews: readonly ChunkReview[]): number {
+export function difficultyOf(stat: PracticeStat | undefined, reviews: readonly ChunkReview[] = []): number {
   const right = stat?.right ?? 0;
   const wrong = stat?.wrong ?? 0;
   const fromReviews = reviews.reduce(
@@ -106,14 +111,17 @@ export function difficultyOf(stat: PracticeStat | undefined, reviews: readonly C
   return wrong * 2 - right + fromReviews + untouched;
 }
 
-/** Todos os termos treináveis: precisam de significado ou de ao menos uma frase. */
+/**
+ * Os termos treináveis. Nenhum exercício mostra palavra solta, então só entra o
+ * termo que tem pelo menos uma frase registrada (o contexto do card ou uma frase
+ * do usuário).
+ */
 export function studyItems(m: PracticeMaterial): StudyItem[] {
   const stats = new Map(m.stats.map((s) => [s.id, s]));
   const build = (
     key: string,
     term: string,
-    meaning: string,
-    phonetic: string,
+    fields: { meaning: string; phonetic?: string; wordClass?: string; explanation?: string },
     sentences: (string | undefined)[],
     source: ItemSource,
     reviews: readonly ChunkReview[],
@@ -122,8 +130,10 @@ export function studyItems(m: PracticeMaterial): StudyItem[] {
     return {
       key,
       term,
-      meaning: meaning.trim(),
-      phonetic,
+      meaning: fields.meaning.trim(),
+      phonetic: fields.phonetic ?? '',
+      wordClass: fields.wordClass ?? '',
+      explanation: fields.explanation ?? '',
       sentences: sentences.flatMap((s) => (s?.trim() ? [s.trim()] : [])),
       source,
       right: stat?.right ?? 0,
@@ -133,19 +143,23 @@ export function studyItems(m: PracticeMaterial): StudyItem[] {
   };
 
   return [
-    ...m.vocab.map((v) => build(`vocab:${v.id}`, v.term, v.meaning, v.phonetic ?? '', [v.context], 'dictionary', [])),
+    ...m.vocab.map((v) => build(`vocab:${v.id}`, v.term, v, [v.context], 'dictionary', [])),
     ...m.chunks.map((c) =>
       build(
         `chunk:${c.id}`,
         c.text,
-        c.meaning,
-        '',
-        [c.userSentence, c.originalSentence],
+        { meaning: c.meaning },
+        [c.userSentence, c.originalSentence, ...(c.extraSentences ?? [])],
         'chunks',
         m.reviews.filter((r) => r.chunkId === c.id),
       ),
     ),
-  ].filter((item) => item.meaning || item.sentences.length > 0);
+  ].filter((item) => item.sentences.length > 0);
+}
+
+/** Termos cadastrados sem nenhuma frase: ficam fora dos exercícios até ganharem contexto. */
+export function withoutContext(m: PracticeMaterial): number {
+  return m.vocab.length + m.chunks.length - studyItems(m).length;
 }
 
 /** Os termos que mais precisam de treino, do mais difícil para o mais fácil. */
@@ -156,26 +170,28 @@ export function hardest(items: readonly StudyItem[], count: number): StudyItem[]
     .slice(0, count);
 }
 
-// ---------- Treino: três formas de pergunta, todas de produção ----------
+// ---------- Perguntas: sempre dentro de uma frase ----------
 
 /**
- * - `recall`: vê o significado e escreve o termo em inglês.
- * - `gap`: vê a frase com uma lacuna, sem tradução, e completa.
- * - `dictation`: ouve a frase e a escreve.
+ * - `gap`: lê a frase com uma lacuna e escreve o que falta.
+ * - `listen`: ouve a frase inteira e escreve a palavra que falta no texto.
+ * - `dictation`: ouve uma frase curta e a escreve inteira.
+ * - `tense`: completa a frase com o verbo no tempo pedido.
  */
-export type QuestionKind = 'recall' | 'gap' | 'dictation';
+export type QuestionKind = 'gap' | 'listen' | 'dictation' | 'tense';
 
 export interface Question {
   id: string;
+  /** Chave de desempenho: o termo (vocab/chunk) ou a pergunta de verbo. */
   itemKey: string;
   kind: QuestionKind;
-  /** Frase com lacuna (gap) ou vazia. */
+  /** Frase com lacuna; vazia no ditado. */
   prompt: string;
-  /** Significado em português (recall) ou vazio. */
+  /** Ajuda opcional: o significado em português, ou o tempo verbal e o verbo. */
   hint: string;
   /** O que o usuário deve escrever. */
   answer: string;
-  /** Frase completa, revelada depois da tentativa. */
+  /** Frase completa: é o que se ouve e o que se revela depois da tentativa. */
   full: string;
   phonetic: string;
 }
@@ -183,39 +199,24 @@ export interface Question {
 const MIN_DICTATION_WORDS = 3;
 const MAX_DICTATION_WORDS = 18;
 
-/** As formas de pergunta que este termo admite, conforme o que foi registrado sobre ele. */
+const isShort = (sentence: string): boolean => {
+  const words = sentence.split(/\s+/).length;
+  return words >= MIN_DICTATION_WORDS && words <= MAX_DICTATION_WORDS;
+};
+
+/** As formas de pergunta que este termo admite. Todas partem de uma frase em que ele aparece. */
 export function questionsFor(item: StudyItem): Question[] {
   const answer = coreTerm(item.term);
   const base = { itemKey: item.key, phonetic: item.phonetic };
   const out: Question[] = [];
 
-  if (item.meaning) {
-    out.push({
-      ...base,
-      id: `${item.key}:recall`,
-      kind: 'recall',
-      prompt: '',
-      hint: item.meaning,
-      answer,
-      full: item.sentences[0] ?? '',
-    });
-  }
   const withTerm = item.sentences.find((s) => blankOut(s, item.term));
   if (withTerm) {
-    out.push({
-      ...base,
-      id: `${item.key}:gap`,
-      kind: 'gap',
-      prompt: blankOut(withTerm, item.term) ?? '',
-      hint: '',
-      answer,
-      full: withTerm,
-    });
+    const prompt = blankOut(withTerm, item.term) ?? '';
+    out.push({ ...base, id: `${item.key}:gap`, kind: 'gap', prompt, hint: item.meaning, answer, full: withTerm });
+    out.push({ ...base, id: `${item.key}:listen`, kind: 'listen', prompt, hint: '', answer, full: withTerm });
   }
-  const speakable = item.sentences.find((s) => {
-    const words = s.split(/\s+/).length;
-    return words >= MIN_DICTATION_WORDS && words <= MAX_DICTATION_WORDS;
-  });
+  const speakable = item.sentences.find(isShort);
   if (speakable) {
     out.push({
       ...base,
@@ -266,6 +267,46 @@ export function requeue(queue: readonly Question[], index: number): Question[] {
   return [...queue.slice(0, at), question, ...queue.slice(at)];
 }
 
+// ---------- Tempos verbais ----------
+
+/** As perguntas de tempo verbal dos verbos selecionados: frase com lacuna, tempo pedido e verbo na forma base. */
+export function tenseQuestions(verbs: readonly VerbEntry[]): Question[] {
+  return verbs
+    .filter((v) => v.selected)
+    .flatMap((verb) =>
+      verb.drills.flatMap((drill, i): Question[] => {
+        if (!/_{3,}/.test(drill.sentence) || !drill.answer.trim()) return [];
+        const key = `verb:${verb.id}:${i}`;
+        return [
+          {
+            id: key,
+            itemKey: key,
+            kind: 'tense',
+            prompt: drill.sentence.replace(/_{3,}/, GAP),
+            hint: `${drill.tense} · to ${verb.base}`,
+            answer: drill.answer.trim(),
+            full: drill.sentence.replace(/_{3,}/, drill.answer.trim()),
+            phonetic: '',
+          },
+        ];
+      }),
+    );
+}
+
+/** Uma rodada de tempos verbais, começando pelas perguntas mais erradas (empates sorteados). */
+export function buildTenseTraining(
+  verbs: readonly VerbEntry[],
+  stats: readonly PracticeStat[],
+  count: number,
+  random: () => number = Math.random,
+): Question[] {
+  const byId = new Map(stats.map((s) => [s.id, s]));
+  const ranked = shuffle(tenseQuestions(verbs), random)
+    .sort((a, b) => difficultyOf(byId.get(b.itemKey)) - difficultyOf(byId.get(a.itemKey)))
+    .slice(0, Math.max(1, Math.trunc(count) || 1));
+  return shuffle(ranked, random);
+}
+
 // ---------- Flashcards ----------
 
 export type FlashSource = ItemSource | 'both';
@@ -273,12 +314,16 @@ export type FlashSource = ItemSource | 'both';
 export interface Flashcard {
   id: string;
   itemKey: string;
-  /** Frente: a palavra ou expressão em inglês. */
+  /** A palavra ou expressão em inglês. */
   front: string;
+  /** A frase em que ela aparece: o flashcard nunca mostra o termo solto. */
+  context: string;
   /** Verso: o significado em português. */
   back: string;
-  /** Frase em que o termo apareceu ou que o usuário criou com ele. */
-  context: string;
+  /** Classe gramatical (verbo, substantivo, phrasal verb…), quando registrada. */
+  wordClass: string;
+  /** Como o termo está sendo usado nessa frase. */
+  explanation: string;
   phonetic: string;
   source: ItemSource;
 }
@@ -290,8 +335,11 @@ export function buildFlashcards(items: readonly StudyItem[], source: FlashSource
       id: `flash-${item.key}`,
       itemKey: item.key,
       front: item.term,
+      // A frase em que o termo aparece tem preferência sobre as demais.
+      context: item.sentences.find((s) => blankOut(s, item.term)) ?? item.sentences[0] ?? '',
       back: item.meaning,
-      context: item.sentences[0] ?? '',
+      wordClass: item.wordClass,
+      explanation: item.explanation,
       phonetic: item.phonetic,
       source: item.source,
     }));
@@ -299,7 +347,7 @@ export function buildFlashcards(items: readonly StudyItem[], source: FlashSource
 
 /**
  * Sorteia `count` flashcards, limitado ao que existe e a pelo menos um. Com
- * `hardestFirst`, entram primeiro os termos mais difíceis.
+ * `difficulty`, entram primeiro os termos mais difíceis.
  */
 export function pickFlashcards(
   cards: readonly Flashcard[],
@@ -314,4 +362,18 @@ export function pickFlashcards(
     .sort((a, b) => (difficulty.get(b.itemKey) ?? 0) - (difficulty.get(a.itemKey) ?? 0))
     .slice(0, wanted);
   return shuffle(chosen, options.random);
+}
+
+/** A frase em três partes, para destacar o termo dentro dela. */
+export function splitAround(sentence: string, term: string): { before: string; match: string; after: string } | null {
+  const core = coreTerm(term);
+  if (!core) return null;
+  const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(core)}(?![\\p{L}\\p{N}])`, 'iu');
+  const found = pattern.exec(sentence);
+  if (!found) return null;
+  return {
+    before: sentence.slice(0, found.index),
+    match: found[0],
+    after: sentence.slice(found.index + found[0].length),
+  };
 }

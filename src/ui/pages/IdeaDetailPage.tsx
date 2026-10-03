@@ -7,6 +7,8 @@ import { getIdeaDetail } from '../../services/library';
 import { getNeighbors } from '../../services/study';
 import { FOLLOW_UP_LABEL } from '../components/ActionFollowUp';
 import { IdeaDictionary } from '../components/DictionaryItems';
+import { IdeaChat } from '../components/IdeaChat';
+import { IdeaVerbs } from '../components/IdeaVerbs';
 import { Reader } from '../components/Reader';
 import { ChunkItem } from '../components/ChunkItem';
 import { EmptyState, Eyebrow } from '../components/ui';
@@ -166,6 +168,10 @@ export function IdeaDetailPage() {
 
       </div>
       </div>
+
+      <IdeaVerbs key={`verbs-${idea.id}`} ideaId={idea.id} hasText={withText.length > 0} />
+
+      <IdeaChat key={idea.id} ideaId={idea.id} />
 
       {(neighbors?.prev || neighbors?.next) && (
         <nav aria-label="Ideias do mesmo livro" className="flex justify-between gap-3 border-t border-line pt-4 text-sm">

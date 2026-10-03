@@ -64,7 +64,8 @@ export function rateChunk(
       createdAt: nowISO(),
     };
     await db.reviews.add(review);
-    await db.chunks.update(chunkId, scheduler.next(chunk, rating, date));
+    const next = scheduler.next(chunk, rating, date);
+    await db.chunks.update(chunkId, { stage: next.stage, nextReviewDate: next.nextReviewDate, status: next.status });
     return review;
   });
 }

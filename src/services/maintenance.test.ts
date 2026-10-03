@@ -3,6 +3,7 @@ import { db } from '../data/db';
 import { ROUTINE, STEPS } from '../domain/session';
 import {
   deleteRecordingsBefore,
+  deleteSpeaking,
   listWeekSpeaking,
   recordPractice,
   resetAll,
@@ -126,6 +127,22 @@ describe('áudios das falas', () => {
   });
 });
 
+describe('excluir uma fala', () => {
+  it('remove o áudio e o registro, e o tempo deixa de contar na semana', async () => {
+    const keep = await study('2026-09-29', 'Keep');
+    const drop = await study('2026-09-30', 'Drop');
+    await saveRecording(drop.speakingId, new Blob(['audio']));
+
+    await deleteSpeaking(drop.speakingId);
+
+    expect(await db.speaking.get(drop.speakingId)).toBeUndefined();
+    expect(await db.recordings.count()).toBe(0);
+    expect((await listWeekSpeaking(WEEK1)).map((s) => s.idea?.title)).toEqual(['Keep']);
+    expect(await db.speaking.get(keep.speakingId)).toBeDefined();
+    // A ideia e o resto da sessão não são tocados.
+    expect(await db.ideas.count()).toBe(2);
+  });
+});
 describe('frequência das etapas', () => {
   it('toda etapa da sessão informa frequência e tempo, somando cerca de 30 minutos', () => {
     expect(STEPS.every((s) => s.frequency && s.minutes > 0)).toBe(true);
@@ -134,11 +151,12 @@ describe('frequência das etapas', () => {
 
   it('a rotina cobre do dia a dia ao ciclo de 4 semanas', () => {
     expect(ROUTINE.map((r) => r.frequency)).toEqual([
-      'Todo dia',
+      'Segunda a sexta',
+      'Sábado e domingo',
       '5 vezes',
       '3 dias depois',
       '2 a 3 vezes por semana',
-      '1 vez por semana',
+      'Sexta-feira',
       'Ao terminar cada livro',
       'A cada 4 semanas',
     ]);

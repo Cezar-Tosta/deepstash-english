@@ -1,8 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { addDays, formatDate, formatDuration, startOfWeek } from '../../domain/dates';
-import { MAX_CHUNKS_PER_DAY } from '../../domain/session';
+import { addDays, formatDate, formatDuration, isWeekend, startOfWeek } from '../../domain/dates';
+import { MAX_CHUNKS_PER_DAY, SESSION_DAYS_PER_WEEK } from '../../domain/session';
 import { totals, weeklyHistory, type WeekStats, weekStats } from '../../domain/stats';
 import { loadStatsInput } from '../../services/library';
 import { BarChart, type BarDatum } from '../components/BarChart';
@@ -71,11 +71,11 @@ export function ProgressPage() {
 
       <div className="col-span-full grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Tile label="Ideas read" value={String(week.ideasRead)} />
-        <Tile label="Ideas studied" value={String(week.ideasStudied)} goal="7" />
-        <Tile label="Chunks" value={String(week.chunksCreated)} goal={String(MAX_CHUNKS_PER_DAY * 7)} />
+        <Tile label="Ideas studied" value={String(week.ideasStudied)} goal={String(SESSION_DAYS_PER_WEEK)} />
+        <Tile label="Chunks" value={String(week.chunksCreated)} goal={String(MAX_CHUNKS_PER_DAY * SESSION_DAYS_PER_WEEK)} />
         <Tile label="Reviews" value={String(week.reviewsDone)} />
         <Tile label="Speaking (min:s)" value={formatDuration(week.speakingSec)} />
-        <Tile label="Study days" value={String(week.studyDays)} goal="7" />
+        <Tile label="Session days" value={String(week.sessionDays)} goal={String(SESSION_DAYS_PER_WEEK)} />
       </div>
 
       <Card>
@@ -106,7 +106,9 @@ export function ProgressPage() {
                         .join(' · ')
                     : d.date > date
                       ? ''
-                      : 'sem estudo'}
+                      : isWeekend(d.date)
+                        ? 'só revisões'
+                        : 'sem estudo'}
                 </p>
               </div>
               {d.ideaOfDayTitle && <p className="font-serif text-sm">⭐ {d.ideaOfDayTitle}</p>}
@@ -179,7 +181,7 @@ export function ProgressPage() {
                     <td className="px-2">{w.chunksCreated}</td>
                     <td className="px-2">{w.reviewsDone}</td>
                     <td className="px-2">{minutes(w.speakingSec)} min</td>
-                    <td className="pl-2">{w.studyDays}/7</td>
+                    <td className="pl-2">{w.studyDays}</td>
                   </tr>
                 ))}
               </tbody>

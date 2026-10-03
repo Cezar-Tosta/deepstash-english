@@ -6,7 +6,8 @@ import { scheduler } from '../../domain/srs';
 import type { ISODate, Rating } from '../../domain/types';
 import type { ChunkWithHistory } from '../../services/library';
 import { reactivateChunk, retireChunk } from '../../services/reviews';
-import { attempt } from '../toast';
+import { deleteChunk } from '../../services/sessions';
+import { attempt, showToast } from '../toast';
 import { Badge, Button } from './ui';
 
 const RATING_LABEL: Record<Rating, string> = {
@@ -28,6 +29,7 @@ function StatusBadge({ item, date }: { item: ChunkWithHistory; date: ISODate }) 
 /** Um chunk com tudo o que se sabe dele: frases, origem, próxima revisão e histórico. */
 export function ChunkItem({ item, date, linkToIdea = true }: { item: ChunkWithHistory; date: ISODate; linkToIdea?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const { chunk, reviews, recall, sourceIdea } = item;
   const active = chunk.status === 'new' || chunk.status === 'learning';
 
@@ -118,14 +120,41 @@ export function ChunkItem({ item, date, linkToIdea = true }: { item: ChunkWithHi
             </div>
           )}
 
-          {active ? (
-            <Button small variant="secondary" onClick={() => attempt(retireChunk(chunk.id))}>
-              Já uso espontaneamente · tirar da revisão
-            </Button>
-          ) : (
-            <Button small variant="secondary" onClick={() => attempt(reactivateChunk(chunk.id, date))}>
-              Voltar para a revisão
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {active ? (
+              <Button small variant="secondary" onClick={() => attempt(retireChunk(chunk.id))}>
+                Já uso espontaneamente · tirar da revisão
+              </Button>
+            ) : (
+              <Button small variant="secondary" onClick={() => attempt(reactivateChunk(chunk.id, date))}>
+                Voltar para a revisão
+              </Button>
+            )}
+            {!confirming && (
+              <Button small variant="danger" aria-label={`Excluir o chunk ${chunk.text}`} onClick={() => setConfirming(true)}>
+                Excluir
+              </Button>
+            )}
+          </div>
+          {confirming && (
+            <div role="alert" className="rounded-xl bg-sunken p-3">
+              <p>
+                Excluir <span className="font-serif" lang="en">“{chunk.text}”</span>? O histórico de revisões dele é
+                apagado e o destaque some de todos os textos. Não dá para desfazer.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button
+                  small
+                  variant="danger"
+                  onClick={() => attempt(deleteChunk(chunk.id).then(() => showToast(`"${chunk.text}" excluído.`)))}
+                >
+                  Confirmar exclusão
+                </Button>
+                <Button small variant="ghost" onClick={() => setConfirming(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       )}

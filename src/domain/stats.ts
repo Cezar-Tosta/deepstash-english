@@ -1,4 +1,5 @@
 import { addDays, startOfWeek, weekDates } from './dates';
+import { SESSION_DAYS_PER_WEEK } from './session';
 import type {
   Chunk,
   ChunkReview,
@@ -42,6 +43,8 @@ export interface WeekStats {
   recallRate: number | null;
   speakingSec: number;
   studyDays: number;
+  /** Dias em que houve leitura de ideia (sessão). A meta é de segunda a sexta. */
+  sessionDays: number;
   days: DayStats[];
 }
 
@@ -83,6 +86,7 @@ export function weekStats(input: StatsInput, weekStart: ISODate): WeekStats {
     recallRate: reviewsDone === 0 ? null : recalled / reviewsDone,
     speakingSec: sum((d) => d.speakingSec),
     studyDays: days.filter((d) => d.studied).length,
+    sessionDays: days.filter((d) => d.ideas > 0).length,
     days,
   };
 }
@@ -112,8 +116,9 @@ export function totals(input: StatsInput): Totals {
   for (const i of input.ideas) studied.add(i.date);
   for (const r of input.reviews) studied.add(r.completedDate);
 
+  // Semana completa: sessão nos cinco dias úteis. Revisões de fim de semana não entram na conta.
   const perWeek = new Map<ISODate, number>();
-  for (const date of studied) {
+  for (const date of new Set(input.ideas.map((i) => i.date))) {
     const week = startOfWeek(date);
     perWeek.set(week, (perWeek.get(week) ?? 0) + 1);
   }
@@ -131,6 +136,6 @@ export function totals(input: StatsInput): Totals {
     recallRate: input.reviews.length === 0 ? null : recalled / input.reviews.length,
     speakingSec: input.speaking.reduce((sum, s) => sum + s.durationSec, 0),
     studyDays: studied.size,
-    completeWeeks: [...perWeek.values()].filter((n) => n === 7).length,
+    completeWeeks: [...perWeek.values()].filter((n) => n >= SESSION_DAYS_PER_WEEK).length,
   };
 }

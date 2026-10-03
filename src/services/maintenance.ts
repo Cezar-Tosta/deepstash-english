@@ -63,6 +63,10 @@ export async function resetWeek(weekStart: ISODate): Promise<void> {
     await db.vocab.bulkDelete(vocab.map((v) => v.id));
     await db.reflections.bulkDelete(reflections.map((r) => r.id));
     await db.cards.where('sessionId').anyOf(sessionIds).delete();
+    await db.ideaChats.where('ideaId').anyOf(ideas.map((i) => i.id)).delete();
+    const verbs = await db.verbs.where('ideaId').anyOf(ideas.map((i) => i.id)).toArray();
+    await db.practiceStats.bulkDelete(verbs.flatMap((v) => v.drills.map((_, i) => `verb:${v.id}:${i}`)));
+    await db.verbs.bulkDelete(verbs.map((v) => v.id));
     await db.ideas.bulkDelete(ideas.map((i) => i.id));
     await db.recordings.bulkDelete(speakingIds);
     await db.speaking.bulkDelete(speakingIds);
@@ -129,6 +133,16 @@ export async function listWeekSpeaking(weekStart: ISODate): Promise<SpokenItem[]
       audio: (await db.recordings.get(s.id))?.blob ?? null,
     })),
   );
+}
+
+/** Exclui uma fala inteira: o áudio, a transcrição e o tempo, que deixa de contar nas estatísticas. */
+export function deleteSpeaking(speakingId: string): Promise<void> {
+  return db.transaction('rw', db.speaking, db.recordings, db.aiFeedback, async () => {
+    const feedback = await db.aiFeedback.toArray();
+    await db.aiFeedback.bulkDelete(feedback.filter((f) => f.targetType === 'retell' && f.targetId === speakingId).map((f) => f.id));
+    await db.recordings.delete(speakingId);
+    await db.speaking.delete(speakingId);
+  });
 }
 
 export interface RecordingsUsage {

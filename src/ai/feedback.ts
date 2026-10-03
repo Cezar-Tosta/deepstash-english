@@ -1,5 +1,6 @@
 import { db } from '../data/db';
 import { nowISO } from '../domain/dates';
+import { stripMarkdown } from '../domain/richText';
 import { newId } from '../domain/ids';
 import type { AIFeedback, AISettings, FeedbackKind, FeedbackTarget } from '../domain/types';
 import { getSettings } from '../services/settings';
@@ -105,11 +106,11 @@ export function parseFeedback(raw: string): ParsedFeedback {
   const why = obj['why'];
   const moreNatural = obj['moreNatural'];
   return {
-    corrected: corrected.trim(),
+    corrected: stripMarkdown(corrected.trim()),
     explanation: typeof why === 'string' ? why.trim() : '',
     moreNatural:
       typeof moreNatural === 'string' && moreNatural.trim() && moreNatural.trim() !== corrected.trim()
-        ? moreNatural.trim()
+        ? stripMarkdown(moreNatural.trim())
         : null,
   };
 }
@@ -177,6 +178,8 @@ export interface WordMeaning {
   explanation: string;
   /** Transcrição fonética em IPA, entre barras. Vazia se a IA não informou. */
   phonetic: string;
+  /** Classe gramatical naquele contexto (verbo, substantivo, phrasal verb…). */
+  wordClass: string;
 }
 
 /** A frase com o trecho selecionado entre [[ ]], para a IA saber exatamente o que analisar. */
@@ -206,7 +209,7 @@ export function buildLookupPrompt(term: string, sentence: string): { system: str
       'O que deve ser analisado é exatamente o trecho marcado entre [[ ]] na frase: nem mais, nem menos.',
       ...unit,
       'Responda somente com um objeto JSON, sem texto antes ou depois, neste formato:',
-      '{"meaning": "<tradução em português do trecho marcado, no sentido do contexto>", "phonetic": "<transcrição fonética em IPA, pronúncia americana, entre barras>", "explanation": "<1 ou 2 frases em português sobre o trecho marcado>"}',
+      '{"meaning": "<tradução em português do trecho marcado, no sentido do contexto>", "phonetic": "<transcrição fonética em IPA, pronúncia americana, entre barras>", "wordClass": "<classe gramatical do trecho nessa frase, em português: verbo, substantivo, adjetivo, advérbio, preposição, phrasal verb, expressão idiomática, colocação…>", "explanation": "<1 ou 2 frases em português sobre como o trecho marcado está sendo usado nessa frase>"}',
     ].join('\n'),
     user: `Termo: ${term}\nPalavras no termo: ${words}\nFrase, com o termo entre [[ ]]: ${markTerm(term, sentence)}`,
   };
@@ -229,9 +232,10 @@ export function parseLookup(raw: string): WordMeaning {
   const explanation = obj['explanation'];
   const phonetic = obj['phonetic'];
   return {
-    meaning: meaning.trim(),
+    meaning: stripMarkdown(meaning.trim()),
     explanation: typeof explanation === 'string' ? explanation.trim() : '',
-    phonetic: typeof phonetic === 'string' ? phonetic.trim() : '',
+    phonetic: typeof phonetic === 'string' ? stripMarkdown(phonetic.trim()) : '',
+    wordClass: typeof obj['wordClass'] === 'string' ? stripMarkdown(obj['wordClass'].trim()).toLowerCase() : '',
   };
 }
 

@@ -191,10 +191,17 @@ interface AutoTextAreaProps extends Omit<TextAreaProps, 'onChange' | 'onBlur'> {
   onSave: (value: string) => Promise<unknown>;
   /** Começos de frase que o usuário pode tocar para inserir no texto. */
   starters?: readonly string[] | undefined;
+  /** O mesmo, organizado por função (opinar, contrastar, exemplificar…). */
+  starterGroups?: readonly StarterGroup[] | undefined;
+}
+
+export interface StarterGroup {
+  label: string;
+  items: readonly string[];
 }
 
 /** Campo que se salva sozinho: o usuário nunca precisa procurar um botão "salvar". */
-export function AutoTextArea({ value, onSave, starters, ...props }: AutoTextAreaProps) {
+export function AutoTextArea({ value, onSave, starters, starterGroups, ...props }: AutoTextAreaProps) {
   const field = useRef<HTMLTextAreaElement>(null);
   const [text, setText] = useState(value);
   const latest = useRef(value);
@@ -231,17 +238,25 @@ export function AutoTextArea({ value, onSave, starters, ...props }: AutoTextArea
     timer.current = setTimeout(flush, 600);
   };
 
+  // Tocar num conector o insere no fim do texto, pronto para continuar a frase.
+  const insert = (starter: string) => {
+    const base = latest.current.trimEnd();
+    change(base ? `${base} ${starter} ` : `${starter} `);
+    field.current?.focus();
+  };
+
   return (
     <div className="space-y-3">
-      {starters && (
-        <StarterChips
-          starters={starters}
-          onPick={(starter) => {
-            const base = latest.current.trimEnd();
-            change(base ? `${base} ${starter} ` : `${starter} `);
-            field.current?.focus();
-          }}
-        />
+      {starters && <StarterChips starters={starters} onPick={insert} />}
+      {starterGroups && (
+        <div className="space-y-2">
+          {starterGroups.map((group) => (
+            <div key={group.label} className="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-3">
+              <p className="shrink-0 pt-2 text-xs font-semibold tracking-wide text-muted uppercase sm:w-28">{group.label}</p>
+              <StarterChips starters={group.items} onPick={insert} />
+            </div>
+          ))}
+        </div>
       )}
       <TextArea {...props} ref={field} value={text} onBlur={flush} onChange={change} />
     </div>

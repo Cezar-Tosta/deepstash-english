@@ -315,3 +315,23 @@ describe('progresso da sessão', () => {
     expect(sessionProgress({ ...empty, ideas: 1, hasIdeaOfDay: true })).toBe(25);
   });
 });
+
+describe('rascunho em português da reflexão', () => {
+  it('é guardado mesmo quando é a primeira coisa escrita, e convive com o texto em inglês', async () => {
+    const session = await startSession(DAY);
+    const idea = await addIdea(session.id, { title: 'Thought Into Action' });
+    await setIdeaOfDay(session.id, idea.id);
+
+    await saveReflection(session.id, idea.id, { opinionPt: 'Concordo em parte.' });
+    await saveReflection(session.id, idea.id, { userOpinion: 'I partly agree.' });
+    await saveReflection(session.id, idea.id, { soWhatPt: 'Anotar tudo.' });
+
+    expect(await db.reflections.count()).toBe(1);
+    expect((await loadSessionBundle(DAY))?.reflection).toMatchObject({
+      opinionPt: 'Concordo em parte.',
+      userOpinion: 'I partly agree.',
+      soWhatPt: 'Anotar tudo.',
+      soWhat: '',
+    });
+  });
+});

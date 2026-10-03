@@ -143,6 +143,8 @@ describe('estatísticas semanais', () => {
   it('conta como dia estudado o dia com ideia lida ou revisão feita', () => {
     // 28 e 29 têm ideias; 30 só teve revisão.
     expect(stats.studyDays).toBe(3);
+    // Só 28 e 29 tiveram sessão; o dia 30 foi apenas de revisão.
+    expect(stats.sessionDays).toBe(2);
   });
 
   it('taxa de recuperação: tudo que não é AGAIN conta como lembrado', () => {
