@@ -1,4 +1,4 @@
-import type { BackupFile } from '../data/backup';
+import { type BackupFile, hasAI } from '../data/backup';
 import type { CloudStore } from './cloudStore';
 
 /** O que este navegador sabe sobre a última sincronização. */
@@ -8,12 +8,16 @@ export interface SyncMeta {
   version: number;
   /** Impressão digital dos dados locais naquele momento. */
   fingerprint: string;
+  /** Este navegador tinha uma IA configurada naquele momento. Sem isso, "sem IA" não é uma remoção. */
+  hadAI?: boolean;
 }
 
 export interface LocalAdapter {
   export(): Promise<BackupFile>;
   restore(payload: BackupFile): Promise<void>;
   isEmpty(): Promise<boolean>;
+  /** Passa a usar a IA da cópia da nuvem, se este navegador não tiver nenhuma. Devolve se mudou algo. */
+  adoptAI(remote: BackupFile): Promise<boolean>;
 }
 
 export interface MetaStore {
@@ -60,13 +64,22 @@ export class SyncEngine {
   /** Compara os dois lados e faz o que for seguro: enviar, baixar ou pedir a decisão. */
   async reconcile(): Promise<SyncOutcome> {
     const remote = await this.cloud.load();
+    const known = this.knownMeta();
+    // Medido antes de adotar a IA da nuvem: um navegador novo continua contando como vazio.
+    const empty = await this.local.isEmpty();
+    await this.adoptAI(remote?.payload, known);
     const mine = await this.local.export();
     const localPrint = fingerprint(mine);
-    const known = this.knownMeta();
 
     if (!remote) {
-      if (await this.local.isEmpty()) return 'synced';
+      if (empty) return 'synced';
       return this.push(mine, 0);
+    }
+
+    // Os dois lados já são iguais: só registra, sem enviar nem perguntar.
+    if (fingerprint(remote.payload) === localPrint) {
+      this.remember(remote.version, mine);
+      return 'synced';
     }
 
     if (known) {
@@ -78,11 +91,7 @@ export class SyncEngine {
     }
 
     // Primeira vez deste usuário neste navegador.
-    if (await this.local.isEmpty()) return this.pull(remote.payload, remote.version);
-    if (fingerprint(remote.payload) === localPrint) {
-      this.meta.set({ userId: this.userId, version: remote.version, fingerprint: localPrint });
-      return 'synced';
-    }
+    if (empty) return this.pull(remote.payload, remote.version);
     return 'choose';
   }
 
@@ -91,6 +100,8 @@ export class SyncEngine {
     const known = this.knownMeta();
     if (!known) return this.reconcile();
     const mine = await this.local.export();
+    // Sem IA aqui e sem nunca ter tido: antes de enviar, confere se a nuvem tem uma para adotar.
+    if (!known.hadAI && !hasAI(mine)) return this.reconcile();
     if (fingerprint(mine) === known.fingerprint) return 'synced';
     return this.push(mine, known.version);
   }
@@ -102,7 +113,21 @@ export class SyncEngine {
       if (!remote) return 'synced';
       return this.pull(remote.payload, remote.version);
     }
+    await this.adoptAI(remote?.payload, this.knownMeta());
     return this.push(await this.local.export(), remote?.version ?? 0);
+  }
+
+  /**
+   * A IA configurada em outro navegador vale para este, que não tem nenhuma. Só não
+   * vale quando este navegador tinha uma IA e o usuário a removeu aqui: aí a remoção é
+   * que segue para a nuvem.
+   */
+  private async adoptAI(remote: BackupFile | undefined, known: SyncMeta | null): Promise<void> {
+    if (remote && !known?.hadAI) await this.local.adoptAI(remote);
+  }
+
+  private remember(version: number, local: BackupFile): void {
+    this.meta.set({ userId: this.userId, version, fingerprint: fingerprint(local), hadAI: hasAI(local) });
   }
 
   private knownMeta(): SyncMeta | null {
@@ -114,7 +139,7 @@ export class SyncEngine {
     const version = await this.cloud.save(payload, expectedVersion);
     // Outro navegador gravou no meio do caminho: não sobrescreve, pede a decisão.
     if (version === null) return 'choose';
-    this.meta.set({ userId: this.userId, version, fingerprint: fingerprint(payload) });
+    this.remember(version, payload);
     return 'synced';
   }
 
@@ -122,7 +147,7 @@ export class SyncEngine {
     await this.local.restore(payload);
     // A impressão digital é tirada do que ficou no banco, não do que veio da rede.
     const stored = await this.local.export();
-    this.meta.set({ userId: this.userId, version, fingerprint: fingerprint(stored) });
+    this.remember(version, stored);
     return 'synced';
   }
 }

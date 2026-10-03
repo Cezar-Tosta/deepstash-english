@@ -161,6 +161,27 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
   });
 }
 
+/** A cópia traz uma IA configurada? */
+export function hasAI(backup: BackupFile): boolean {
+  const ai = backup.settings?.ai;
+  return ai !== undefined && ai.provider !== 'none';
+}
+
+/**
+ * Se este navegador não tem IA configurada e a cópia da nuvem tem, passa a usar a
+ * da nuvem (provedor, modelos e chave). Não toca nos dados de estudo. Devolve se mudou algo.
+ */
+export async function adoptCloudAI(remote: BackupFile): Promise<boolean> {
+  const ai = remote.settings?.ai;
+  if (!ai || ai.provider === 'none') return false;
+  return db.transaction('rw', db.settings, async () => {
+    const current = (await db.settings.get('settings')) ?? DEFAULT_SETTINGS;
+    if (current.ai.provider !== 'none') return false;
+    await db.settings.put({ ...current, ai });
+    return true;
+  });
+}
+
 /** Apaga os dados de estudo deste navegador (usado ao sair da conta). */
 export async function clearLocalData(): Promise<void> {
   const tables = [db.settings, db.recordings, ...DATA_TABLES.map((name) => db.table(name))];

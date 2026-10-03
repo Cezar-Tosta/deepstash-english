@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../domain/defaults';
-import { clearLocalData, exportBackup, exportForCloud, parseBackup, restoreBackup } from './backup';
+import { adoptCloudAI, clearLocalData, exportBackup, exportForCloud, parseBackup, restoreBackup } from './backup';
 import { db } from './db';
 
 const AI = { provider: 'groq' as const, baseUrl: '', model: 'meu-modelo', apiKey: 'gsk_segredo', visionModel: 'minha-visao' };
@@ -61,5 +61,31 @@ describe('o que conta como "nada a enviar"', () => {
     const { isLocalEmpty } = await import('./backup');
     await configure();
     expect(await isLocalEmpty()).toBe(false);
+  });
+});
+
+describe('adotar a IA da nuvem', () => {
+  const groq = { provider: 'groq', baseUrl: '', model: 'llama', apiKey: 'gsk-secret', visionModel: '' } as const;
+
+  it('navegador sem IA passa a usar a da cópia, sem perder os outros ajustes', async () => {
+    await db.settings.put({ ...DEFAULT_SETTINGS, theme: 'dark' });
+    const remote = { ...(await exportForCloud()), settings: { theme: 'light' as const, cycleStartDate: null, ai: groq } };
+
+    expect(await adoptCloudAI(remote)).toBe(true);
+    const settings = await db.settings.get('settings');
+    expect(settings?.ai).toEqual(groq);
+    expect(settings?.theme).toBe('dark');
+  });
+
+  it('não sobrescreve a IA que já está configurada aqui, nem adota uma cópia sem IA', async () => {
+    const mine = { ...groq, apiKey: 'gsk-minha' };
+    await db.settings.put({ ...DEFAULT_SETTINGS, ai: mine });
+    const remote = { ...(await exportForCloud()), settings: { theme: 'light' as const, cycleStartDate: null, ai: groq } };
+    expect(await adoptCloudAI(remote)).toBe(false);
+    expect((await db.settings.get('settings'))?.ai).toEqual(mine);
+
+    await db.settings.put(DEFAULT_SETTINGS);
+    expect(await adoptCloudAI({ ...remote, settings: null })).toBe(false);
+    expect((await db.settings.get('settings'))?.ai.provider).toBe('none');
   });
 });

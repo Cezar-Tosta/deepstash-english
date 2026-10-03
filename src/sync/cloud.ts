@@ -1,6 +1,6 @@
 import { liveQuery, type Subscription } from 'dexie';
 import { useSyncExternalStore } from 'react';
-import { clearLocalData, exportForCloud, isLocalEmpty, restoreBackup } from '../data/backup';
+import { adoptCloudAI, clearLocalData, exportForCloud, isLocalEmpty, restoreBackup } from '../data/backup';
 import { type MetaStore, type SyncMeta, SyncEngine, type SyncOutcome } from './engine';
 import { cloudEnabled, createSupabaseStore, getClient } from './supabase';
 
@@ -123,7 +123,7 @@ function startFor(user: { id: string; email: string }): void {
   engine = new SyncEngine(
     user.id,
     createSupabaseStore(getClient(), user.id),
-    { export: exportForCloud, restore: restoreBackup, isEmpty: isLocalEmpty },
+    { export: exportForCloud, restore: restoreBackup, isEmpty: isLocalEmpty, adoptAI: adoptCloudAI },
     metaStore,
   );
   update({ user, authReady: true, hydrated: false, status: 'idle', error: '' });
