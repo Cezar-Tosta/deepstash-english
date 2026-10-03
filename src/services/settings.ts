@@ -1,14 +1,9 @@
 import { db } from '../data/db';
+import { DEFAULT_SETTINGS } from '../domain/defaults';
 import { startOfWeek, today } from '../domain/dates';
 import type { AISettings, ISODate, ThemePref, UserSettings } from '../domain/types';
 
-export const DEFAULT_SETTINGS: UserSettings = {
-  id: 'settings',
-  theme: 'system',
-  cycleStartDate: null,
-  ai: { provider: 'none', baseUrl: '', model: '', apiKey: '' },
-  lastBackupAt: null,
-};
+export { DEFAULT_SETTINGS };
 
 export async function getSettings(): Promise<UserSettings> {
   const stored = await db.settings.get('settings');

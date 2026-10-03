@@ -33,13 +33,18 @@ Decisões que preservam o método:
 
 - React 19 + TypeScript (estrito) + Vite
 - Tailwind CSS 4
-- Dexie (IndexedDB) para persistência no próprio aparelho
+- Dexie (IndexedDB) no navegador e Supabase (Postgres + Auth) na nuvem
 - vite-plugin-pwa (instalável, funciona offline)
 - Vitest + fake-indexeddb, oxlint, oxfmt
 
-### Por que não Node + SQLite
+### Onde os dados ficam
 
-O uso principal é no celular, offline e sem login. Um banco SQLite num servidor Node só atenderia o celular na mesma rede, com o computador ligado. Por isso o banco fica no navegador do aparelho e não existe backend. A persistência está isolada em `src/data` e `src/services`; sincronizar com PostgreSQL/Supabase no futuro é acrescentar um adaptador ali, sem tocar no domínio nem nas telas.
+O app é um site estático (GitHub Pages), sem servidor próprio. Os dados seguem dois níveis:
+
+- **No navegador (IndexedDB):** é onde o app lê e grava. Por isso ele é rápido e continua funcionando se a rede cair.
+- **Na nuvem (Supabase):** uma cópia versionada, ligada à sua conta. Cada alteração é enviada em poucos segundos, e qualquer navegador onde você entrar recebe os mesmos estudos.
+
+A nuvem é opcional. Sem as duas variáveis do Supabase no build, o app funciona sem login e guarda tudo só no navegador.
 
 ## Arquitetura
 
@@ -53,6 +58,7 @@ ui  ──►  services  ──►  data (Dexie/IndexedDB)
 - **domain**: regras puras e testáveis: agendamento, ciclo, progresso da sessão, estatísticas.
 - **data**: esquema do banco, migrations e backup.
 - **services**: casos de uso (abrir sessão, escolher a Idea of the Day, avaliar revisão…), cada um numa transação.
+- **sync**: login e sincronização. `SyncEngine` decide entre enviar, baixar ou pedir a decisão do usuário e só conhece a interface `CloudStore`; o Supabase é uma implementação dela.
 - **ai**: interface `AIProvider`, provedores e o fluxo de retorno. Carregado só quando usado.
 - **ui**: telas e componentes. Não acessa o banco diretamente.
 
@@ -76,11 +82,13 @@ src/
     migrations.ts       conversão de dados entre versões
     backup.ts           export/import JSON
   services/             sessions, reviews, library, weekly, settings
+  sync/                 engine (regras), cloudStore (interface), supabase (implementação), cloud (estado)
   ai/                   AIProvider, anthropicProvider, openAICompatibleProvider, feedback
   ui/
     session/            assistente da sessão diária
     pages/              Today, Review, Knowledge, IdeaDetail, Progress, Weekly, Settings
     components/         botões, campos, cronômetro, fluxo de revisão, gráfico
+supabase/schema.sql      tabela e políticas de acesso
 scripts/generate-icons.mjs
 ```
 
@@ -94,7 +102,7 @@ pnpm install
 
 ## Execução
 
-Desenvolvimento (também acessível por outros aparelhos da rede):
+Desenvolvimento:
 
 ```bash
 pnpm dev
@@ -107,32 +115,48 @@ pnpm build
 pnpm preview
 ```
 
-### Publicar no GitHub Pages e usar no celular
+## Publicação: GitHub Pages + Supabase
 
-Instalar o PWA e usar offline exige HTTPS, e o GitHub Pages fornece isso. O workflow `.github/workflows/deploy.yml` roda lint, testes e build e publica a pasta `dist/` a cada push na branch `main`.
+### 1. Criar o projeto no Supabase
 
-1. Crie um repositório vazio no GitHub (sem README) e envie o projeto:
+1. Crie uma conta e um projeto em https://supabase.com (o plano gratuito basta).
+2. Em **SQL Editor**, cole o conteúdo de `supabase/schema.sql` e clique em **Run**. Isso cria a tabela `user_data` e as políticas que fazem cada conta enxergar só os próprios dados.
+3. Em **Authentication → Users → Add user → Create new user**, crie a sua conta com e-mail e senha e marque **Auto Confirm User**.
+4. Em **Authentication → Sign In / Providers → Email**, desligue **Allow new users to sign up**. Assim ninguém mais cria conta no seu projeto.
+5. Em **Project Settings → API** (ou no botão **Connect**), copie a **Project URL** e a chave pública (**anon** ou **publishable**). Nunca use a chave `service_role`/secreta.
 
-   ```bash
-   git remote add origin https://github.com/SEU-USUARIO/deepstash-english.git
-   git push -u origin main
-   ```
+### 2. Publicar no GitHub Pages
 
-2. No repositório: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-3. Acompanhe em **Actions**. Se a primeira execução falhar por ter rodado antes do passo 2, use **Re-run all jobs**. Ao terminar, o app fica em `https://SEU-USUARIO.github.io/deepstash-english/`.
-4. Abra esse endereço no celular e instale:
-   - Android (Chrome): menu → **Instalar app**
-   - iPhone (Safari): Compartilhar → **Adicionar à Tela de Início**
+1. Envie o projeto para um repositório no GitHub (pelo GitHub Desktop: **Publish repository**, público).
+2. No repositório, em **Settings → Secrets and variables → Actions → aba Variables → New repository variable**, crie:
+   - `SUPABASE_URL` com a Project URL
+   - `SUPABASE_ANON_KEY` com a chave pública
+3. Em **Settings → Pages → Build and deployment → Source**, escolha **GitHub Actions** (não "Deploy from a branch").
+4. Em **Actions**, abra a última execução de "Deploy to GitHub Pages" e use **Re-run all jobs** (a primeira roda antes dos passos 2 e 3).
+5. Abra `https://SEU-USUARIO.github.io/NOME-DO-REPOSITORIO/` e entre com o e-mail e a senha criados no Supabase.
 
-O build usa caminhos relativos e rotas com `#`, então funciona na subpasta do Pages sem ajuste. O site publicado contém só o código do app: seus cards, chunks e a chave de IA ficam no aparelho e nunca vão para o GitHub.
+O workflow `.github/workflows/deploy.yml` roda lint, testes e build a cada push na `main`. A URL e a chave pública ficam visíveis no site publicado, o que é esperado: quem protege os dados são o login e as políticas do banco.
 
-No plano gratuito do GitHub, o Pages exige repositório público. Os dados são guardados por endereço: se o endereço do app mudar (outro nome de repositório ou de usuário), exporte um backup antes e importe no novo.
+### Como a sincronização se comporta
 
-Para só testar na rede local, sem instalar, abra `http://IP-DO-PC:5173` com `pnpm dev` rodando.
+- **Envio automático:** cerca de 2 segundos depois de cada alteração.
+- **Outro navegador:** ao entrar, ou ao voltar para a aba, o app baixa o que mudou.
+- **Sem rede:** você continua estudando; o envio acontece quando a conexão volta.
+- **Conflito:** se dois navegadores mudarem dados diferentes sem se sincronizar, o app não sobrescreve nenhum deles. Ele mostra a tela "Qual versão vale?" e você escolhe entre a nuvem e o navegador atual. O lado não escolhido é substituído; não há mesclagem.
+- **Sair da conta:** só é permitido depois de tudo enviado, e apaga os dados daquele navegador (eles continuam na nuvem).
+- **Chave de IA:** não vai para a nuvem; é informada em cada navegador.
+
+### Testar a nuvem em desenvolvimento
+
+```bash
+cp .env.example .env.local
+# preencha VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY
+pnpm dev
+```
 
 ## Banco de dados
 
-IndexedDB, banco `deepstash-english`. Tabelas: `settings`, `sessions`, `ideas`, `cards`, `vocab`, `chunks`, `reviews`, `speaking`, `reflections`, `weeklyReviews`, `writings`, `aiFeedback`.
+No navegador: IndexedDB, banco `deepstash-english`. Na nuvem: uma linha por usuário em `public.user_data` (coluna `data` em JSON, no mesmo formato do backup, e `version` para detectar gravações concorrentes). Tabelas: `settings`, `sessions`, `ideas`, `cards`, `vocab`, `chunks`, `reviews`, `speaking`, `reflections`, `weeklyReviews`, `writings`, `aiFeedback`.
 
 - Uma sessão por data. A Idea of the Day é `session.ideaOfDayId`, sem campo duplicado na ideia.
 - `ideas` guarda livro, título e ideia principal; `cards` guarda o texto de cada card, com `ideaId` e `position` (ordem de leitura).
@@ -156,10 +180,10 @@ O intervalo conta a partir do dia em que a revisão foi feita, então revisões 
 
 Em **Settings → Backup**:
 
-- **Export Backup** gera um JSON com todos os dados (no celular, abre a folha de compartilhamento).
+- **Export Backup** gera um JSON com todos os dados.
 - **Import Backup** valida o arquivo, mostra o que ele contém e substitui os dados locais numa única transação.
 
-Os dados existem apenas no aparelho. Limpar os dados do navegador ou desinstalar o app apaga tudo, então exporte com regularidade. A chave de API da IA não entra no backup.
+Com a nuvem ligada, o backup é uma cópia extra sob seu controle. Sem ela, os dados existem apenas no navegador e limpar os dados do site apaga tudo. A chave de API da IA não entra no backup.
 
 ## IA (opcional)
 
@@ -175,7 +199,7 @@ O último cobre OpenAI, Google (endpoint compatível), Ollama (`http://localhost
 
 Com a IA ligada, aparecem três ações abaixo dos textos já salvos: *Check grammar*, *Improve this sentence* e *Suggest a natural expression*. O retorno vem como MY VERSION / CORRECTED / WHY? / MORE NATURAL e é guardado ao lado do original.
 
-A chave fica no IndexedDB do aparelho, nunca no código-fonte. Como não há servidor, a chamada sai direto do navegador com essa chave; use uma chave com limite de gasto.
+A chave fica no IndexedDB do navegador, nunca no código-fonte nem na nuvem. Como não há servidor, a chamada sai direto do navegador com essa chave; use uma chave com limite de gasto.
 
 Para outro provedor, implemente `AIProvider` (`src/ai/AIProvider.ts`) e registre-o em `createProvider` (`src/ai/feedback.ts`).
 
@@ -188,7 +212,7 @@ pnpm lint        # oxlint
 pnpm format      # oxfmt
 ```
 
-Cobertura: criação de sessão, ideias e cards em sequência, Idea of the Day, migração do banco, limite de 3 chunks, cálculo D1–D30, revisão atrasada, avaliações AGAIN/HARD/GOOD/EASY, finalização da sessão, estatísticas semanais, ciclo de 4 semanas e leitura do retorno da IA.
+Cobertura: criação de sessão, ideias e cards em sequência, Idea of the Day, migração do banco, limite de 3 chunks, cálculo D1–D30, revisão atrasada, avaliações AGAIN/HARD/GOOD/EASY, finalização da sessão, estatísticas semanais, ciclo de 4 semanas, sincronização com a nuvem (envio, recebimento e conflito) e leitura do retorno da IA.
 
 ## Roadmap
 
@@ -199,7 +223,8 @@ Cobertura: criação de sessão, ideias e cards em sequência, Idea of the Day, 
 | 0.3 | Dashboard, My Knowledge, My English, Weekly Review e Writing | feito |
 | 0.4 | PWA, offline, backup | feito |
 | 0.5 | IA opcional (Groq, Anthropic e compatíveis com OpenAI) | feito, não testado contra um provedor real |
-| 0.6 | Gravação, transcrição e avaliação do retelling | futuro (`SpeakingSession.transcript` e `audioPath` já existem) |
-| 1.0 | Entrada por colar/screenshot/OCR/compartilhamento, sincronização entre aparelhos, testes de interface | futuro |
+| 0.7 | Gravação, transcrição e avaliação do retelling | futuro (`SpeakingSession.transcript` e `audioPath` já existem) |
+| 0.6 | Login e sincronização com Supabase | feito, testado contra um servidor simulado |
+| 1.0 | Entrada por screenshot/OCR, tabelas relacionais no Supabase com mesclagem por registro, testes de interface | futuro |
 
 Fora do escopo por decisão de produto: scraping do Deepstash, rede social, ranking e gamificação pesada.

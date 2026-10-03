@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { getDueChunks } from '../services/reviews';
+import { useCloud } from '../sync/cloud';
 import { useOnline, useToday } from './hooks';
 import { dismissToast, useToast } from './toast';
 
@@ -41,6 +42,7 @@ function Toaster() {
 export function Layout() {
   const date = useToday();
   const online = useOnline();
+  const cloud = useCloud();
   const due = useLiveQuery(() => getDueChunks(date), [date])?.length ?? 0;
 
   return (
@@ -85,7 +87,12 @@ export function Layout() {
       <main className="mx-auto w-full max-w-2xl px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-28 md:px-8 md:pt-10 md:pb-16">
         {!online && (
           <p role="status" className="mb-4 rounded-xl bg-sunken px-4 py-2 text-sm text-muted">
-            Sem conexão. Tudo continua funcionando e sendo salvo neste aparelho.
+            Sem conexão. Tudo continua funcionando e sendo salvo neste navegador.
+          </p>
+        )}
+        {online && cloud.user && cloud.status === 'error' && (
+          <p role="alert" className="mb-4 rounded-xl bg-sunken px-4 py-2 text-sm text-danger">
+            {cloud.error}
           </p>
         )}
         <Outlet />

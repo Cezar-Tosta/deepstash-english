@@ -2,6 +2,8 @@ import { Component, type ReactNode, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter, Route, Routes } from 'react-router-dom';
 import './index.css';
+import { initCloud } from './sync/cloud';
+import { CloudGate } from './ui/CloudGate';
 import { useApplyTheme, useSettings } from './ui/hooks';
 import { Layout } from './ui/Layout';
 import { IdeaDetailPage } from './ui/pages/IdeaDetailPage';
@@ -47,6 +49,7 @@ function App() {
   useApplyTheme(useSettings()?.theme);
   return (
     // HashRouter: as rotas funcionam em qualquer hospedagem estática, sem configurar o servidor.
+    <CloudGate>
     <HashRouter>
       <Routes>
         <Route element={<Layout />}>
@@ -62,8 +65,11 @@ function App() {
         </Route>
       </Routes>
     </HashRouter>
+    </CloudGate>
   );
 }
+
+initCloud();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Elemento #root não encontrado.');

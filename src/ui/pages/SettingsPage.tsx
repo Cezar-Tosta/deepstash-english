@@ -6,7 +6,9 @@ import { cyclePosition, weekPlan } from '../../domain/cycle';
 import { formatDate, startOfWeek } from '../../domain/dates';
 import type { AIProviderKind, AISettings, ThemePref } from '../../domain/types';
 import { errorMessage } from '../../services/errors';
+import { useCloud } from '../../sync/cloud';
 import { markBackupDone, restartCycle, setAISettings, setTheme } from '../../services/settings';
+import { AccountSection } from '../components/AccountSection';
 import { Button, Card, Eyebrow, Hint, Notice, PageTitle, Segmented, TextInput } from '../components/ui';
 import { useSettings, useToday } from '../hooks';
 import { attempt, showToast } from '../toast';
@@ -48,6 +50,7 @@ async function deliver(backup: BackupFile): Promise<void> {
 }
 
 function BackupSection({ lastBackupAt }: { lastBackupAt: string | null }) {
+  const cloud = useCloud();
   const input = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<BackupFile | null>(null);
   const [error, setError] = useState('');
@@ -83,8 +86,9 @@ function BackupSection({ lastBackupAt }: { lastBackupAt: string | null }) {
     <Card>
       <Eyebrow>Backup</Eyebrow>
       <Hint>
-        Seus dados ficam só neste aparelho. Exporte um arquivo de tempos em tempos: limpar os dados do navegador ou
-        desinstalar o app apaga tudo.
+        {cloud.user
+          ? 'Seus dados já ficam guardados na sua conta. O arquivo de backup é uma cópia extra, sob seu controle.'
+          : 'Seus dados ficam só neste navegador. Exporte um arquivo de tempos em tempos: limpar os dados do navegador apaga tudo.'}
       </Hint>
       <p className="mt-2 text-sm text-muted">
         Último backup: {lastBackupAt ? new Date(lastBackupAt).toLocaleString('pt-BR') : 'nunca'}
@@ -104,7 +108,7 @@ function BackupSection({ lastBackupAt }: { lastBackupAt: string | null }) {
       {pending && counts && (
         <div className="mt-4">
           <Notice tone="warn">
-            <p className="font-medium">Importar substitui tudo o que está neste aparelho.</p>
+            <p className="font-medium">Importar substitui tudo o que está neste navegador{cloud.user ? ' e na sua conta' : ''}.</p>
             <p className="mt-1">
               O arquivo{pending.exportedAt && ` de ${new Date(pending.exportedAt).toLocaleDateString('pt-BR')}`} tem{' '}
               {counts.sessions} sessões, {counts.ideas} ideias e {counts.chunks} chunks.
@@ -186,7 +190,8 @@ function AISection({ saved }: { saved: AISettings }) {
 
         {draft.provider !== 'none' && (
           <Notice>
-            A chave fica guardada apenas neste aparelho e não entra no backup. Ao pedir um retorno, o texto que você
+            A chave fica guardada apenas neste navegador: não entra no backup nem vai para a nuvem, então é preciso
+            informá-la de novo em cada navegador. Ao pedir um retorno, o texto que você
             escreveu é enviado ao provedor escolhido.
           </Notice>
         )}
@@ -215,10 +220,10 @@ function StorageSection() {
 
   return (
     <Card>
-      <Eyebrow>Neste aparelho</Eyebrow>
+      <Eyebrow>Neste navegador</Eyebrow>
       <Hint>
-        Para instalar: no Android, menu do Chrome → “Instalar app”. No iPhone, Safari → Compartilhar → “Adicionar à Tela
-        de Início”. Depois de instalado, o app abre e funciona sem internet.
+        Os dados ficam guardados neste navegador. Alguns navegadores apagam dados de sites pouco usados; a proteção
+        abaixo pede para manter os seus.
       </Hint>
       {persisted === false && (
         <div className="mt-3">
@@ -247,6 +252,7 @@ export function SettingsPage() {
   const settings = useSettings();
   const date = useToday();
   const [confirmCycle, setConfirmCycle] = useState(false);
+  const cloud = useCloud();
   if (!settings) return null;
 
   const cycleStart = settings.cycleStartDate ?? startOfWeek(date);
@@ -301,9 +307,10 @@ export function SettingsPage() {
         </div>
       </Card>
 
+      <AccountSection />
       <BackupSection lastBackupAt={settings.lastBackupAt} />
       <AISection saved={settings.ai} />
-      <StorageSection />
+      {!cloud.enabled && <StorageSection />}
 
       <p className="text-center text-xs text-muted">Deepstash English Study System · v{__APP_VERSION__}</p>
     </div>

@@ -1,4 +1,5 @@
 import { DATA_TABLES, type DataTableName, db } from './db';
+import { DEFAULT_SETTINGS } from '../domain/defaults';
 import type { UserSettings } from '../domain/types';
 import { migrateV1toV2, type Tables } from './migrations';
 
@@ -109,8 +110,22 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
       await table.bulkAdd(backup.data[name]);
     }
     if (backup.settings) {
-      const current = await db.settings.get('settings');
-      if (current) await db.settings.put({ ...current, ...backup.settings });
+      // Num navegador novo ainda não há ajustes salvos; parte dos padrões.
+      const current = (await db.settings.get('settings')) ?? DEFAULT_SETTINGS;
+      await db.settings.put({ ...current, ...backup.settings });
     }
   });
+}
+
+/** Apaga os dados de estudo deste navegador (usado ao sair da conta). */
+export async function clearLocalData(): Promise<void> {
+  const tables = [db.settings, ...DATA_TABLES.map((name) => db.table(name))];
+  await db.transaction('rw', tables, async () => {
+    await Promise.all(tables.map((table) => table.clear()));
+  });
+}
+
+/** Verdadeiro quando ainda não há nenhuma sessão de estudo neste navegador. */
+export async function isLocalEmpty(): Promise<boolean> {
+  return (await db.sessions.count()) === 0;
 }
