@@ -14,10 +14,7 @@ import { attempt, showToast } from '../toast';
 export function BookPage() {
   const key = decodeURIComponent(useParams()['key'] ?? '');
   const detail = useLiveQuery(() => getBook(key), [key]);
-  const spoken = useLiveQuery(
-    async () => (await db.speaking.toArray()).filter((s) => s.kind === 'book' && s.bookKey === key),
-    [key],
-  );
+  const spoken = useLiveQuery(async () => (await db.speaking.toArray()).filter((s) => s.kind === 'book' && s.bookKey === key), [key]);
 
   if (detail === undefined) return null;
 
@@ -46,8 +43,8 @@ export function BookPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Livro</p>
         <h1 className="mt-1 font-serif text-3xl leading-tight">{book.title}</h1>
         <p className="mt-2 text-sm text-muted">
-          {book.ideas.length} {book.ideas.length === 1 ? 'ideia' : 'ideias'} · {book.cardCount}{' '}
-          {book.cardCount === 1 ? 'card' : 'cards'} · {studiedIdeaIds.size > 0 && `${book.ideas.filter((i) => studiedIdeaIds.has(i.id)).length} aprofundadas · `}
+          {book.ideas.length} {book.ideas.length === 1 ? 'ideia' : 'ideias'} · {book.cardCount} {book.cardCount === 1 ? 'card' : 'cards'} ·{' '}
+          {studiedIdeaIds.size > 0 && `${book.ideas.filter((i) => studiedIdeaIds.has(i.id)).length} aprofundadas · `}
           {formatDate(book.firstDate, 'short')} a {formatDate(book.lastDate, 'medium')}
           {finished && ' · concluído'}
         </p>
@@ -55,16 +52,19 @@ export function BookPage() {
 
       <section className="space-y-3">
         <Eyebrow>Ideias do livro</Eyebrow>
-        <ol className="space-y-3">
+        <ol className="divide-y divide-line rounded-2xl border border-line bg-surface px-2 py-1">
           {book.ideas.map((idea, i) => (
             <li key={idea.id}>
-              <Link to={`/knowledge/idea/${idea.id}`} className="block rounded-2xl border border-line bg-surface p-4 hover:bg-sunken">
-                <p className="text-xs text-muted">
-                  Ideia {i + 1} · {formatDate(idea.date, 'medium')}
-                  {studiedIdeaIds.has(idea.id) && ' · ⭐ Idea of the Day'}
-                </p>
-                <p className="mt-1 font-serif text-lg leading-snug">{idea.title}</p>
-                {idea.mainIdea && <p className="mt-1 text-sm text-muted">{idea.mainIdea}</p>}
+              <Link to={`/knowledge/idea/${idea.id}`} className="flex min-h-10 items-baseline gap-3 rounded-lg px-2 py-1.5 hover:bg-sunken">
+                <span className="w-5 shrink-0 text-right text-xs text-muted tabular-nums">{i + 1}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="font-serif leading-snug break-words">
+                    {studiedIdeaIds.has(idea.id) && <span title="Idea of the Day">⭐ </span>}
+                    {idea.title}
+                  </span>
+                  {idea.mainIdea && <span className="block truncate text-xs text-muted">{idea.mainIdea}</span>}
+                </span>
+                <span className="shrink-0 text-xs text-muted tabular-nums">{formatDate(idea.date, 'short')}</span>
               </Link>
             </li>
           ))}
@@ -72,9 +72,7 @@ export function BookPage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="border-b border-line pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-          Fechamento do livro
-        </h2>
+        <h2 className="border-b border-line pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted">Fechamento do livro</h2>
         <div>
           <Prompt>Explain this book in two minutes.</Prompt>
           <Hint>Sem reler: qual é a tese do livro e quais ideias a sustentam? Fale como se explicasse a um amigo.</Hint>
@@ -115,7 +113,12 @@ export function BookPage() {
             lang="en"
             starters={['The main message of this book is', 'The idea I will keep is', 'I changed my mind about', 'I disagree with']}
           />
-          <AIFeedbackPanel targetType="bookTakeaway" targetId={key} text={note?.takeaway ?? ''} context={`Resumo pessoal do livro "${book.title}".`} />
+          <AIFeedbackPanel
+            targetType="bookTakeaway"
+            targetId={key}
+            text={note?.takeaway ?? ''}
+            context={`Resumo pessoal do livro "${book.title}".`}
+          />
         </div>
 
         <Button

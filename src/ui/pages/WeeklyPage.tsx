@@ -23,18 +23,7 @@ import {
 import { AIFeedbackPanel } from '../components/AIFeedbackPanel';
 import { SpokenWeek } from '../components/Maintenance';
 import { Timer } from '../components/Timer';
-import {
-  AutoTextArea,
-  Button,
-  Card,
-  EmptyState,
-  Eyebrow,
-  Hint,
-  PageTitle,
-  Prompt,
-  Segmented,
-  StarterChips,
-} from '../components/ui';
+import { AutoTextArea, Button, Card, EmptyState, Eyebrow, Hint, PageTitle, Prompt, Segmented, StarterChips } from '../components/ui';
 import { useToday } from '../hooks';
 import { attempt, showToast } from '../toast';
 
@@ -66,18 +55,24 @@ function RecallCard({ item, weekStart, saved }: { item: WeekIdea; weekStart: str
         <dl className="mt-4 space-y-3 border-t border-line pt-4 text-sm">
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Main idea</dt>
-            <dd className="font-serif text-base" lang="en">{idea.mainIdea || 'Não registrada.'}</dd>
+            <dd className="font-serif text-base" lang="en">
+              {idea.mainIdea || 'Não registrada.'}
+            </dd>
           </div>
           {reflection?.userOpinion && (
             <div>
               <dt className="text-xs font-semibold uppercase tracking-wide text-muted">My view</dt>
-              <dd className="font-serif text-base" lang="en">{reflection.userOpinion}</dd>
+              <dd className="font-serif text-base" lang="en">
+                {reflection.userOpinion}
+              </dd>
             </div>
           )}
           {reflection?.soWhat && (
             <div>
               <dt className="text-xs font-semibold uppercase tracking-wide text-muted">So what?</dt>
-              <dd className="font-serif text-base" lang="en">{reflection.soWhat}</dd>
+              <dd className="font-serif text-base" lang="en">
+                {reflection.soWhat}
+              </dd>
             </div>
           )}
           <Link to={`/knowledge/idea/${idea.id}`} className="inline-block text-accent underline underline-offset-2">
@@ -118,12 +113,12 @@ function TopIdeas({ bundle }: { bundle: WeekBundle }) {
         return (
           <label
             key={idea.id}
-            className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border px-4 py-2 ${
+            className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 py-1.5 ${
               position >= 0 ? 'border-accent bg-accent-soft' : 'border-line bg-surface'
             }`}
           >
             <input type="checkbox" className="size-5 accent-(--accent)" checked={position >= 0} onChange={() => toggle(idea.id)} />
-            <span className="flex-1 font-serif text-lg">{idea.title}</span>
+            <span className="min-w-0 flex-1 font-serif break-words">{idea.title}</span>
             {position >= 0 && <span className="text-sm font-semibold text-accent">Top {position + 1}</span>}
           </label>
         );
@@ -141,9 +136,14 @@ function VocabularyCheck({ chunks, date }: { chunks: Chunk[]; date: string }) {
       {chunks.map((chunk) => {
         const spontaneous = chunk.status === 'retired' || chunk.status === 'learned';
         return (
-          <li key={chunk.id} className="rounded-2xl border border-line bg-surface p-4">
-            <p className="font-serif text-lg" lang="en">{chunk.text}</p>
-            <div className="mt-2">
+          <li
+            key={chunk.id}
+            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-line bg-surface px-3 py-2"
+          >
+            <p className="min-w-0 font-serif break-words" lang="en">
+              {chunk.text}
+            </p>
+            <div>
               <Segmented
                 label={`Situação de ${chunk.text}`}
                 value={spontaneous ? 'yes' : 'no'}
@@ -217,8 +217,18 @@ function WeeklySpeaking({ bundle, date }: { bundle: WeekBundle; date: string }) 
         />
       </Card>
       {total > 0 && <p className="text-sm text-muted">Tempo sem roteiro nesta semana: {formatDuration(total)}.</p>}
-      <AutoTextArea label="O que consegui fazer bem" value={review.wentWell} onSave={(wentWell) => saveWeeklyReview(weekStart, { wentWell })} rows={2} />
-      <AutoTextArea label="Dificuldade principal" value={review.difficulty} onSave={(difficulty) => saveWeeklyReview(weekStart, { difficulty })} rows={2} />
+      <AutoTextArea
+        label="O que consegui fazer bem"
+        value={review.wentWell}
+        onSave={(wentWell) => saveWeeklyReview(weekStart, { wentWell })}
+        rows={2}
+      />
+      <AutoTextArea
+        label="Dificuldade principal"
+        value={review.difficulty}
+        onSave={(difficulty) => saveWeeklyReview(weekStart, { difficulty })}
+        rows={2}
+      />
     </div>
   );
 }
@@ -298,7 +308,9 @@ function WeeklyWriting({ bundle }: { bundle: WeekBundle }) {
               REVISAR
             </Button>
           )}
-          {writing && <AIFeedbackPanel targetType="writing" targetId={writing.id} text={text} context="Texto curto semanal de 80 a 120 palavras." />}
+          {writing && (
+            <AIFeedbackPanel targetType="writing" targetId={writing.id} text={text} context="Texto curto semanal de 80 a 120 palavras." />
+          )}
         </>
       )}
     </div>
@@ -320,10 +332,10 @@ function Balance({ bundle }: { bundle: WeekBundle }) {
   ];
   return (
     <div className="space-y-4">
-      <dl className="divide-y divide-line rounded-2xl border border-line bg-surface px-5">
+      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {rows.map(([label, value]) => (
-          <div key={label} className="flex justify-between py-3">
-            <dt className="text-muted">{label}</dt>
+          <div key={label} className="rounded-xl border border-line bg-surface px-3 py-2">
+            <dt className="text-xs text-muted">{label}</dt>
             <dd className="font-semibold tabular-nums">{value}</dd>
           </div>
         ))}
@@ -342,9 +354,9 @@ function Balance({ bundle }: { bundle: WeekBundle }) {
   );
 }
 
-function Part({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
+function Part({ number, title, wide, children }: { number: number; title: string; wide?: boolean; children: React.ReactNode }) {
   return (
-    <section className="space-y-4">
+    <section className={`min-w-0 space-y-4 ${wide ? 'col-span-full' : ''}`}>
       <h2 className="border-b border-line pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted">
         {number}. {title}
       </h2>
@@ -364,8 +376,8 @@ export function WeeklyPage() {
   const done = Boolean(bundle.review.completedAt);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <div>
+    <div className="grid items-start gap-x-8 gap-y-8 lg:grid-cols-2">
+      <div className="col-span-full">
         <Link to="/progress" className="mb-2 flex min-h-10 items-center text-sm font-medium text-accent">
           ← Progress
         </Link>
@@ -375,16 +387,20 @@ export function WeeklyPage() {
       </div>
 
       {bundle.ideas.length === 0 ? (
-        <EmptyState title="Nenhuma Idea of the Day nesta semana.">
-          O fechamento usa as ideias que você aprofundou nas sessões diárias.
-        </EmptyState>
+        <div className="col-span-full">
+          <EmptyState title="Nenhuma Idea of the Day nesta semana.">
+            O fechamento usa as ideias que você aprofundou nas sessões diárias.
+          </EmptyState>
+        </div>
       ) : (
         <>
-          <Part number={1} title="As Ideas of the Day">
+          <Part number={1} title="As Ideas of the Day" wide>
             <Hint>Sem reler primeiro, tente lembrar o ponto central de cada ideia. Depois confira.</Hint>
-            {bundle.ideas.map((item) => (
-              <RecallCard key={item.idea.id} item={item} weekStart={weekStart} saved={bundle.review.recalls[item.idea.id] ?? ''} />
-            ))}
+            <div className="grid items-start gap-3 lg:grid-cols-2">
+              {bundle.ideas.map((item) => (
+                <RecallCard key={item.idea.id} item={item} weekStart={weekStart} saved={bundle.review.recalls[item.idea.id] ?? ''} />
+              ))}
+            </div>
           </Part>
           <Part number={2} title="Top 3 ideas">
             <TopIdeas bundle={bundle} />
@@ -393,7 +409,7 @@ export function WeeklyPage() {
             <Hint>Não mantenha um item em revisão só para completar o calendário.</Hint>
             <VocabularyCheck chunks={bundle.chunks} date={date} />
           </Part>
-          <Part number={4} title="Minhas falas da semana">
+          <Part number={4} title="Minhas falas da semana" wide>
             <SpokenWeek weekStart={weekStart} />
           </Part>
           <Part number={5} title="Speaking semanal">
@@ -402,17 +418,18 @@ export function WeeklyPage() {
           <Part number={6} title="Weekly writing (opcional)">
             <WeeklyWriting bundle={bundle} />
           </Part>
-          <Part number={7} title="Balanço">
+          <Part number={7} title="Balanço" wide>
             <Balance bundle={bundle} />
           </Part>
           <Button
             block
+            className="col-span-full"
             variant={done ? 'secondary' : 'primary'}
             onClick={() =>
               attempt(
-                saveWeeklyReview(weekStart, { completedAt: done ? null : new Date().toISOString() }).then(() =>
-                  showToast(done ? 'Fechamento reaberto.' : 'Semana fechada.'),
-                ),
+                saveWeeklyReview(weekStart, {
+                  completedAt: done ? null : new Date().toISOString(),
+                }).then(() => showToast(done ? 'Fechamento reaberto.' : 'Semana fechada.')),
               )
             }
           >

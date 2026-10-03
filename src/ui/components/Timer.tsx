@@ -104,11 +104,7 @@ export function Timer({ minSec, maxSec, targetLabel, record, onStop }: TimerProp
   return (
     <div className="flex flex-col items-center gap-4 py-2">
       <p className="text-sm text-muted">Meta desta semana: {targetLabel}</p>
-      <p
-        role="timer"
-        aria-live="off"
-        className={`font-serif text-6xl tabular-nums ${reached && running ? 'text-good' : 'text-ink'}`}
-      >
+      <p role="timer" aria-live="off" className={`font-serif text-6xl tabular-nums ${reached && running ? 'text-good' : 'text-ink'}`}>
         {formatDuration(elapsed)}
       </p>
       <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-sunken" aria-hidden="true">

@@ -2,15 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { AIError } from '../../ai/AIProvider';
 import { isAIConfigured, lookupMeaning } from '../../ai/feedback';
-import {
-  annotate,
-  extendSelection,
-  type Selection,
-  selectionText,
-  sentenceAround,
-  type Token,
-  tokenize,
-} from '../../domain/reader';
+import { annotate, extendSelection, type Selection, selectionText, sentenceAround, type Token, tokenize } from '../../domain/reader';
 import type { SourceCard } from '../../domain/types';
 import { deleteChunk, updateChunk } from '../../services/sessions';
 import {
@@ -307,7 +299,9 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
   const saveEdit = () => {
     if (!known) return;
     const saving =
-      known.kind === 'chunk' ? updateChunk(known.id, { meaning: meaning.trim() }) : updateDictionaryEntry(known.id, { meaning, explanation });
+      known.kind === 'chunk'
+        ? updateChunk(known.id, { meaning: meaning.trim() })
+        : updateDictionaryEntry(known.id, { meaning, explanation });
     attempt(
       saving.then(() => {
         showToast(known.kind === 'chunk' ? 'Chunk atualizado.' : 'Entrada atualizada.');
@@ -332,9 +326,9 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
   return (
     <div>
       <Hint>
-        Clique em uma palavra para ver tradução e pronúncia. Para uma expressão, clique na primeira e depois na última
-        palavra. O que está no seu dicionário ou nos seus chunks aparece sublinhado em todos os textos, de qualquer
-        livro: passe o mouse para ver, clique para editar ou excluir.
+        Clique em uma palavra para ver tradução e pronúncia. Para uma expressão, clique na primeira e depois na última palavra. O que está
+        no seu dicionário ou nos seus chunks aparece sublinhado em todos os textos, de qualquer livro: passe o mouse para ver, clique para
+        editar ou excluir.
       </Hint>
       <div className="mt-2">
         <ListenSettings />
@@ -359,7 +353,11 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
       </ol>
 
       {picked && term && (
-        <div className="sticky bottom-20 z-30 mt-4 rounded-2xl border border-accent bg-surface p-4 shadow-lg md:bottom-4" role="region" aria-label="Tradução">
+        <div
+          className="sticky bottom-20 z-30 mt-4 rounded-2xl border border-accent bg-surface p-4 shadow-lg md:bottom-4"
+          role="region"
+          aria-label="Tradução"
+        >
           <div className="flex items-start justify-between gap-3">
             <p className="min-w-0 font-serif text-xl break-words" lang="en">
               {term}
@@ -395,7 +393,10 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
               {confirmingDelete ? (
                 <div role="alert" className="space-y-2 text-sm">
                   <p>
-                    Excluir <span className="font-serif" lang="en">“{known.term}”</span>
+                    Excluir{' '}
+                    <span className="font-serif" lang="en">
+                      “{known.term}”
+                    </span>
                     {known.kind === 'chunk'
                       ? ' dos seus chunks? O histórico de revisões dele também é apagado.'
                       : known.count > 1
@@ -461,9 +462,7 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
                 value={meaning}
                 onChange={setMeaning}
                 autoComplete="off"
-                placeholder={
-                  busy ? 'Analisando no contexto…' : aiReady ? 'Tradução' : 'Sem IA configurada: escreva você a tradução'
-                }
+                placeholder={busy ? 'Analisando no contexto…' : aiReady ? 'Tradução' : 'Sem IA configurada: escreva você a tradução'}
               />
               {error && (
                 <p role="alert" className="text-sm text-danger">

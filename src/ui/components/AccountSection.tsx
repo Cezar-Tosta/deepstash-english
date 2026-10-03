@@ -32,12 +32,11 @@ export function AccountSection() {
       <p className="mt-2 break-all">{cloud.user.email}</p>
       <p className={`mt-1 text-sm ${cloud.status === 'error' ? 'text-danger' : 'text-muted'}`} aria-live="polite">
         {cloud.status === 'error' ? cloud.error : STATUS_TEXT[cloud.status]}
-        {cloud.status === 'synced' && cloud.lastSyncedAt && ` Última conferência às ${new Date(cloud.lastSyncedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`}
+        {cloud.status === 'synced' &&
+          cloud.lastSyncedAt &&
+          ` Última conferência às ${new Date(cloud.lastSyncedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`}
       </p>
-      <Hint>
-        Cada alteração é enviada em poucos segundos. Ao abrir o app em outro navegador e entrar, seus estudos aparecem
-        lá.
-      </Hint>
+      <Hint>Cada alteração é enviada em poucos segundos. Ao abrir o app em outro navegador e entrar, seus estudos aparecem lá.</Hint>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button small variant="secondary" disabled={cloud.status === 'syncing'} onClick={() => void syncNow()}>
           Sincronizar agora

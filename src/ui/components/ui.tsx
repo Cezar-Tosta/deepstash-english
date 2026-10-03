@@ -11,8 +11,7 @@ import {
 } from 'react';
 import { attempt } from '../toast';
 
-const cx = (...parts: (string | false | null | undefined)[]): string =>
-  parts.filter(Boolean).join(' ');
+const cx = (...parts: (string | false | null | undefined)[]): string => parts.filter(Boolean).join(' ');
 
 // ---------- Botões ----------
 
@@ -50,9 +49,7 @@ export function Button({ variant = 'primary', block, small, className, ...props 
 // ---------- Estrutura ----------
 
 export function Card({ children, className }: { children: ReactNode; className?: string | undefined }) {
-  return (
-    <section className={cx('rounded-2xl border border-line bg-surface p-4', className)}>{children}</section>
-  );
+  return <section className={cx('rounded-2xl border border-line bg-surface p-4', className)}>{children}</section>;
 }
 
 export function PageTitle({ eyebrow, title, children }: { eyebrow?: string | undefined; title: string; children?: ReactNode }) {
@@ -82,10 +79,7 @@ export function Notice({ tone = 'info', children }: { tone?: 'info' | 'warn' | u
   return (
     <div
       role={tone === 'warn' ? 'alert' : 'note'}
-      className={cx(
-        'rounded-xl px-4 py-3 text-sm leading-relaxed',
-        tone === 'warn' ? 'bg-sunken text-warn' : 'bg-accent-soft text-ink',
-      )}
+      className={cx('rounded-xl px-4 py-3 text-sm leading-relaxed', tone === 'warn' ? 'bg-sunken text-warn' : 'bg-accent-soft text-ink')}
     >
       {children}
     </div>
@@ -108,11 +102,7 @@ export function Badge({ children, tone = 'muted' }: { children: ReactNode; tone?
     warn: 'bg-sunken text-warn',
     good: 'bg-sunken text-good',
   };
-  return (
-    <span className={cx('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', tones[tone])}>
-      {children}
-    </span>
-  );
+  return <span className={cx('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', tones[tone])}>{children}</span>;
 }
 
 export function ProgressBar({ value, label }: { value: number; label: string }) {
@@ -132,8 +122,7 @@ export function ProgressBar({ value, label }: { value: number; label: string }) 
 
 // ---------- Campos ----------
 
-const FIELD =
-  'w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink placeholder:text-muted/70 focus:border-accent';
+const FIELD = 'w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink placeholder:text-muted/70 focus:border-accent';
 
 interface TextInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   label: string;
@@ -278,9 +267,7 @@ export function StarterChips({ starters, onPick }: { starters: readonly string[]
               {s}
             </button>
           ) : (
-            <span className="inline-flex min-h-9 items-center rounded-full border border-line bg-surface px-3 font-serif text-sm">
-              {s}
-            </span>
+            <span className="inline-flex min-h-9 items-center rounded-full border border-line bg-surface px-3 font-serif text-sm">{s}</span>
           )}
         </li>
       ))}
@@ -306,9 +293,7 @@ export function Segmented<T extends string>({ label, value, options, onChange }:
           onClick={() => onChange(o.value)}
           className={cx(
             'min-h-10 rounded-full border px-4 text-sm font-medium transition-colors',
-            o.value === value
-              ? 'border-accent bg-accent text-accent-ink'
-              : 'border-line bg-surface text-muted hover:text-ink',
+            o.value === value ? 'border-accent bg-accent text-accent-ink' : 'border-line bg-surface text-muted hover:text-ink',
           )}
         >
           {o.label}
@@ -316,6 +301,66 @@ export function Segmented<T extends string>({ label, value, options, onChange }:
       ))}
     </div>
   );
+}
+
+// ---------- Listas que crescem ----------
+
+interface CollapsibleProps {
+  title: ReactNode;
+  /** Quantos itens há dentro: aparece no cabeçalho, mesmo com a seção fechada. */
+  count?: number | undefined;
+  /** Resumo curto ao lado do título, visível com a seção fechada. */
+  summary?: ReactNode;
+  defaultOpen?: boolean | undefined;
+  children: ReactNode;
+  className?: string | undefined;
+}
+
+/** Seção que abre e fecha: o cabeçalho diz o que há dentro, o conteúdo só ocupa espaço quando aberto. */
+export function Collapsible({ title, count, summary, defaultOpen = false, children, className }: CollapsibleProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <details
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+      className={cx('group rounded-2xl border border-line bg-surface', className)}
+    >
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0">
+          <span className="text-xs font-semibold tracking-[0.16em] text-muted uppercase">{title}</span>
+          {summary && <span className="block truncate text-sm text-muted">{summary}</span>}
+        </span>
+        <span className="flex shrink-0 items-center gap-2 text-xs text-muted">
+          {count !== undefined && <span className="rounded-full bg-sunken px-2 py-0.5 font-semibold tabular-nums">{count}</span>}
+          <span aria-hidden="true" className="transition-transform group-open:rotate-180">
+            ▾
+          </span>
+        </span>
+      </summary>
+      <div className="border-t border-line px-4 py-3">{children}</div>
+    </details>
+  );
+}
+
+/**
+ * Mostra só o começo de uma lista longa. Devolve os itens visíveis e o botão que
+ * revela mais (null quando não há mais nada escondido).
+ */
+export function useShowMore<T>(items: readonly T[], step: number): [readonly T[], ReactNode] {
+  const [limit, setLimit] = useState(step);
+  const hidden = items.length - limit;
+  const more =
+    hidden > 0 ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <Button small variant="secondary" onClick={() => setLimit(limit + step)}>
+          Mostrar mais {Math.min(step, hidden)}
+        </Button>
+        <Button small variant="ghost" onClick={() => setLimit(items.length)}>
+          Mostrar todos ({items.length})
+        </Button>
+      </div>
+    ) : null;
+  return [items.slice(0, limit), more];
 }
 
 /** Ícone girando para operações em andamento. O texto ao lado diz o que está acontecendo. */

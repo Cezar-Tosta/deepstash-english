@@ -128,8 +128,7 @@ export function ManualPage() {
                       <li key={id} className="flex gap-2 text-sm">
                         <span className="w-5 shrink-0 text-right text-muted tabular-nums">{step.number}</span>
                         <span className="min-w-0 flex-1">
-                          <span className="font-semibold">{step.label}</span>{' '}
-                          <span className="text-muted">· {step.minutes} min</span>
+                          <span className="font-semibold">{step.label}</span> <span className="text-muted">· {step.minutes} min</span>
                           <span className="block">{STEP_ACTION[id]}</span>
                         </span>
                       </li>
@@ -159,8 +158,7 @@ export function ManualPage() {
           ))}
         </ol>
         <p className="mt-3 text-sm text-muted">
-          A qualquer momento: em Knowledge, abra uma ideia e clique nas palavras dos cards para ver a tradução e montar o
-          dicionário.
+          A qualquer momento: em Knowledge, abra uma ideia e clique nas palavras dos cards para ver a tradução e montar o dicionário.
         </p>
       </Card>
 

@@ -27,7 +27,11 @@ function ReviewCard({ item, date, remaining }: { item: DueItem; date: ISODate; r
         <Eyebrow>
           {scheduler.stageLabel(chunk.stage)} · {remaining} {remaining === 1 ? 'restante' : 'restantes'}
         </Eyebrow>
-        {late > 0 && <Badge tone="warn">atrasada {late} {late === 1 ? 'dia' : 'dias'}</Badge>}
+        {late > 0 && (
+          <Badge tone="warn">
+            atrasada {late} {late === 1 ? 'dia' : 'dias'}
+          </Badge>
+        )}
       </div>
 
       <p className="my-8 text-center font-serif text-3xl leading-tight" lang="en">
@@ -37,13 +41,7 @@ function ReviewCard({ item, date, remaining }: { item: DueItem; date: ISODate; r
       {!revealed ? (
         <div className="space-y-4">
           <p className="text-center text-muted">Você lembra dessa expressão?</p>
-          <TextArea
-            label="Crie uma frase usando essa expressão (opcional)"
-            value={sentence}
-            onChange={setSentence}
-            rows={2}
-            lang="en"
-          />
+          <TextArea label="Crie uma frase usando essa expressão (opcional)" value={sentence} onChange={setSentence} rows={2} lang="en" />
           <Button block onClick={() => setRevealed(true)}>
             REVELAR
           </Button>
@@ -55,10 +53,7 @@ function ReviewCard({ item, date, remaining }: { item: DueItem; date: ISODate; r
             <Detail label="Frase original" value={chunk.originalSentence} serif />
             <Detail label="Frase que você criou" value={lastReviewSentence || chunk.userSentence} serif />
             {sentence.trim() && <Detail label="Sua frase de agora" value={sentence} serif />}
-            <Detail
-              label="Ideia de origem"
-              value={sourceIdea ? `${sourceIdea.title} · ${formatDate(chunk.createdDate, 'medium')}` : ''}
-            />
+            <Detail label="Ideia de origem" value={sourceIdea ? `${sourceIdea.title} · ${formatDate(chunk.createdDate, 'medium')}` : ''} />
           </dl>
           <div>
             <p className="mb-2 text-sm font-medium">Como foi a recuperação?</p>
@@ -106,5 +101,12 @@ export function ReviewFlow({ date }: { date: ISODate }) {
     );
   }
   // A key reinicia o cartão (resposta escondida, campo vazio) a cada nova expressão.
-  return <ReviewCard key={`${current.chunk.id}-${current.chunk.stage}-${current.chunk.nextReviewDate}`} item={current} date={date} remaining={items.length} />;
+  return (
+    <ReviewCard
+      key={`${current.chunk.id}-${current.chunk.stage}-${current.chunk.nextReviewDate}`}
+      item={current}
+      date={date}
+      remaining={items.length}
+    />
+  );
 }

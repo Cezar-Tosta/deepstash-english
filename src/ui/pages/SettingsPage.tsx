@@ -91,15 +91,20 @@ function BackupSection({ lastBackupAt }: { lastBackupAt: string | null }) {
           ? 'Seus dados já ficam guardados na sua conta. O arquivo de backup é uma cópia extra, sob seu controle.'
           : 'Seus dados ficam só neste navegador. Exporte um arquivo de tempos em tempos: limpar os dados do navegador apaga tudo.'}
       </Hint>
-      <p className="mt-2 text-sm text-muted">
-        Último backup: {lastBackupAt ? new Date(lastBackupAt).toLocaleString('pt-BR') : 'nunca'}
-      </p>
+      <p className="mt-2 text-sm text-muted">Último backup: {lastBackupAt ? new Date(lastBackupAt).toLocaleString('pt-BR') : 'nunca'}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button onClick={() => void doExport()}>Export Backup</Button>
         <Button variant="secondary" onClick={() => input.current?.click()}>
           Import Backup
         </Button>
-        <input ref={input} type="file" accept="application/json,.json" className="sr-only" aria-label="Arquivo de backup" onChange={(e) => void pick(e)} />
+        <input
+          ref={input}
+          type="file"
+          accept="application/json,.json"
+          className="sr-only"
+          aria-label="Arquivo de backup"
+          onChange={(e) => void pick(e)}
+        />
       </div>
       {error && (
         <p role="alert" className="mt-3 text-sm text-danger">
@@ -109,10 +114,14 @@ function BackupSection({ lastBackupAt }: { lastBackupAt: string | null }) {
       {pending && counts && (
         <div className="mt-4">
           <Notice tone="warn">
-            <p className="font-medium">Importar substitui tudo o que está neste navegador{cloud.user ? ' e na sua conta' : ''}.</p>
+            <p className="font-medium">
+              Importar substitui tudo o que está neste navegador
+              {cloud.user ? ' e na sua conta' : ''}.
+            </p>
             <p className="mt-1">
-              O arquivo{pending.exportedAt && ` de ${new Date(pending.exportedAt).toLocaleDateString('pt-BR')}`} tem{' '}
-              {counts.sessions} sessões, {counts.ideas} ideias e {counts.chunks} chunks.
+              O arquivo
+              {pending.exportedAt && ` de ${new Date(pending.exportedAt).toLocaleDateString('pt-BR')}`} tem {counts.sessions} sessões,{' '}
+              {counts.ideas} ideias e {counts.chunks} chunks.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
@@ -153,27 +162,62 @@ function AISection({ saved }: { saved: AISettings }) {
     <Card>
       <Eyebrow>IA (opcional)</Eyebrow>
       <Hint>
-        O app funciona inteiro sem IA. Ligada, ela comenta o que você já escreveu ou falou, explica palavras que você
-        clicar nos cards e, com a Groq, transcreve o seu retelling. Nunca responde no seu lugar.
+        O app funciona inteiro sem IA. Ligada, ela comenta o que você já escreveu ou falou, explica palavras que você clicar nos cards e,
+        com a Groq, transcreve o seu retelling. Nunca responde no seu lugar.
       </Hint>
       <div className="mt-4 space-y-4">
-        <Segmented label="Provedor de IA" value={draft.provider} options={PROVIDERS} onChange={(provider) => patch({ ...(provider === draft.provider ? {} : { model: '', apiKey: '', baseUrl: '', visionModel: '' }), provider })} />
+        <Segmented
+          label="Provedor de IA"
+          value={draft.provider}
+          options={PROVIDERS}
+          onChange={(provider) =>
+            patch({
+              ...(provider === draft.provider ? {} : { model: '', apiKey: '', baseUrl: '', visionModel: '' }),
+              provider,
+            })
+          }
+        />
 
         {draft.provider === 'anthropic' && (
           <>
-            <TextInput label="Chave de API" type="password" autoComplete="off" value={draft.apiKey} onChange={(apiKey) => patch({ apiKey })} placeholder="sk-ant-…" />
-            <TextInput label="Modelo" autoComplete="off" value={draft.model} onChange={(model) => patch({ model })} placeholder={ANTHROPIC_DEFAULT_MODEL} />
+            <TextInput
+              label="Chave de API"
+              type="password"
+              autoComplete="off"
+              value={draft.apiKey}
+              onChange={(apiKey) => patch({ apiKey })}
+              placeholder="sk-ant-…"
+            />
+            <TextInput
+              label="Modelo"
+              autoComplete="off"
+              value={draft.model}
+              onChange={(model) => patch({ model })}
+              placeholder={ANTHROPIC_DEFAULT_MODEL}
+            />
             <Hint>
-              Sem modelo informado, usa {ANTHROPIC_DEFAULT_MODEL}. Se o modelo recusar um pedido, a API tenta sozinha
-              um modelo alternativo.
+              Sem modelo informado, usa {ANTHROPIC_DEFAULT_MODEL}. Se o modelo recusar um pedido, a API tenta sozinha um modelo alternativo.
             </Hint>
           </>
         )}
 
         {draft.provider === 'groq' && (
           <>
-            <TextInput label="Chave de API da Groq" type="password" autoComplete="off" value={draft.apiKey} onChange={(apiKey) => patch({ apiKey })} placeholder="gsk_…" />
-            <TextInput label="Modelo" autoComplete="off" value={draft.model} onChange={(model) => patch({ model })} placeholder={GROQ_DEFAULT_MODEL} />
+            <TextInput
+              label="Chave de API da Groq"
+              type="password"
+              autoComplete="off"
+              value={draft.apiKey}
+              onChange={(apiKey) => patch({ apiKey })}
+              placeholder="gsk_…"
+            />
+            <TextInput
+              label="Modelo"
+              autoComplete="off"
+              value={draft.model}
+              onChange={(model) => patch({ model })}
+              placeholder={GROQ_DEFAULT_MODEL}
+            />
             <TextInput
               label="Modelo de visão (para ler screenshots de cards)"
               autoComplete="off"
@@ -182,17 +226,36 @@ function AISection({ saved }: { saved: AISettings }) {
               placeholder={GROQ_VISION_MODEL}
             />
             <Hint>
-              Crie a chave em console.groq.com/keys. Sem modelo informado, usa {GROQ_DEFAULT_MODEL}; se a Groq o
-              desativar, informe aqui outro da lista em console.groq.com/docs/models.
+              Crie a chave em console.groq.com/keys. Sem modelo informado, usa {GROQ_DEFAULT_MODEL}; se a Groq o desativar, informe aqui
+              outro da lista em console.groq.com/docs/models.
             </Hint>
           </>
         )}
 
         {draft.provider === 'openai-compatible' && (
           <>
-            <TextInput label="URL base" type="url" autoComplete="off" value={draft.baseUrl} onChange={(baseUrl) => patch({ baseUrl })} placeholder="http://localhost:11434/v1" />
-            <TextInput label="Modelo" autoComplete="off" value={draft.model} onChange={(model) => patch({ model })} placeholder="llama3.1" />
-            <TextInput label="Chave de API (vazia para Ollama e LM Studio)" type="password" autoComplete="off" value={draft.apiKey} onChange={(apiKey) => patch({ apiKey })} />
+            <TextInput
+              label="URL base"
+              type="url"
+              autoComplete="off"
+              value={draft.baseUrl}
+              onChange={(baseUrl) => patch({ baseUrl })}
+              placeholder="http://localhost:11434/v1"
+            />
+            <TextInput
+              label="Modelo"
+              autoComplete="off"
+              value={draft.model}
+              onChange={(model) => patch({ model })}
+              placeholder="llama3.1"
+            />
+            <TextInput
+              label="Chave de API (vazia para Ollama e LM Studio)"
+              type="password"
+              autoComplete="off"
+              value={draft.apiKey}
+              onChange={(apiKey) => patch({ apiKey })}
+            />
             <Hint>Serve para OpenAI, Google (endpoint compatível), Ollama e LM Studio.</Hint>
           </>
         )}
@@ -202,8 +265,7 @@ function AISection({ saved }: { saved: AISettings }) {
             {cloud.user
               ? 'A chave e os modelos ficam guardados na sua conta e valem em qualquer navegador onde você entrar. Eles não entram no arquivo de backup.'
               : 'A chave fica guardada apenas neste navegador e não entra no arquivo de backup.'}{' '}
-            Ao pedir um retorno, o texto que você
-            escreveu é enviado ao provedor escolhido.
+            Ao pedir um retorno, o texto que você escreveu é enviado ao provedor escolhido.
           </Notice>
         )}
 
@@ -233,8 +295,8 @@ function StorageSection() {
     <Card>
       <Eyebrow>Neste navegador</Eyebrow>
       <Hint>
-        Os dados ficam guardados neste navegador. Alguns navegadores apagam dados de sites pouco usados; a proteção
-        abaixo pede para manter os seus.
+        Os dados ficam guardados neste navegador. Alguns navegadores apagam dados de sites pouco usados; a proteção abaixo pede para manter
+        os seus.
       </Hint>
       {persisted === false && (
         <div className="mt-3">

@@ -21,6 +21,8 @@ const FORMS: { label: string; pick: (v: VerbEntry) => string }[] = [
 function VerbCard({ verb, canComplete }: { verb: VerbEntry; canComplete: boolean }) {
   const [completing, setCompleting] = useState(false);
   const bare = verb.drills.length === 0 && !verb.past;
+  // O verbo incompleto já abre, para o botão de completar ficar à vista.
+  const [open, setOpen] = useState(bare);
 
   const complete = async () => {
     setCompleting(true);
@@ -34,73 +36,90 @@ function VerbCard({ verb, canComplete }: { verb: VerbEntry; canComplete: boolean
   };
 
   return (
-    <li className={`rounded-xl border p-3 ${verb.selected ? 'border-accent bg-surface' : 'border-line bg-surface opacity-70'}`}>
-      <div className="flex items-start justify-between gap-2">
-        <label className="flex min-h-9 min-w-0 cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            className="size-5 shrink-0 accent-(--accent)"
-            checked={verb.selected}
-            onChange={(e) => attempt(setVerbSelected(verb.id, e.target.checked))}
-          />
-          <span className="min-w-0">
-            <span className="font-serif text-lg break-words" lang="en">
-              to {verb.base}
-            </span>
-            {verb.translation && <span className="text-sm text-muted"> — {verb.translation}</span>}
+    <li className={`rounded-xl border bg-surface ${verb.selected ? 'border-accent' : 'border-line opacity-70'}`}>
+      <div className="flex items-center gap-2 px-3 py-1">
+        <input
+          type="checkbox"
+          aria-label={`Estudar o verbo ${verb.base}`}
+          className="size-5 shrink-0 accent-(--accent)"
+          checked={verb.selected}
+          onChange={(e) => attempt(setVerbSelected(verb.id, e.target.checked))}
+        />
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          className="flex min-h-9 min-w-0 flex-1 flex-wrap items-baseline gap-x-2 text-left"
+        >
+          <span className="font-serif break-words" lang="en">
+            to {verb.base}
           </span>
-        </label>
-        <div className="flex shrink-0 items-center gap-3">
-          <ListenButton text={[verb.base, verb.past, verb.participle].filter(Boolean).join(', ')} />
-          <button
-            type="button"
-            aria-label={`Remover o verbo ${verb.base}`}
-            onClick={() => attempt(deleteVerb(verb.id))}
-            className="min-h-8 text-xs font-medium text-muted hover:text-danger"
-          >
-            Remover
-          </button>
-        </div>
+          {verb.translation && <span className="text-sm text-muted">— {verb.translation}</span>}
+          {(verb.past || verb.participle) && (
+            <span className="text-xs text-muted" lang="en">
+              {[verb.past, verb.participle].filter(Boolean).join(' · ')}
+            </span>
+          )}
+        </button>
+        <span aria-hidden="true" className={`shrink-0 text-xs text-muted transition-transform ${open ? 'rotate-180' : ''}`}>
+          ▾
+        </span>
       </div>
 
-      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm sm:grid-cols-5">
-        {FORMS.map(({ label, pick }) => (
-          <div key={label} className="min-w-0">
-            <dt className="text-[10px] tracking-wide text-muted uppercase">{label}</dt>
-            <dd className="font-serif break-words" lang="en">
-              {pick(verb) || '—'}
-            </dd>
+      {open && (
+        <div className="border-t border-line px-3 py-3">
+          <div className="flex items-center gap-3">
+            <ListenButton text={[verb.base, verb.past, verb.participle].filter(Boolean).join(', ')} />
+            <button
+              type="button"
+              aria-label={`Remover o verbo ${verb.base}`}
+              onClick={() => attempt(deleteVerb(verb.id))}
+              className="min-h-8 text-xs font-medium text-muted hover:text-danger"
+            >
+              Remover
+            </button>
           </div>
-        ))}
-      </dl>
 
-      {bare && (
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
-          <span>Cadastrado sem formas nem exercícios.</span>
-          {canComplete && (
-            <Button small variant="secondary" disabled={completing} onClick={() => void complete()}>
-              {completing ? (
-                <span className="inline-flex items-center gap-2" role="status">
-                  <Spinner /> Completando…
-                </span>
-              ) : (
-                'Completar com a IA'
+          <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm sm:grid-cols-5">
+            {FORMS.map(({ label, pick }) => (
+              <div key={label} className="min-w-0">
+                <dt className="text-[10px] tracking-wide text-muted uppercase">{label}</dt>
+                <dd className="font-serif break-words" lang="en">
+                  {pick(verb) || '—'}
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          {bare && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
+              <span>Cadastrado sem formas nem exercícios.</span>
+              {canComplete && (
+                <Button small variant="secondary" disabled={completing} onClick={() => void complete()}>
+                  {completing ? (
+                    <span className="inline-flex items-center gap-2" role="status">
+                      <Spinner /> Completando…
+                    </span>
+                  ) : (
+                    'Completar com a IA'
+                  )}
+                </Button>
               )}
-            </Button>
+            </div>
+          )}
+
+          {verb.sentence && (
+            <p className="mt-2 border-l-2 border-line pl-3 text-sm">
+              <span className="text-xs font-semibold text-accent">
+                No texto: {verb.textForm || verb.base}
+                {verb.textTense && ` · ${verb.textTense}`}
+              </span>
+              <span className="block font-serif text-muted break-words" lang="en">
+                “{verb.sentence}”
+              </span>
+            </p>
           )}
         </div>
-      )}
-
-      {verb.sentence && (
-        <p className="mt-2 border-l-2 border-line pl-3 text-sm">
-          <span className="text-xs font-semibold text-accent">
-            No texto: {verb.textForm || verb.base}
-            {verb.textTense && ` · ${verb.textTense}`}
-          </span>
-          <span className="block font-serif text-muted break-words" lang="en">
-            “{verb.sentence}”
-          </span>
-        </p>
       )}
     </li>
   );
@@ -214,8 +233,10 @@ export function IdeaVerbs({ ideaId, hasText }: { ideaId: string; hasText: boolea
         </div>
       ) : (
         <>
-          <p className="mt-2 text-sm text-muted">Marque os verbos que quer estudar. Só os marcados entram nos exercícios.</p>
-          <ul className="mt-3 grid items-start gap-2 lg:grid-cols-2">
+          <p className="mt-2 text-sm text-muted">
+            Marque os verbos que quer estudar ({selected.length} de {verbs.length}). Clique no verbo para ver as formas e a frase do texto.
+          </p>
+          <ul className="mt-2 grid items-start gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
             {verbs.map((verb) => (
               <VerbCard key={verb.id} verb={verb} canComplete={aiReady && online} />
             ))}

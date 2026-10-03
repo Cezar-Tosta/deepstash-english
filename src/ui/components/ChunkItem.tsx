@@ -34,29 +34,31 @@ export function ChunkItem({ item, date, linkToIdea = true }: { item: ChunkWithHi
   const active = chunk.status === 'new' || chunk.status === 'learning';
 
   return (
-    <li className="rounded-2xl border border-line bg-surface">
+    <li className="rounded-xl border border-line bg-surface">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="flex min-h-16 w-full items-center justify-between gap-3 px-5 py-3 text-left"
+        className="flex min-h-11 w-full items-center justify-between gap-3 px-3 py-1.5 text-left"
       >
-        <span>
-          <span className="block font-serif text-lg leading-snug" lang="en">
+        <span className="min-w-0">
+          <span className="font-serif leading-snug break-words" lang="en">
             {chunk.text}
           </span>
-          {chunk.meaning && <span className="block text-sm text-muted">{chunk.meaning}</span>}
+          {chunk.meaning && <span className="text-sm text-muted"> — {chunk.meaning}</span>}
         </span>
         <StatusBadge item={item} date={date} />
       </button>
 
       {open && (
-        <div className="space-y-4 border-t border-line px-5 py-4 text-sm">
+        <div className="space-y-4 border-t border-line px-3 py-3 text-sm">
           <dl className="space-y-3">
             {chunk.originalSentence && (
               <div>
                 <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Frase original</dt>
-                <dd className="font-serif text-base" lang="en">{chunk.originalSentence}</dd>
+                <dd className="font-serif text-base" lang="en">
+                  {chunk.originalSentence}
+                </dd>
               </div>
             )}
             <div>
@@ -107,8 +109,8 @@ export function ChunkItem({ item, date, linkToIdea = true }: { item: ChunkWithHi
               <ol className="mt-1 space-y-1">
                 {reviews.map((r) => (
                   <li key={r.id}>
-                    <span className="tabular-nums">{formatDate(r.completedDate, 'short')}</span> ·{' '}
-                    {scheduler.stageLabel(r.stage)} · {RATING_LABEL[r.rating]}
+                    <span className="tabular-nums">{formatDate(r.completedDate, 'short')}</span> · {scheduler.stageLabel(r.stage)} ·{' '}
+                    {RATING_LABEL[r.rating]}
                     {r.userSentence && (
                       <span className="block pl-3 font-serif text-muted" lang="en">
                         “{r.userSentence}”
@@ -139,8 +141,11 @@ export function ChunkItem({ item, date, linkToIdea = true }: { item: ChunkWithHi
           {confirming && (
             <div role="alert" className="rounded-xl bg-sunken p-3">
               <p>
-                Excluir <span className="font-serif" lang="en">“{chunk.text}”</span>? O histórico de revisões dele é
-                apagado e o destaque some de todos os textos. Não dá para desfazer.
+                Excluir{' '}
+                <span className="font-serif" lang="en">
+                  “{chunk.text}”
+                </span>
+                ? O histórico de revisões dele é apagado e o destaque some de todos os textos. Não dá para desfazer.
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Button

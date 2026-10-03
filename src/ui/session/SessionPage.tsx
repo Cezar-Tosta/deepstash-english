@@ -5,16 +5,11 @@ import { formatDate } from '../../domain/dates';
 import { stepIndex, STEPS } from '../../domain/session';
 import type { StepId } from '../../domain/types';
 import type { CoachContext } from '../../ai/coach';
-import {
-  finishSession,
-  loadSessionBundle,
-  type SessionBundle,
-  setStep,
-  startSession,
-} from '../../services/sessions';
+import { finishSession, loadSessionBundle, type SessionBundle, setStep, startSession } from '../../services/sessions';
 import { CoachPanel } from '../components/Coach';
 import { Button } from '../components/ui';
-import { useToday } from '../hooks';
+import { isAIConfigured } from '../../ai/feedback';
+import { useSettings, useToday } from '../hooks';
 import { attempt, showToast } from '../toast';
 import {
   CheckStep,
@@ -90,7 +85,10 @@ function coachContext(bundle: SessionBundle, step: StepId): CoachContext {
   const source = broad ? ideas : [ideaOfDay];
   const attempts: Partial<Record<StepId, string>> = {
     check: ideaOfDay?.idea.mainIdea ?? '',
-    personalize: chunks.map((c) => c.userSentence).filter(Boolean).join(' | '),
+    personalize: chunks
+      .map((c) => c.userSentence)
+      .filter(Boolean)
+      .join(' | '),
     reflect: reflection?.userOpinion ?? '',
     sowhat: reflection?.soWhat ?? '',
   };
@@ -115,6 +113,9 @@ export function SessionPage() {
   const date = useToday();
   const navigate = useNavigate();
   const bundle = useLiveQuery(() => loadSessionBundle(date), [date]);
+  const settings = useSettings();
+  // Sem IA não há painel de orientação: a etapa fica em coluna única.
+  const withCoach = settings !== undefined && isAIConfigured(settings.ai);
 
   // Abrir /session direto (atalho, recarregar a página) também inicia a sessão do dia.
   useEffect(() => {
@@ -146,7 +147,7 @@ export function SessionPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className={withCoach ? 'mx-auto max-w-3xl xl:max-w-none' : 'mx-auto max-w-3xl'}>
       <div className="mb-4 flex items-center justify-between text-sm">
         <Link to="/" className="flex min-h-10 items-center font-medium text-accent">
           ← Hoje
@@ -169,9 +170,15 @@ export function SessionPage() {
         </p>
       </header>
 
-      <CoachPanel key={step.id} context={coachContext(bundle, step.id)} />
-
-      <StepView bundle={bundle} goTo={goTo} />
+      {/* No computador, a orientação da IA fica ao lado da etapa, à vista enquanto se escreve. */}
+      <div className={withCoach ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start xl:gap-6' : 'mx-auto max-w-3xl'}>
+        <div className="xl:sticky xl:top-4 xl:order-2">
+          <CoachPanel key={step.id} context={coachContext(bundle, step.id)} />
+        </div>
+        <div className="min-w-0">
+          <StepView bundle={bundle} goTo={goTo} />
+        </div>
+      </div>
 
       <footer className="mt-8 flex gap-3">
         {prev && (

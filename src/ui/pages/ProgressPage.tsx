@@ -64,7 +64,13 @@ export function ProgressPage() {
           {formatDate(weekStart, 'short')} a {formatDate(addDays(weekStart, 6), 'short')}
           {weekStart === thisWeek && ' · esta semana'}
         </p>
-        <Button small variant="secondary" aria-label="Próxima semana" disabled={weekStart >= thisWeek} onClick={() => setWeekStart(addDays(weekStart, 7))}>
+        <Button
+          small
+          variant="secondary"
+          aria-label="Próxima semana"
+          disabled={weekStart >= thisWeek}
+          onClick={() => setWeekStart(addDays(weekStart, 7))}
+        >
           →
         </Button>
       </div>
@@ -165,18 +171,32 @@ export function ProgressPage() {
             <table className="w-full text-right text-sm tabular-nums">
               <thead className="text-xs text-muted">
                 <tr>
-                  <th scope="col" className="py-1 text-left font-medium">Semana</th>
-                  <th scope="col" className="px-2 font-medium">Ideias</th>
-                  <th scope="col" className="px-2 font-medium">Chunks</th>
-                  <th scope="col" className="px-2 font-medium">Revisões</th>
-                  <th scope="col" className="px-2 font-medium">Speaking</th>
-                  <th scope="col" className="pl-2 font-medium">Dias</th>
+                  <th scope="col" className="py-1 text-left font-medium">
+                    Semana
+                  </th>
+                  <th scope="col" className="px-2 font-medium">
+                    Ideias
+                  </th>
+                  <th scope="col" className="px-2 font-medium">
+                    Chunks
+                  </th>
+                  <th scope="col" className="px-2 font-medium">
+                    Revisões
+                  </th>
+                  <th scope="col" className="px-2 font-medium">
+                    Speaking
+                  </th>
+                  <th scope="col" className="pl-2 font-medium">
+                    Dias
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {history.map((w) => (
                   <tr key={w.weekStart} className="border-t border-line">
-                    <th scope="row" className="py-1.5 text-left font-normal">{formatDate(w.weekStart, 'short')}</th>
+                    <th scope="row" className="py-1.5 text-left font-normal">
+                      {formatDate(w.weekStart, 'short')}
+                    </th>
                     <td className="px-2">{w.ideasRead}</td>
                     <td className="px-2">{w.chunksCreated}</td>
                     <td className="px-2">{w.reviewsDone}</td>
@@ -189,7 +209,6 @@ export function ProgressPage() {
           </div>
         </details>
       </section>
-
     </div>
   );
 }

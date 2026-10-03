@@ -6,10 +6,9 @@ import { formatDate } from '../../domain/dates';
 import { searchChunks, searchIdeas } from '../../services/library';
 import { listBooks, searchDictionary } from '../../services/study';
 import { ChunkItem } from '../components/ChunkItem';
-import { DeleteEntry } from '../components/DictionaryItems';
-import { RichText } from '../components/RichText';
-import { ListenButton, ListenSettings } from '../components/Listen';
-import { EmptyState, PageTitle, Segmented, TextInput } from '../components/ui';
+import { DictionaryRow } from '../components/DictionaryItems';
+import { ListenSettings } from '../components/Listen';
+import { Collapsible, EmptyState, PageTitle, Segmented, TextInput, useShowMore } from '../components/ui';
 import { useToday } from '../hooks';
 
 type Tab = 'books' | 'ideas' | 'english' | 'dictionary';
@@ -37,6 +36,9 @@ const FILTERS: readonly { value: ChunkFilter; label: string }[] = [
   { value: 'difficult', label: 'Difficult' },
 ];
 
+/** Quantos itens de uma lista longa aparecem de cada vez. */
+const PAGE = 60;
+
 const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
 /** Livro → ideias → cards: a entrada principal da biblioteca. */
@@ -52,15 +54,15 @@ function BookList({ query }: { query: string }) {
           {!q && 'Os livros aparecem aqui conforme você registra as ideias lidas em cada sessão.'}
         </EmptyState>
       )}
-      <ul className="grid items-start gap-3 lg:grid-cols-2">
+      <ul className="grid items-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {shown?.map((book) => (
           <li key={book.key}>
             <Link
               to={`/knowledge/book/${encodeURIComponent(book.key)}`}
-              className="block rounded-2xl border border-line bg-surface p-4 hover:bg-sunken"
+              className="block rounded-xl border border-line bg-surface px-3 py-2.5 hover:bg-sunken"
             >
-              <p className="font-serif text-xl leading-snug">{book.title}</p>
-              <p className="mt-1 text-sm text-muted">
+              <p className="font-serif text-lg leading-snug break-words">{book.title}</p>
+              <p className="mt-0.5 text-xs text-muted">
                 {count(book.ideas.length, 'ideia', 'ideias')} · {count(book.cardCount, 'card', 'cards')} ·{' '}
                 {book.firstDate === book.lastDate
                   ? formatDate(book.firstDate, 'medium')
@@ -74,12 +76,22 @@ function BookList({ query }: { query: string }) {
   );
 }
 
+const NO_BOOK = 'Sem livro';
+
+/** As ideias agrupadas por livro: cada livro é uma seção que abre e fecha. */
 function IdeaList({ query }: { query: string }) {
   const [onlyIdeaOfDay, setOnlyIdeaOfDay] = useState(false);
   const items = useLiveQuery(() => searchIdeas(query, onlyIdeaOfDay), [query, onlyIdeaOfDay]);
+  const searching = query.trim() !== '';
+
+  const groups = new Map<string, NonNullable<typeof items>>();
+  for (const item of items ?? []) {
+    const book = item.idea.bookTitle.trim() || NO_BOOK;
+    groups.set(book, [...(groups.get(book) ?? []), item]);
+  }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <label className="flex min-h-10 items-center gap-3 text-sm">
         <input
           type="checkbox"
@@ -94,27 +106,38 @@ function IdeaList({ query }: { query: string }) {
           {query ? 'Tente outra palavra, livro, tema ou data.' : 'As ideias registradas nas sessões aparecem aqui.'}
         </EmptyState>
       )}
-      <ul className="grid items-start gap-3 lg:grid-cols-2">
-        {items?.map(({ idea, isIdeaOfDay, cardCount, chunks }) => (
-          <li key={idea.id}>
-            <Link to={`/knowledge/idea/${idea.id}`} className="block rounded-2xl border border-line bg-surface p-4 hover:bg-sunken">
-              <p className="text-xs text-muted">
-                {formatDate(idea.date, 'medium')}
-                {idea.bookTitle && ` · ${idea.bookTitle}`}
-                {` · ${count(cardCount, 'card', 'cards')}`}
-                {isIdeaOfDay && ' · ⭐ Idea of the Day'}
-              </p>
-              <p className="mt-1 font-serif text-lg leading-snug">{idea.title}</p>
-              {idea.mainIdea && <p className="mt-1 text-sm text-muted">{idea.mainIdea}</p>}
-              {chunks.length > 0 && (
-                <p className="mt-2 font-serif text-sm" lang="en">
-                  {chunks.join(' • ')}
-                </p>
-              )}
-            </Link>
-          </li>
+      <div className="grid items-start gap-2 lg:grid-cols-2">
+        {[...groups].map(([book, ideas], i) => (
+          // Na busca, tudo abre; fora dela, só o livro mais recente.
+          <Collapsible key={`${book}-${searching}`} title={book} count={ideas.length} defaultOpen={searching || i === 0}>
+            <ul className="-mx-2 divide-y divide-line">
+              {ideas.map(({ idea, isIdeaOfDay, cardCount, chunks }) => (
+                <li key={idea.id}>
+                  <Link
+                    to={`/knowledge/idea/${idea.id}`}
+                    className="flex min-h-10 items-baseline justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-sunken"
+                  >
+                    <span className="min-w-0">
+                      <span className="font-serif leading-snug break-words">
+                        {isIdeaOfDay && <span title="Idea of the Day">⭐ </span>}
+                        {idea.title}
+                      </span>
+                      {chunks.length > 0 && (
+                        <span className="block truncate font-serif text-xs text-muted" lang="en">
+                          {chunks.join(' • ')}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted tabular-nums">
+                      {formatDate(idea.date, 'short')} · {count(cardCount, 'card', 'cards')}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Collapsible>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
@@ -123,26 +146,34 @@ function ChunkList({ query }: { query: string }) {
   const date = useToday();
   const [filter, setFilter] = useState<ChunkFilter>('all');
   const items = useLiveQuery(() => searchChunks(query, filter, date), [query, filter, date]);
+  const [shown, more] = useShowMore(items ?? [], PAGE);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <Segmented label="Filtrar chunks" value={filter} options={FILTERS} onChange={setFilter} />
       {items?.length === 0 && (
         <EmptyState title={query || filter !== 'all' ? 'Nada encontrado.' : 'Nenhuma expressão ainda.'}>
           {query || filter !== 'all' ? 'Mude o filtro ou a busca.' : 'Os chunks que você escolher nas sessões aparecem aqui.'}
         </EmptyState>
       )}
-      <ul className="grid items-start gap-3 lg:grid-cols-2">
-        {items?.map((item) => (
+      {items && items.length > 0 && (
+        <p className="text-xs text-muted">
+          {count(items.length, 'expressão', 'expressões')}. Clique em uma para ver frases, revisões e ações.
+        </p>
+      )}
+      <ul className="grid items-start gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+        {shown.map((item) => (
           <ChunkItem key={item.chunk.id} item={item} date={date} />
         ))}
       </ul>
+      {more}
     </div>
   );
 }
 
 function DictionaryList({ query }: { query: string }) {
   const items = useLiveQuery(() => searchDictionary(query), [query]);
+  const [shown, more] = useShowMore(items ?? [], PAGE);
   return (
     <div className="space-y-3">
       {items?.length === 0 && (
@@ -150,40 +181,33 @@ function DictionaryList({ query }: { query: string }) {
           {!query && 'Abra uma ideia, clique numa palavra do card e adicione o significado.'}
         </EmptyState>
       )}
-      {items && items.length > 0 && <ListenSettings />}
-      <ul className="grid items-start gap-3 lg:grid-cols-2">
-        {items?.map(({ entry, idea }) => (
-          <li key={entry.id} className="rounded-2xl border border-line bg-surface p-4">
-            <div className="flex items-start justify-between gap-3">
-              <p>
-                <span className="font-serif text-lg" lang="en">
-                  {entry.term}
-                </span>
-                {entry.phonetic && <span className="ml-2 text-xs text-muted">{entry.phonetic}</span>}
-                {entry.meaning && <span className="text-muted"> — {entry.meaning}</span>}
-              </p>
-              <div className="flex flex-wrap items-center justify-end gap-3">
-                <ListenButton text={entry.context ? `${entry.term}. ${entry.context}` : entry.term} />
-                <DeleteEntry entry={entry} />
-              </div>
-            </div>
-            {entry.context && (
-              <p className="mt-1 font-serif text-muted" lang="en">
-                “{entry.context}”
-              </p>
-            )}
-            {entry.explanation && <RichText text={entry.explanation} className="mt-1 text-sm" />}
-            {idea && (
-              <p className="mt-2 text-xs text-muted">
-                <Link to={`/knowledge/idea/${idea.id}`} className="underline underline-offset-2">
-                  {idea.title}
-                </Link>
-                {idea.bookTitle && ` · ${idea.bookTitle}`}
-              </p>
-            )}
-          </li>
+      {items && items.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <p className="text-xs text-muted">
+            {count(items.length, 'termo', 'termos')}, em ordem alfabética. Clique em um para ver a frase, a explicação e excluir.
+          </p>
+          <ListenSettings />
+        </div>
+      )}
+      <ul className="grid items-start gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+        {shown.map(({ entry, idea }) => (
+          <DictionaryRow
+            key={entry.id}
+            entry={entry}
+            footer={
+              idea && (
+                <p className="text-xs text-muted">
+                  <Link to={`/knowledge/idea/${idea.id}`} className="underline underline-offset-2">
+                    {idea.title}
+                  </Link>
+                  {idea.bookTitle && ` · ${idea.bookTitle}`}
+                </p>
+              )
+            }
+          />
         ))}
       </ul>
+      {more}
     </div>
   );
 }

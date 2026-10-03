@@ -80,9 +80,7 @@ function IdeaHeading({ item }: { item: IdeaWithCards }) {
     <div>
       <Eyebrow>⭐ Idea of the Day</Eyebrow>
       <h3 className="mt-1 font-serif text-xl">{item.idea.title}</h3>
-      <p className="text-sm text-muted">
-        {[item.idea.bookTitle, cardCount(item.cards.length)].filter(Boolean).join(' · ')}
-      </p>
+      <p className="text-sm text-muted">{[item.idea.bookTitle, cardCount(item.cards.length)].filter(Boolean).join(' · ')}</p>
     </div>
   );
 }
@@ -125,10 +123,20 @@ function IdeaEditor({ item, isIdeaOfDay }: { item: IdeaWithCards; isIdeaOfDay: b
         />
       </div>
       <div className="mt-3 flex flex-wrap gap-x-5">
-        <button type="button" aria-expanded={open === 'cards'} onClick={() => toggle('cards')} className="min-h-10 text-sm font-medium text-accent">
+        <button
+          type="button"
+          aria-expanded={open === 'cards'}
+          onClick={() => toggle('cards')}
+          className="min-h-10 text-sm font-medium text-accent"
+        >
           Cards da ideia ({cards.length})
         </button>
-        <button type="button" aria-expanded={open === 'details'} onClick={() => toggle('details')} className="min-h-10 text-sm font-medium text-accent">
+        <button
+          type="button"
+          aria-expanded={open === 'details'}
+          onClick={() => toggle('details')}
+          className="min-h-10 text-sm font-medium text-accent"
+        >
           Livro, tema e observações
         </button>
       </div>
@@ -195,8 +203,8 @@ export function ReadStep({ bundle }: StepProps) {
   return (
     <div className="space-y-4">
       <Notice>
-        Cada livro tem várias ideias, e cada ideia é uma sequência de cards, lida como uma história. Leia tudo em inglês antes de traduzir e,
-        ao fim de cada ideia, pergunte: <em>“What is the main idea?”</em> Não pare em toda palavra desconhecida.
+        Cada livro tem várias ideias, e cada ideia é uma sequência de cards, lida como uma história. Leia tudo em inglês antes de traduzir
+        e, ao fim de cada ideia, pergunte: <em>“What is the main idea?”</em> Não pare em toda palavra desconhecida.
       </Notice>
 
       <div className="flex items-baseline justify-between">
@@ -309,9 +317,7 @@ export function FocusStep({ bundle, goTo }: StepProps) {
             />
             <span className="flex-1">
               <span className="block font-serif text-lg leading-snug">{idea.title}</span>
-              <span className="block text-xs text-muted">
-                {[idea.bookTitle, cardCount(cards.length)].filter(Boolean).join(' · ')}
-              </span>
+              <span className="block text-xs text-muted">{[idea.bookTitle, cardCount(cards.length)].filter(Boolean).join(' · ')}</span>
               {idea.mainIdea && <span className="mt-1 block text-sm text-muted">{idea.mainIdea}</span>}
               {selected && <span className="mt-2 block text-xs font-semibold tracking-wide text-accent">⭐ IDEA OF THE DAY</span>}
             </span>
@@ -364,9 +370,7 @@ export function CheckStep({ bundle, goTo }: StepProps) {
 
       {withText.length > 0 && (
         <details className="rounded-2xl border border-line bg-surface p-4">
-          <summary className="min-h-8 cursor-pointer text-sm font-medium">
-            Reler os cards depois de tentar ({withText.length})
-          </summary>
+          <summary className="min-h-8 cursor-pointer text-sm font-medium">Reler os cards depois de tentar ({withText.length})</summary>
           <ol className="mt-3 space-y-3">
             {withText.map((card) => (
               <li key={card.id} className="border-l-2 border-line pl-3">
@@ -379,8 +383,7 @@ export function CheckStep({ bundle, goTo }: StepProps) {
       )}
 
       <Notice>
-        Só agora consulte tradução ou dicionário e compare com a sua primeira interpretação.{' '}
-        {weekPlan(session.cycleWeek).translation}
+        Só agora consulte tradução ou dicionário e compare com a sua primeira interpretação. {weekPlan(session.cycleWeek).translation}
       </Notice>
 
       <AutoTextArea
@@ -485,7 +488,12 @@ export function MineStep({ bundle }: StepProps) {
             </Button>
           </div>
           <div className="mt-3 space-y-3">
-            <AutoTextArea label="Significado" value={chunk.meaning} onSave={(value) => updateChunk(chunk.id, { meaning: value })} rows={1} />
+            <AutoTextArea
+              label="Significado"
+              value={chunk.meaning}
+              onSave={(value) => updateChunk(chunk.id, { meaning: value })}
+              rows={1}
+            />
             <AutoTextArea
               label="Frase original (contexto no card)"
               value={chunk.originalSentence}
@@ -531,9 +539,7 @@ export function MineStep({ bundle }: StepProps) {
 
       {overflow && (
         <Notice tone="warn">
-          <p className="font-medium">
-            Você já selecionou três expressões hoje. Escolha quais realmente merecem entrar na revisão.
-          </p>
+          <p className="font-medium">Você já selecionou três expressões hoje. Escolha quais realmente merecem entrar na revisão.</p>
           <p className="mt-2">
             Substituir por <em lang="en">{overflow.text}</em>:
           </p>
@@ -627,8 +633,8 @@ export function RetellStep({ bundle, goTo }: StepProps) {
       <div>
         <Prompt>Feche o Deepstash e reconte a ideia em voz alta.</Prompt>
         <Hint>
-          Conte a história dos cards do começo ao fim, com as suas palavras. Semana {session.cycleWeek}: {plan.focus}{' '}
-          Não reinicie por causa de erros.
+          Conte a história dos cards do começo ao fim, com as suas palavras. Semana {session.cycleWeek}: {plan.focus} Não reinicie por causa
+          de erros.
         </Hint>
       </div>
 
@@ -673,8 +679,8 @@ export function RetellStep({ bundle, goTo }: StepProps) {
       {speaking.length > 0 && (
         <div className="space-y-3">
           <p className="text-sm text-muted" aria-live="polite">
-            {speaking.length === 1 ? '1 fala registrada hoje' : `${speaking.length} falas registradas hoje`} ·{' '}
-            {formatDuration(total)} no total.
+            {speaking.length === 1 ? '1 fala registrada hoje' : `${speaking.length} falas registradas hoje`} · {formatDuration(total)} no
+            total.
           </p>
           {speaking
             .filter((s) => s.transcript)
@@ -840,13 +846,41 @@ export function PersonalizeStep({ bundle, goTo }: StepProps) {
 
 /** Conectores para montar a opinião, agrupados pelo que fazem na frase. */
 const REFLECT_CONNECTORS: readonly StarterGroup[] = [
-  { label: 'Opinar', items: ['I agree because', 'I disagree because', 'I partly agree because', 'In my opinion,', 'From my perspective,', 'It seems to me that'] },
-  { label: 'Contrastar', items: ['However,', 'On the other hand,', 'Although', 'Even though', 'Nevertheless,', 'While this is true,'] },
-  { label: 'Explicar', items: ['because', 'since', 'That is why', 'As a result,', 'Therefore,', 'This means that'] },
-  { label: 'Exemplificar', items: ['For example,', 'For instance,', 'In my experience,', 'A good example is', 'such as'] },
-  { label: 'Condicionar', items: ['It depends on', 'If', 'Unless', 'As long as', 'In some cases,'] },
-  { label: 'Acrescentar', items: ['Also,', 'In addition,', 'Besides,', 'What is more,', 'Not only … but also'] },
-  { label: 'Concluir', items: ['So,', 'In short,', 'Overall,', 'All things considered,', 'To sum up,'] },
+  {
+    label: 'Opinar',
+    items: [
+      'I agree because',
+      'I disagree because',
+      'I partly agree because',
+      'In my opinion,',
+      'From my perspective,',
+      'It seems to me that',
+    ],
+  },
+  {
+    label: 'Contrastar',
+    items: ['However,', 'On the other hand,', 'Although', 'Even though', 'Nevertheless,', 'While this is true,'],
+  },
+  {
+    label: 'Explicar',
+    items: ['because', 'since', 'That is why', 'As a result,', 'Therefore,', 'This means that'],
+  },
+  {
+    label: 'Exemplificar',
+    items: ['For example,', 'For instance,', 'In my experience,', 'A good example is', 'such as'],
+  },
+  {
+    label: 'Condicionar',
+    items: ['It depends on', 'If', 'Unless', 'As long as', 'In some cases,'],
+  },
+  {
+    label: 'Acrescentar',
+    items: ['Also,', 'In addition,', 'Besides,', 'What is more,', 'Not only … but also'],
+  },
+  {
+    label: 'Concluir',
+    items: ['So,', 'In short,', 'Overall,', 'All things considered,', 'To sum up,'],
+  },
 ];
 
 export function ReflectStep({ bundle, goTo }: StepProps) {
@@ -875,7 +909,12 @@ export function ReflectStep({ bundle, goTo }: StepProps) {
         lang="en"
         starterGroups={REFLECT_CONNECTORS}
       />
-      <AIFeedbackPanel targetType="opinion" targetId={idea.id} text={reflection?.userOpinion ?? ''} context={`Opinião sobre a ideia "${idea.title}".`} />
+      <AIFeedbackPanel
+        targetType="opinion"
+        targetId={idea.id}
+        text={reflection?.userOpinion ?? ''}
+        context={`Opinião sobre a ideia "${idea.title}".`}
+      />
     </div>
   );
 }
@@ -908,7 +947,12 @@ export function SoWhatStep({ bundle, goTo }: StepProps) {
         lang="en"
         placeholder="I’ll…"
       />
-      <AIFeedbackPanel targetType="soWhat" targetId={idea.id} text={reflection?.soWhat ?? ''} context={`Ação a partir da ideia "${idea.title}".`} />
+      <AIFeedbackPanel
+        targetType="soWhat"
+        targetId={idea.id}
+        text={reflection?.soWhat ?? ''}
+        context={`Ação a partir da ideia "${idea.title}".`}
+      />
     </div>
   );
 }

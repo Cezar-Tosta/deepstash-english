@@ -3,13 +3,7 @@ import { AIError } from '../../ai/AIProvider';
 import { readCardFromImage } from '../../ai/coach';
 import { isAIConfigured } from '../../ai/feedback';
 import type { SourceCard } from '../../domain/types';
-import {
-  addCards,
-  deleteCard,
-  type IdeaWithCards,
-  splitIntoCards,
-  updateCard,
-} from '../../services/sessions';
+import { addCards, deleteCard, type IdeaWithCards, splitIntoCards, updateCard } from '../../services/sessions';
 import { useOnline, useSettings } from '../hooks';
 import { attempt, showToast } from '../toast';
 import { toImageInput } from './IdeaImport';

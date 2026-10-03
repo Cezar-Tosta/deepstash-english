@@ -50,7 +50,9 @@ export function CoachPanel({ context }: { context: CoachContext }) {
         </div>
       )}
       {!advice && !error && (
-        <p className="mt-1 text-xs text-muted">Sugestões para esta etapa com base no que você está lendo. Tente primeiro; peça se travar.</p>
+        <p className="mt-1 text-xs text-muted">
+          Sugestões para esta etapa com base no que você está lendo. Tente primeiro; peça se travar.
+        </p>
       )}
     </div>
   );

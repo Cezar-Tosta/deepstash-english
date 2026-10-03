@@ -9,26 +9,105 @@ import { useOnline, useSettings, useToday } from './hooks';
 import { dismissToast, useToast } from './toast';
 
 const icon = (paths: ReactNode) => (
-  <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+  <svg
+    viewBox="0 0 24 24"
+    className="size-6"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.7"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
     {paths}
   </svg>
 );
 
 const NAV = [
-  { to: '/', label: 'TODAY', icon: icon(<><circle cx="12" cy="12" r="4" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" /></>) },
-  { to: '/review', label: 'REVIEW', icon: icon(<><path d="M4 12a8 8 0 0 1 13.7-5.7L20 8.5" /><path d="M20 4v4.5h-4.5" /><path d="M20 12a8 8 0 0 1-13.7 5.7L4 15.5" /><path d="M4 20v-4.5h4.5" /></>) },
-  { to: '/knowledge', label: 'KNOWLEDGE', icon: icon(<><path d="M5 4.5h10a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z" /><path d="M5 17a3 3 0 0 1 3-3h10" /></>) },
-  { to: '/practice', label: 'PRACTICE', icon: icon(<><path d="M4 20l4-1 11-11-3-3L5 16z" /><path d="M14 6l3 3" /></>) },
-  { to: '/progress', label: 'PROGRESS', icon: icon(<><path d="M4 20h16" /><path d="M7 20v-6M12 20V6M17 20v-9" /></>) },
-  { to: '/settings', label: 'SETTINGS', icon: icon(<><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></>) },
-  { to: '/manual', label: 'MANUAL', icon: icon(<><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2 1-1.2 1.9" /><path d="M12 16.6v.1" /></>) },
+  {
+    to: '/',
+    label: 'TODAY',
+    icon: icon(
+      <>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" />
+      </>,
+    ),
+  },
+  {
+    to: '/review',
+    label: 'REVIEW',
+    icon: icon(
+      <>
+        <path d="M4 12a8 8 0 0 1 13.7-5.7L20 8.5" />
+        <path d="M20 4v4.5h-4.5" />
+        <path d="M20 12a8 8 0 0 1-13.7 5.7L4 15.5" />
+        <path d="M4 20v-4.5h4.5" />
+      </>,
+    ),
+  },
+  {
+    to: '/knowledge',
+    label: 'KNOWLEDGE',
+    icon: icon(
+      <>
+        <path d="M5 4.5h10a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z" />
+        <path d="M5 17a3 3 0 0 1 3-3h10" />
+      </>,
+    ),
+  },
+  {
+    to: '/practice',
+    label: 'PRACTICE',
+    icon: icon(
+      <>
+        <path d="M4 20l4-1 11-11-3-3L5 16z" />
+        <path d="M14 6l3 3" />
+      </>,
+    ),
+  },
+  {
+    to: '/progress',
+    label: 'PROGRESS',
+    icon: icon(
+      <>
+        <path d="M4 20h16" />
+        <path d="M7 20v-6M12 20V6M17 20v-9" />
+      </>,
+    ),
+  },
+  {
+    to: '/settings',
+    label: 'SETTINGS',
+    icon: icon(
+      <>
+        <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+        <circle cx="16" cy="7" r="2" />
+        <circle cx="8" cy="17" r="2" />
+      </>,
+    ),
+  },
+  {
+    to: '/manual',
+    label: 'MANUAL',
+    icon: icon(
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M9.6 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2 1-1.2 1.9" />
+        <path d="M12 16.6v.1" />
+      </>,
+    ),
+  },
 ] as const;
 
 function Toaster() {
   const toast = useToast();
   if (!toast) return null;
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 md:bottom-8" role={toast.tone === 'error' ? 'alert' : 'status'}>
+    <div
+      className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 md:bottom-8"
+      role={toast.tone === 'error' ? 'alert' : 'status'}
+    >
       <button
         type="button"
         onClick={dismissToast}
@@ -53,10 +132,7 @@ function AIStatus({ ai }: { ai: AISettings }) {
       ]
     : [];
   return (
-    <Link
-      to="/settings"
-      className="mx-3 mt-6 hidden rounded-xl border border-line px-3 py-2 text-xs hover:bg-sunken md:block"
-    >
+    <Link to="/settings" className="mx-3 mt-6 hidden rounded-xl border border-line px-3 py-2 text-xs hover:bg-sunken md:block">
       <span className="block font-semibold tracking-wide text-muted">IA em uso</span>
       {models ? (
         <>

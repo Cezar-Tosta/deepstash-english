@@ -87,7 +87,8 @@ export function IdeaImport({ onImported }: { onImported: (idea: ImportedIdea) =>
             setText('');
           }}
         >
-          Usar este texto{parsed.cards.length > 0 && ` (${parsed.cards.length} ${parsed.cards.length === 1 ? 'card' : 'cards'})`}
+          Usar este texto
+          {parsed.cards.length > 0 && ` (${parsed.cards.length} ${parsed.cards.length === 1 ? 'card' : 'cards'})`}
         </Button>
         {aiReady && (
           <label
@@ -108,8 +109,7 @@ export function IdeaImport({ onImported }: { onImported: (idea: ImportedIdea) =>
       </div>
       {aiReady ? (
         <Hint>
-          Screenshots: escolha as imagens, quantas forem, ou cole com Ctrl+V. A IA transcreve título e cards; confira antes
-          de salvar.
+          Screenshots: escolha as imagens, quantas forem, ou cole com Ctrl+V. A IA transcreve título e cards; confira antes de salvar.
         </Hint>
       ) : (
         <Hint>Com a IA configurada em Ajustes, também dá para importar a partir de screenshots dos cards.</Hint>

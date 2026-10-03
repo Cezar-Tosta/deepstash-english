@@ -37,9 +37,7 @@ export function TodayPage() {
 
   if (bundle === undefined || !due || !settings || totalSessions === undefined) return null;
 
-  const { week } = bundle
-    ? { week: bundle.session.cycleWeek }
-    : cyclePosition(settings.cycleStartDate ?? startOfWeek(date), date);
+  const { week } = bundle ? { week: bundle.session.cycleWeek } : cyclePosition(settings.cycleStartDate ?? startOfWeek(date), date);
   const plan = weekPlan(week);
   const overdue = due.filter((c) => overdueDays(c, date) > 0).length;
   const speakingSec = bundle?.speaking.reduce((sum, s) => sum + s.durationSec, 0) ?? 0;
@@ -78,9 +76,8 @@ export function TodayPage() {
         <Card className="bg-accent-soft">
           <Eyebrow>Método: ideias → 1 → 3 → 1</Eyebrow>
           <p className="mt-2 leading-relaxed">
-            Leia as <strong>ideias</strong> do dia no Deepstash (cada uma é uma sequência de cards), escolha{' '}
-            <strong>1 ideia</strong> para aprofundar, guarde só{' '}
-            <strong>3 expressões</strong> úteis e faça <strong>1 explicação</strong> em voz alta. Cerca de 30 minutos
+            Leia as <strong>ideias</strong> do dia no Deepstash (cada uma é uma sequência de cards), escolha <strong>1 ideia</strong> para
+            aprofundar, guarde só <strong>3 expressões</strong> úteis e faça <strong>1 explicação</strong> em voz alta. Cerca de 30 minutos
             por dia.
           </p>
           <Link to="/manual" className="mt-2 inline-flex min-h-10 items-center font-medium text-accent underline underline-offset-2">
@@ -93,11 +90,11 @@ export function TodayPage() {
         <Card>
           <Eyebrow>Fim de semana</Eyebrow>
           <p className="mt-2 text-lg font-medium">
-            {due.length === 0 ? 'Nada agendado para hoje.' : `Hoje é dia só de revisão: ${due.length} ${due.length === 1 ? 'expressão' : 'expressões'}.`}
+            {due.length === 0
+              ? 'Nada agendado para hoje.'
+              : `Hoje é dia só de revisão: ${due.length} ${due.length === 1 ? 'expressão' : 'expressões'}.`}
           </p>
-          <p className="mt-1 text-sm text-muted">
-            Sábado e domingo não têm sessão nova. A próxima é na segunda-feira.
-          </p>
+          <p className="mt-1 text-sm text-muted">Sábado e domingo não têm sessão nova. A próxima é na segunda-feira.</p>
           {due.length > 0 && (
             <Button block className="mt-4" onClick={() => void navigate('/review')}>
               FAZER {due.length} {due.length === 1 ? 'REVISÃO' : 'REVISÕES'}
@@ -108,40 +105,50 @@ export function TodayPage() {
           </Button>
         </Card>
       ) : (
-      <Card>
-        <div className="mb-1 flex items-baseline justify-between">
-          <Eyebrow>Sessão</Eyebrow>
-          <span className="text-sm font-semibold tabular-nums">{progress}%</span>
-        </div>
-        <ProgressBar value={progress} label="Progresso da sessão de hoje" />
+        <Card>
+          <div className="mb-1 flex items-baseline justify-between">
+            <Eyebrow>Sessão</Eyebrow>
+            <span className="text-sm font-semibold tabular-nums">{progress}%</span>
+          </div>
+          <ProgressBar value={progress} label="Progresso da sessão de hoje" />
 
-        <dl className="mt-2 divide-y divide-line">
-          <Row
-            label="Revisões pendentes"
-            done={due.length === 0}
-            value={
-              due.length === 0 ? 'nenhuma' : overdue > 0 ? `${due.length} (${overdue} em atraso)` : String(due.length)
-            }
-          />
-          <Row label="Ideias lidas hoje" done={ideasToday > 0} value={ideasToday === 0 ? 'nenhuma' : `${ideasToday} · ${cardsToday} ${cardsToday === 1 ? 'card' : 'cards'}`} />
-          <Row
-            label="Idea of the Day"
-            done={Boolean(bundle?.ideaOfDay)}
-            value={bundle?.ideaOfDay ? <span className="font-serif">{bundle.ideaOfDay.idea.title}</span> : 'não escolhida'}
-          />
-          <Row label="Chunks" done={(bundle?.chunks.length ?? 0) >= MAX_CHUNKS_PER_DAY} value={`${bundle?.chunks.length ?? 0}/${MAX_CHUNKS_PER_DAY}`} />
-          <Row label="Speaking" done={speakingSec > 0} value={speakingSec > 0 ? formatDuration(speakingSec) : `não realizado · meta ${plan.speakingLabel}`} />
-        </dl>
+          <dl className="mt-2 divide-y divide-line">
+            <Row
+              label="Revisões pendentes"
+              done={due.length === 0}
+              value={due.length === 0 ? 'nenhuma' : overdue > 0 ? `${due.length} (${overdue} em atraso)` : String(due.length)}
+            />
+            <Row
+              label="Ideias lidas hoje"
+              done={ideasToday > 0}
+              value={ideasToday === 0 ? 'nenhuma' : `${ideasToday} · ${cardsToday} ${cardsToday === 1 ? 'card' : 'cards'}`}
+            />
+            <Row
+              label="Idea of the Day"
+              done={Boolean(bundle?.ideaOfDay)}
+              value={bundle?.ideaOfDay ? <span className="font-serif">{bundle.ideaOfDay.idea.title}</span> : 'não escolhida'}
+            />
+            <Row
+              label="Chunks"
+              done={(bundle?.chunks.length ?? 0) >= MAX_CHUNKS_PER_DAY}
+              value={`${bundle?.chunks.length ?? 0}/${MAX_CHUNKS_PER_DAY}`}
+            />
+            <Row
+              label="Speaking"
+              done={speakingSec > 0}
+              value={speakingSec > 0 ? formatDuration(speakingSec) : `não realizado · meta ${plan.speakingLabel}`}
+            />
+          </dl>
 
-        <Button block className="mt-4" variant={completed ? 'secondary' : 'primary'} onClick={open}>
-          {completed ? 'SESSÃO CONCLUÍDA · REVER' : bundle ? 'CONTINUAR ESTUDO' : 'COMEÇAR SESSÃO'}
-        </Button>
-        {completed && due.length > 0 && (
-          <Button block className="mt-2" onClick={() => void navigate('/review')}>
-            FAZER {due.length} {due.length === 1 ? 'REVISÃO' : 'REVISÕES'}
+          <Button block className="mt-4" variant={completed ? 'secondary' : 'primary'} onClick={open}>
+            {completed ? 'SESSÃO CONCLUÍDA · REVER' : bundle ? 'CONTINUAR ESTUDO' : 'COMEÇAR SESSÃO'}
           </Button>
-        )}
-      </Card>
+          {completed && due.length > 0 && (
+            <Button block className="mt-2" onClick={() => void navigate('/review')}>
+              FAZER {due.length} {due.length === 1 ? 'REVISÃO' : 'REVISÕES'}
+            </Button>
+          )}
+        </Card>
       )}
 
       <TodaySuggestion date={date} />

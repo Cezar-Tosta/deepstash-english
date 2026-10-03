@@ -137,7 +137,10 @@ function QuestionCard({ question, retry, onNext }: { question: Question; retry: 
           </div>
           {kind !== 'dictation' && (
             <p className="text-sm text-muted break-words">
-              Resposta: <span className="font-serif text-ink" lang="en">{question.answer}</span>
+              Resposta:{' '}
+              <span className="font-serif text-ink" lang="en">
+                {question.answer}
+              </span>
               {question.phonetic && ` ${question.phonetic}`}
               {kind !== 'tense' && question.hint && ` — ${question.hint}`}
             </p>
@@ -189,9 +192,7 @@ function Training({ title, questions, onExit }: { title: string; questions: Ques
           {firstTry.right} de {questions.length} certas na primeira tentativa.
         </p>
         {firstTry.wrong > 0 && (
-          <p className="mt-1 text-sm text-muted">
-            As {firstTry.wrong} que você errou ganharam prioridade nas próximas rodadas.
-          </p>
+          <p className="mt-1 text-sm text-muted">As {firstTry.wrong} que você errou ganharam prioridade nas próximas rodadas.</p>
         )}
         <div className="mt-4">
           <Button onClick={onExit}>Voltar aos exercícios</Button>
@@ -273,8 +274,8 @@ export function PracticePage() {
       <Card>
         <Prompt>Treino</Prompt>
         <p className="mt-1 text-sm text-muted">
-          Começa pelos termos em que você mais erra e alterna três formas: completar a frase, ouvir a frase e escrever a
-          palavra que falta, e ouvir uma frase curta e escrevê-la. O que você errar volta na mesma rodada.
+          Começa pelos termos em que você mais erra e alterna três formas: completar a frase, ouvir a frase e escrever a palavra que falta,
+          e ouvir uma frase curta e escrevê-la. O que você errar volta na mesma rodada.
         </p>
         {trainable === 0 ? (
           <div className="mt-3">
@@ -283,13 +284,17 @@ export function PracticePage() {
             </EmptyState>
           </div>
         ) : (
-          <Sizes available={trainable} unit={['termo', 'termos']} onPick={(n) => setRound({ title: 'Treino', questions: buildTraining(items, n) })} />
+          <Sizes
+            available={trainable}
+            unit={['termo', 'termos']}
+            onPick={(n) => setRound({ title: 'Treino', questions: buildTraining(items, n) })}
+          />
         )}
         {loose > 0 && (
           <div className="mt-3">
             <Hint>
-              {loose} {loose === 1 ? 'termo está' : 'termos estão'} fora dos exercícios por não {loose === 1 ? 'ter' : 'terem'}{' '}
-              frase. Escreva uma frase com o chunk (PERSONALIZE ou My English) para {loose === 1 ? 'ele' : 'eles'} entrar
+              {loose} {loose === 1 ? 'termo está' : 'termos estão'} fora dos exercícios por não {loose === 1 ? 'ter' : 'terem'} frase.
+              Escreva uma frase com o chunk (PERSONALIZE ou My English) para {loose === 1 ? 'ele' : 'eles'} entrar
               {loose === 1 ? '' : 'em'}.
             </Hint>
           </div>
@@ -328,8 +333,7 @@ export function PracticePage() {
         <Eyebrow>Onde você mais erra</Eyebrow>
         {difficult.length === 0 ? (
           <p className="mt-2 text-sm text-muted">
-            Aparece aqui depois dos primeiros treinos. Contam os erros nos exercícios e, para os chunks, os “não lembrei”
-            das revisões.
+            Aparece aqui depois dos primeiros treinos. Contam os erros nos exercícios e, para os chunks, os “não lembrei” das revisões.
           </p>
         ) : (
           <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">

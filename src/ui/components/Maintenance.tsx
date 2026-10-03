@@ -83,19 +83,15 @@ export function DataSection() {
   return (
     <Card>
       <Eyebrow>Dados de estudo</Eyebrow>
-      <Hint>
-        Para refazer uma semana específica, use “Resetar esta semana” na tela Progress. Aqui você apaga tudo e
-        recomeça.
-      </Hint>
+      <Hint>Para refazer uma semana específica, use “Resetar esta semana” na tela Progress. Aqui você apaga tudo e recomeça.</Hint>
 
       <div className="mt-3">
         {confirming ? (
           <div role="alert" className="rounded-xl bg-sunken p-3 text-sm">
             <p className="font-medium text-danger">Apagar todos os estudos?</p>
             <p className="mt-1">
-              Sessões, livros, ideias, cards, dicionário, chunks, revisões, falas e estatísticas serão apagados, neste
-              navegador e na sua conta. Tema e configuração de IA ficam. Não dá para desfazer; exporte um backup antes,
-              se quiser guardar.
+              Sessões, livros, ideias, cards, dicionário, chunks, revisões, falas e estatísticas serão apagados, neste navegador e na sua
+              conta. Tema e configuração de IA ficam. Não dá para desfazer; exporte um backup antes, se quiser guardar.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
@@ -176,8 +172,8 @@ function SpokenRow({ item }: { item: SpokenItem }) {
         <p className="min-w-0 text-sm">
           <span className="font-medium break-words">{idea?.title ?? KIND_LABEL[speaking.kind]}</span>
           <span className="block text-xs text-muted">
-            {formatDate(speaking.date, 'weekday').replace('.', '')} {formatDate(speaking.date, 'short')} ·{' '}
-            {KIND_LABEL[speaking.kind]} · {formatDuration(speaking.durationSec)}
+            {formatDate(speaking.date, 'weekday').replace('.', '')} {formatDate(speaking.date, 'short')} · {KIND_LABEL[speaking.kind]} ·{' '}
+            {formatDuration(speaking.durationSec)}
           </span>
         </p>
         {!confirming && (
@@ -196,11 +192,7 @@ function SpokenRow({ item }: { item: SpokenItem }) {
         <div role="alert" className="mt-2 rounded-lg bg-sunken p-2 text-sm">
           <p>Excluir esta fala? O áudio, a transcrição e o tempo deixam de contar. Não dá para desfazer.</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Button
-              small
-              variant="danger"
-              onClick={() => attempt(deleteSpeaking(speaking.id).then(() => showToast('Fala excluída.')))}
-            >
+            <Button small variant="danger" onClick={() => attempt(deleteSpeaking(speaking.id).then(() => showToast('Fala excluída.')))}>
               Confirmar exclusão
             </Button>
             <Button small variant="ghost" onClick={() => setConfirming(false)}>

@@ -1,13 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  buildTenseTraining,
-  hardestVerbs,
-  type Question,
-  tenseKey,
-  tenseNames,
-  tenseQuestions,
-  verbBases,
-} from '../../domain/exercises';
+import { buildTenseTraining, hardestVerbs, type Question, tenseKey, tenseNames, tenseQuestions, verbBases } from '../../domain/exercises';
 import type { PracticeStat, VerbEntry } from '../../domain/types';
 import { Button, Eyebrow, Hint, TextInput } from './ui';
 
@@ -154,7 +146,11 @@ export function TenseSetup({ verbs, stats, onStart }: Props) {
                 variant="secondary"
                 onClick={() => {
                   const only = { bases: new Set(difficult.map((v) => v.base)) };
-                  onStart(buildTenseTraining(verbs, stats, tenseQuestions(verbs, only).length, { filter: only }));
+                  onStart(
+                    buildTenseTraining(verbs, stats, tenseQuestions(verbs, only).length, {
+                      filter: only,
+                    }),
+                  );
                 }}
               >
                 Treinar só estes verbos

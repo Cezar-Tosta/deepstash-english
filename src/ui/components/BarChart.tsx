@@ -23,11 +23,7 @@ export function BarChart({ title, data }: { title: string; data: readonly BarDat
       <ol className="mt-3 flex h-28 items-end gap-[2px] border-b border-line">
         {data.map((d, i) => (
           <li key={d.label} className="group relative flex h-full flex-1 items-end justify-center">
-            <button
-              type="button"
-              aria-label={d.description}
-              className="flex h-full w-full items-end justify-center"
-            >
+            <button type="button" aria-label={d.description} className="flex h-full w-full items-end justify-center">
               {i === lastIndex && (
                 <span
                   className="absolute text-xs font-semibold text-ink tabular-nums"

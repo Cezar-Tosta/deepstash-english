@@ -1,12 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  buildFlashcards,
-  type Flashcard,
-  type FlashSource,
-  pickFlashcards,
-  splitAround,
-  type StudyItem,
-} from '../../domain/exercises';
+import { buildFlashcards, type Flashcard, type FlashSource, pickFlashcards, splitAround, type StudyItem } from '../../domain/exercises';
 import { recordPractice } from '../../services/maintenance';
 import { stopSpeaking } from '../speech';
 import { attempt } from '../toast';
@@ -41,8 +34,8 @@ export function FlashcardSetup({ items, onStart }: { items: readonly StudyItem[]
     <Card>
       <Prompt>Flashcards</Prompt>
       <p className="mt-1 text-sm text-muted">
-        A expressão aparece dentro da frase em que você a encontrou. Tente lembrar o sentido e vire para conferir a
-        tradução, a classe gramatical e o uso naquele contexto.
+        A expressão aparece dentro da frase em que você a encontrou. Tente lembrar o sentido e vire para conferir a tradução, a classe
+        gramatical e o uso naquele contexto.
       </p>
       <div className="mt-3 space-y-3">
         <Segmented label="O que entra nos flashcards" value={source} options={SOURCES} onChange={setSource} />
@@ -73,7 +66,12 @@ export function FlashcardSetup({ items, onStart }: { items: readonly StudyItem[]
               </Button>
             </div>
             <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm">
-              <input type="checkbox" className="size-5 accent-(--accent)" checked={hardFirst} onChange={(e) => setHardFirst(e.target.checked)} />
+              <input
+                type="checkbox"
+                className="size-5 accent-(--accent)"
+                checked={hardFirst}
+                onChange={(e) => setHardFirst(e.target.checked)}
+              />
               Priorizar as que mais erro
             </label>
             <Button variant="secondary" onClick={start}>
@@ -199,8 +197,7 @@ export function FlashcardRound({ cards, onExit }: { cards: Flashcard[]; onExit: 
               </div>
             ) : (
               <p className="text-sm text-muted">
-                Sem explicação de contexto registrada. Clique no termo no card da ideia para a IA analisar o uso e a
-                classe gramatical.
+                Sem explicação de contexto registrada. Clique no termo no card da ideia para a IA analisar o uso e a classe gramatical.
               </p>
             )}
             <div className="grid grid-cols-2 gap-2 pt-2">

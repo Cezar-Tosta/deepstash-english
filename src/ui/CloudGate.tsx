@@ -21,7 +21,7 @@ function Login() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    setError(await signIn(email, password) ?? '');
+    setError((await signIn(email, password)) ?? '');
     setBusy(false);
   };
 
@@ -68,8 +68,8 @@ function Choose() {
   return (
     <Screen title="Qual versão vale?">
       <Notice tone="warn">
-        Este navegador e a nuvem têm dados diferentes, e o app não sabe qual é o mais completo. O lado que você não
-        escolher será substituído.
+        Este navegador e a nuvem têm dados diferentes, e o app não sabe qual é o mais completo. O lado que você não escolher será
+        substituído.
       </Notice>
       <div className="mt-4 space-y-3">
         {options.map((o) => (

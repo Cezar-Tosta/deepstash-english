@@ -110,7 +110,11 @@ export function IdeaChat({ ideaId }: { ideaId: string }) {
               </Button>
             </span>
           ) : (
-            <button type="button" onClick={() => setConfirmingClear(true)} className="min-h-8 text-xs font-medium text-muted hover:text-ink">
+            <button
+              type="button"
+              onClick={() => setConfirmingClear(true)}
+              className="min-h-8 text-xs font-medium text-muted hover:text-ink"
+            >
               Apagar conversa
             </button>
           ))}
@@ -119,8 +123,8 @@ export function IdeaChat({ ideaId }: { ideaId: string }) {
       {messages.length === 0 ? (
         <div className="mt-2 space-y-3">
           <Hint>
-            A IA conhece os cards desta ideia e o que você já escreveu, e responde sempre em português. Se você escrever em
-            inglês, ela também aponta erros da sua mensagem.
+            A IA conhece os cards desta ideia e o que você já escreveu, e responde sempre em português. Se você escrever em inglês, ela
+            também aponta erros da sua mensagem.
           </Hint>
           <StarterChips starters={STARTERS} onPick={send} />
         </div>
@@ -134,11 +138,7 @@ export function IdeaChat({ ideaId }: { ideaId: string }) {
                 }`}
               >
                 <span className="sr-only">{m.role === 'user' ? 'Você: ' : 'IA: '}</span>
-                {m.role === 'user' ? (
-                  <p className="break-words whitespace-pre-wrap">{m.content}</p>
-                ) : (
-                  <RichText text={m.content} />
-                )}
+                {m.role === 'user' ? <p className="break-words whitespace-pre-wrap">{m.content}</p> : <RichText text={m.content} />}
               </div>
             </li>
           ))}
@@ -166,7 +166,14 @@ export function IdeaChat({ ideaId }: { ideaId: string }) {
 
       <form onSubmit={submit} className="mt-3 flex items-end gap-2" onKeyDown={onKeyDown}>
         <div className="min-w-0 flex-1">
-          <TextArea label="Sua mensagem" hideLabel value={draft} onChange={setDraft} rows={2} placeholder="Pergunte, discorde, peça um exemplo…" />
+          <TextArea
+            label="Sua mensagem"
+            hideLabel
+            value={draft}
+            onChange={setDraft}
+            rows={2}
+            placeholder="Pergunte, discorde, peça um exemplo…"
+          />
         </div>
         <Button type="submit" disabled={busy || !online || !draft.trim()}>
           Enviar

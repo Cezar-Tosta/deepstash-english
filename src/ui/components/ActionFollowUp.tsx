@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDate } from '../../domain/dates';
 import type { FollowUpStatus } from '../../domain/types';
@@ -26,45 +27,67 @@ export function ActionFollowUp({ actions }: { actions: readonly PendingAction[] 
   if (actions.length === 0) return null;
   return (
     <Card>
-      <Eyebrow>Did you do it?</Eyebrow>
-      <ul className="mt-3 space-y-6">
-        {actions.map(({ reflection, idea }) => (
-          <li key={reflection.id}>
-            <p className="text-xs text-muted">
-              <Link to={`/knowledge/idea/${idea.id}`} className="underline underline-offset-2">
-                {idea.title}
-              </Link>{' '}
-              · {formatDate(idea.date, 'medium')}
-            </p>
-            <p className="mt-1 font-serif text-lg" lang="en">
-              “{reflection.soWhat}”
-            </p>
-            <div className="mt-3">
-              <AutoTextArea
-                label="What happened?"
-                value={reflection.followUp ?? ''}
-                onSave={(text) => saveFollowUp(reflection.id, { text })}
-                rows={2}
-                lang="en"
-                placeholder="Escreva em inglês, mesmo que seja uma frase."
-              />
-              <AIFeedbackPanel
-                targetType="followUp"
-                targetId={reflection.id}
-                text={reflection.followUp ?? ''}
-                context={`O aluno conta o que aconteceu com a ação: "${reflection.soWhat}"`}
-              />
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {ANSWERS.map(({ status, label }) => (
-                <Button key={status} small variant="secondary" onClick={() => attempt(saveFollowUp(reflection.id, { status }))}>
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </li>
+      <Eyebrow>Did you do it?{actions.length > 1 && ` · ${actions.length}`}</Eyebrow>
+      <ul className="mt-2 divide-y divide-line">
+        {actions.map((action, i) => (
+          <ActionItem key={action.reflection.id} action={action} defaultOpen={i === 0} />
         ))}
       </ul>
     </Card>
+  );
+}
+
+/** Uma ação pendente em uma linha; abrir mostra o campo de resposta. Só a primeira já vem aberta. */
+function ActionItem({ action: { reflection, idea }, defaultOpen }: { action: PendingAction; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <li className="py-2">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="flex min-h-9 w-full items-baseline justify-between gap-3 text-left"
+      >
+        <span className={`min-w-0 font-serif ${open ? 'text-lg break-words' : 'truncate'}`} lang="en">
+          “{reflection.soWhat}”
+        </span>
+        <span aria-hidden="true" className={`shrink-0 text-xs text-muted transition-transform ${open ? 'rotate-180' : ''}`}>
+          ▾
+        </span>
+      </button>
+      {open && (
+        <>
+          <p className="text-xs text-muted">
+            <Link to={`/knowledge/idea/${idea.id}`} className="underline underline-offset-2">
+              {idea.title}
+            </Link>{' '}
+            · {formatDate(idea.date, 'medium')}
+          </p>
+          <div className="mt-3">
+            <AutoTextArea
+              label="What happened?"
+              value={reflection.followUp ?? ''}
+              onSave={(text) => saveFollowUp(reflection.id, { text })}
+              rows={2}
+              lang="en"
+              placeholder="Escreva em inglês, mesmo que seja uma frase."
+            />
+            <AIFeedbackPanel
+              targetType="followUp"
+              targetId={reflection.id}
+              text={reflection.followUp ?? ''}
+              context={`O aluno conta o que aconteceu com a ação: "${reflection.soWhat}"`}
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {ANSWERS.map(({ status, label }) => (
+              <Button key={status} small variant="secondary" onClick={() => attempt(saveFollowUp(reflection.id, { status }))}>
+                {label}
+              </Button>
+            ))}
+          </div>
+        </>
+      )}
+    </li>
   );
 }
