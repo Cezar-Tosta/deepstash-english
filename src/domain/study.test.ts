@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bookKey, groupByBook } from './books';
-import { blankOut, buildExercises, dictationScore, isCorrect } from './exercises';
+import { blankOut, buildExercises, buildFlashcards, dictationScore, isCorrect, pickFlashcards } from './exercises';
 import { extendSelection, selectionText, sentenceAround, splitSentences, tokenize } from './reader';
 import type { Chunk, ComprehensionVocab, Idea, SourceCard } from './types';
 
@@ -147,5 +147,36 @@ describe('exercícios', () => {
 
   it('escrever com a expressão oferece chunks e palavras do dicionário', () => {
     expect(buildExercises('write', material).map((e) => e.prompt)).toEqual(['in your head', 'rut', 'grit']);
+  });
+});
+
+describe('flashcards', () => {
+  const vocab: ComprehensionVocab[] = [
+    { id: 'v1', ideaId: 'a', sessionId: 's', term: 'rut', meaning: 'rotina sem saída', context: 'Stuck in a rut.', createdAt: '' },
+    { id: 'v2', ideaId: 'a', sessionId: 's', term: 'grit', meaning: '', createdAt: '' },
+  ];
+  const chunks = [
+    { id: 'k1', text: 'in your head', meaning: 'na sua cabeça', userSentence: 'It lives in your head.', originalSentence: '' },
+    { id: 'k2', text: 'it turns out that', meaning: '', userSentence: '', originalSentence: 'It turns out that focus wins.' },
+  ] as Chunk[];
+  const material = { vocab, chunks, cards: [] };
+
+  it('monta a partir do dicionário, dos chunks ou dos dois', () => {
+    expect(buildFlashcards(material, 'dictionary').map((c) => c.front)).toEqual(['rut']);
+    expect(buildFlashcards(material, 'chunks').map((c) => c.front)).toEqual(['in your head', 'it turns out that']);
+    expect(buildFlashcards(material, 'both')).toHaveLength(3);
+  });
+
+  it('deixa de fora o que não tem nada para mostrar no verso', () => {
+    expect(buildFlashcards(material, 'both').some((c) => c.front === 'grit')).toBe(false);
+    expect(buildFlashcards(material, 'chunks')[1]).toMatchObject({ back: '', context: 'It turns out that focus wins.' });
+  });
+
+  it('respeita a quantidade pedida, sem repetir e sem passar do que existe', () => {
+    const all = buildFlashcards(material, 'both');
+    expect(pickFlashcards(all, 2)).toHaveLength(2);
+    expect(new Set(pickFlashcards(all, 3).map((c) => c.id)).size).toBe(3);
+    expect(pickFlashcards(all, 50)).toHaveLength(3);
+    expect(pickFlashcards(all, 0)).toHaveLength(1);
   });
 });

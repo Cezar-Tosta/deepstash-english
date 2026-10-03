@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AIError } from '../../ai/AIProvider';
 import { isAIConfigured, lookupMeaning } from '../../ai/feedback';
 import { db } from '../../data/db';
@@ -8,6 +8,7 @@ import type { SourceCard } from '../../domain/types';
 import { addToDictionary, findInDictionary } from '../../services/study';
 import { useOnline, useSettings } from '../hooks';
 import { attempt, showToast } from '../toast';
+import { ListenButton, ListenSettings } from './Listen';
 import { Button, Hint, TextInput } from './ui';
 
 interface Picked {
@@ -15,23 +16,13 @@ interface Picked {
   selection: Selection;
 }
 
-/** Fala o texto em inglês com a voz do próprio navegador. */
-export function speak(text: string): void {
-  if (!('speechSynthesis' in window)) {
-    showToast('Este navegador não lê texto em voz alta.', 'error');
-    return;
-  }
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'en-US';
-  utterance.rate = 0.95;
-  window.speechSynthesis.speak(utterance);
-}
+/** Espera o usuário terminar de escolher a expressão antes de consultar a IA. */
+const LOOKUP_DELAY_MS = 600;
 
 /**
- * Cards em sequência, com cada palavra clicável. Um clique escolhe a palavra; um
- * segundo clique, em outra palavra do mesmo card, estende até formar a expressão.
- * O significado só aparece quando o usuário pede.
+ * Cards em sequência, com cada palavra clicável. Um clique escolhe a palavra e já
+ * traz a tradução no contexto; um segundo clique, em outra palavra do mesmo card,
+ * estende até formar a expressão. A tradução vem num campo editável.
  */
 export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly SourceCard[] }) {
   const settings = useSettings();
@@ -60,23 +51,36 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
     setError('');
   };
 
-  const reveal = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      // O que já foi consultado antes sai do dicionário, sem chamar a IA de novo.
-      const existing = await findInDictionary(term);
-      const result = existing
-        ? { meaning: existing.meaning, explanation: existing.explanation ?? '' }
-        : await lookupMeaning(term, context);
-      setMeaning(result.meaning);
-      setExplanation(result.explanation);
-    } catch (e) {
-      setError(e instanceof AIError ? e.message : 'Não foi possível buscar o significado.');
-    } finally {
+  // A tradução aparece sozinha pouco depois do clique. Se a seleção mudar antes
+  // da resposta chegar, a resposta antiga é descartada.
+  useEffect(() => {
+    if (!term) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setBusy(true);
+      try {
+        // O que já foi consultado antes sai do dicionário, sem chamar a IA de novo.
+        const existing = await findInDictionary(term);
+        const result = existing
+          ? { meaning: existing.meaning, explanation: existing.explanation ?? '' }
+          : aiReady && online
+            ? await lookupMeaning(term, context)
+            : null;
+        if (cancelled || !result) return;
+        setMeaning(result.meaning);
+        setExplanation(result.explanation);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof AIError ? e.message : 'Não foi possível buscar a tradução.');
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    }, LOOKUP_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
       setBusy(false);
-    }
-  };
+    };
+  }, [term, context, aiReady, online]);
 
   const save = () => {
     attempt(
@@ -90,16 +94,17 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
   return (
     <div>
       <Hint>
-        Clique em uma palavra para selecioná-la. Para uma expressão, clique na primeira e depois na última palavra.
+        Clique em uma palavra para ver a tradução. Para uma expressão, clique na primeira e depois na última palavra.
       </Hint>
+      <div className="mt-2">
+        <ListenSettings />
+      </div>
       <ol className="mt-3 space-y-4">
         {cards.map((card) => (
           <li key={card.id} className="border-l-2 border-line pl-4">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-muted">Card {card.position + 1}</p>
-              <button type="button" onClick={() => speak(card.content)} className="min-h-8 text-xs font-medium text-accent">
-                Ouvir
-              </button>
+              <ListenButton text={card.content} />
             </div>
             <p className="whitespace-pre-wrap font-serif text-lg leading-loose" lang="en">
               {(tokensByCard.get(card.id) ?? []).map((token, index) => {
@@ -112,7 +117,7 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
                     type="button"
                     aria-pressed={selected}
                     onClick={() => pick(card.id, index)}
-                    className={`rounded px-0.5 ${
+                    className={`rounded ${
                       selected
                         ? 'bg-accent text-accent-ink'
                         : known.has(token.text.toLowerCase())
@@ -130,45 +135,45 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
       </ol>
 
       {picked && term && (
-        <div className="sticky bottom-20 z-30 mt-4 rounded-2xl border border-accent bg-surface p-4 shadow-lg md:bottom-4" role="region" aria-label="Significado">
+        <div className="sticky bottom-20 z-30 mt-4 rounded-2xl border border-accent bg-surface p-4 shadow-lg md:bottom-4" role="region" aria-label="Tradução">
           <div className="flex items-start justify-between gap-3">
             <p className="font-serif text-xl" lang="en">
               {term}
             </p>
-            <Button small variant="ghost" onClick={() => setPicked(null)}>
-              Fechar
-            </Button>
+            <div className="flex shrink-0 items-center gap-3">
+              <ListenButton text={term} />
+              <Button small variant="ghost" onClick={() => setPicked(null)}>
+                Fechar
+              </Button>
+            </div>
           </div>
           <p className="mt-1 text-sm text-muted" lang="en">
             “{context}”
           </p>
 
           <div className="mt-3 space-y-3">
-            {!meaning && aiReady && (
-              <Button small disabled={busy || !online} onClick={() => void reveal()}>
-                {busy ? 'Buscando…' : 'Ver significado em português'}
-              </Button>
-            )}
-            {!aiReady && !meaning && (
-              <Hint>Sem IA configurada, escreva você o significado (consultando um dicionário, se precisar).</Hint>
-            )}
+            <TextInput
+              label="Tradução em português (pode editar)"
+              value={meaning}
+              onChange={setMeaning}
+              autoComplete="off"
+              placeholder={
+                busy
+                  ? 'Buscando a tradução…'
+                  : aiReady
+                    ? 'Tradução'
+                    : 'Sem IA configurada: escreva você a tradução'
+              }
+            />
             {error && (
               <p role="alert" className="text-sm text-danger">
                 {error}
               </p>
             )}
             {explanation && <p className="text-sm leading-relaxed">{explanation}</p>}
-            {(meaning || !aiReady || error) && (
-              <TextInput label="Significado em português" value={meaning} onChange={setMeaning} autoComplete="off" />
-            )}
-            <div className="flex flex-wrap gap-2">
-              <Button small variant="secondary" disabled={!meaning.trim()} onClick={save}>
-                Adicionar ao dicionário
-              </Button>
-              <Button small variant="ghost" onClick={() => speak(term)}>
-                Ouvir
-              </Button>
-            </div>
+            <Button small variant="secondary" disabled={!meaning.trim()} onClick={save}>
+              Adicionar ao dicionário
+            </Button>
           </div>
         </div>
       )}

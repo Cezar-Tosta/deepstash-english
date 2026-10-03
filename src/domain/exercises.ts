@@ -156,3 +156,49 @@ export function shuffle<T>(items: readonly T[], random: () => number = Math.rand
   }
   return out;
 }
+
+// ---------- Flashcards ----------
+
+export type FlashSource = 'dictionary' | 'chunks' | 'both';
+
+export interface Flashcard {
+  id: string;
+  /** Frente: a palavra ou expressão em inglês. */
+  front: string;
+  /** Verso: o significado em português. */
+  back: string;
+  /** Frase em que o termo apareceu ou que o usuário criou com ele. */
+  context: string;
+  source: 'dictionary' | 'chunks';
+}
+
+/** Flashcards do dicionário, dos chunks ou dos dois. Só entra o que tem algo no verso. */
+export function buildFlashcards(m: PracticeMaterial, source: FlashSource): Flashcard[] {
+  const fromDictionary: Flashcard[] = m.vocab.map((v) => ({
+    id: `flash-${v.id}`,
+    front: v.term,
+    back: v.meaning,
+    context: v.context ?? '',
+    source: 'dictionary',
+  }));
+  const fromChunks: Flashcard[] = m.chunks.map((c) => ({
+    id: `flash-${c.id}`,
+    front: c.text,
+    back: c.meaning,
+    context: c.userSentence || c.originalSentence,
+    source: 'chunks',
+  }));
+  const all =
+    source === 'dictionary' ? fromDictionary : source === 'chunks' ? fromChunks : [...fromDictionary, ...fromChunks];
+  return all.filter((card) => card.back.trim() || card.context.trim());
+}
+
+/** Sorteia `count` flashcards, limitado ao que existe e a pelo menos um. */
+export function pickFlashcards(
+  cards: readonly Flashcard[],
+  count: number,
+  random: () => number = Math.random,
+): Flashcard[] {
+  const wanted = Math.min(cards.length, Math.max(1, Math.trunc(count) || 1));
+  return shuffle(cards, random).slice(0, wanted);
+}

@@ -35,6 +35,7 @@ import {
   updateSessionNotes,
 } from '../../services/sessions';
 import { AIFeedbackPanel } from '../components/AIFeedbackPanel';
+import { RecordingPlayer } from '../components/Listen';
 import { ReviewFlow } from '../components/ReviewFlow';
 import { Timer } from '../components/Timer';
 import {
@@ -663,8 +664,7 @@ export function RetellStep({ bundle, goTo }: StepProps) {
       {playback && (
         <div>
           <p className="mb-1 text-sm font-medium">Ouça a sua última fala</p>
-          {/* A gravação é a fala do próprio usuário; a transcrição aparece logo abaixo. */}
-          <audio controls src={playback} className="w-full" />
+          <RecordingPlayer src={playback} />
         </div>
       )}
 

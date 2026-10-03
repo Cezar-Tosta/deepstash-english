@@ -7,7 +7,7 @@ import { searchChunks, searchIdeas } from '../../services/library';
 import { deleteVocab } from '../../services/sessions';
 import { listBooks, searchDictionary } from '../../services/study';
 import { ChunkItem } from '../components/ChunkItem';
-import { speak } from '../components/Reader';
+import { ListenButton, ListenSettings } from '../components/Listen';
 import { Button, EmptyState, PageTitle, Segmented, TextInput } from '../components/ui';
 import { useToday } from '../hooks';
 import { attempt } from '../toast';
@@ -150,6 +150,7 @@ function DictionaryList({ query }: { query: string }) {
           {!query && 'Abra uma ideia, clique numa palavra do card e adicione o significado.'}
         </EmptyState>
       )}
+      {items && items.length > 0 && <ListenSettings />}
       <ul className="space-y-3">
         {items?.map(({ entry, idea }) => (
           <li key={entry.id} className="rounded-2xl border border-line bg-surface p-5">
@@ -160,10 +161,8 @@ function DictionaryList({ query }: { query: string }) {
                 </span>
                 {entry.meaning && <span className="text-muted"> — {entry.meaning}</span>}
               </p>
-              <div className="flex shrink-0 gap-1">
-                <Button small variant="ghost" onClick={() => speak(entry.term)}>
-                  Ouvir
-                </Button>
+              <div className="flex shrink-0 items-center gap-3">
+                <ListenButton text={entry.context ? `${entry.term}. ${entry.context}` : entry.term} />
                 <Button small variant="ghost" aria-label={`Remover ${entry.term}`} onClick={() => attempt(deleteVocab(entry.id))}>
                   Remover
                 </Button>

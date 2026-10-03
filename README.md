@@ -31,7 +31,7 @@ Toda a biblioteca segue essa hierarquia. Em **Knowledge**:
 
 ### Leitura com clique nas palavras
 
-Na página de uma ideia, cada palavra dos cards é clicável. Um clique seleciona a palavra; um segundo clique, em outra palavra do mesmo card, estende a seleção até formar a expressão. O painel mostra a frase em que ela aparece e, a pedido, o significado em português naquele contexto (pela IA). "Adicionar ao dicionário" guarda termo, significado, frase e explicação. Sem IA, o significado pode ser digitado. O dicionário não entra na repetição espaçada; ele alimenta os exercícios.
+Na página de uma ideia, cada palavra dos cards é clicável. Um clique seleciona a palavra; um segundo clique, em outra palavra do mesmo card, estende a seleção até formar a expressão. O painel mostra a frase em que ela aparece e, pouco depois do clique, a tradução em português naquele contexto (pela IA), num campo que pode ser editado. "Adicionar ao dicionário" guarda termo, tradução, frase e explicação. Sem IA, a tradução é digitada. O dicionário não entra na repetição espaçada; ele alimenta os exercícios.
 
 ### Retelling gravado e transcrito
 
@@ -47,12 +47,17 @@ Montados só com o que você já estudou, em rodadas de até 8 questões:
 
 | Exercício | Material usado |
 |---|---|
+| Flashcards | dicionário, chunks ou os dois; você escolhe quantos entram na rodada |
 | Dicionário: português → inglês | entradas do dicionário com significado |
 | Completar a frase | suas frases com os chunks e as frases do dicionário |
 | Escrever com a expressão | chunks e dicionário; a IA comenta depois, se ligada |
 | Ouvir e escrever | frases dos cards, lidas pela voz do navegador |
 
 Os resultados das rodadas não são guardados.
+
+### Áudio
+
+Onde houver "Ouvir" (cards, termos, dicionário, flashcards, ditado), a leitura usa a voz do navegador e obedece a dois controles: velocidade (1×, 0.75× ou 0.5×) e "Repetir em loop". Os mesmos controles valem para a gravação do retelling. A escolha fica lembrada no navegador.
 
 Decisões que preservam o método:
 

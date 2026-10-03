@@ -1,16 +1,19 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   buildExercises,
   dictationScore,
   type Exercise,
   type ExerciseKind,
+  type Flashcard,
   isCorrect,
   shuffle,
 } from '../../domain/exercises';
 import { loadPracticeMaterial } from '../../services/study';
 import { AIFeedbackPanel } from '../components/AIFeedbackPanel';
-import { speak } from '../components/Reader';
+import { FlashcardRound, FlashcardSetup } from '../components/Flashcards';
+import { ListenButton, ListenSettings } from '../components/Listen';
+import { stopSpeaking } from '../speech';
 import { Button, Card, EmptyState, Eyebrow, Hint, PageTitle, Prompt, TextArea, TextInput } from '../components/ui';
 
 interface KindInfo {
@@ -97,10 +100,9 @@ function Question({ exercise, onNext, last }: { exercise: Exercise; onNext: (cor
       {kind === 'dictation' && (
         <>
           <Eyebrow>Ouça e escreva</Eyebrow>
-          <div className="mt-2">
-            <Button variant="secondary" onClick={() => speak(exercise.answer)}>
-              ▶ Ouvir a frase
-            </Button>
+          <div className="mt-2 space-y-3">
+            <ListenButton big text={exercise.answer} label="Ouvir a frase" />
+            <ListenSettings />
           </div>
         </>
       )}
@@ -168,6 +170,9 @@ function Round({ info, exercises, onExit }: { info: KindInfo; exercises: Exercis
   const [right, setRight] = useState(0);
   const current = exercises[index];
 
+  // Sair da rodada no meio de um áudio em loop não deve deixá-lo tocando.
+  useEffect(() => stopSpeaking, []);
+
   if (!current) {
     return (
       <Card>
@@ -200,6 +205,7 @@ function Round({ info, exercises, onExit }: { info: KindInfo; exercises: Exercis
         exercise={current}
         last={index === exercises.length - 1}
         onNext={(correct) => {
+          stopSpeaking();
           if (correct) setRight(right + 1);
           setIndex(index + 1);
         }}
@@ -212,12 +218,14 @@ function Round({ info, exercises, onExit }: { info: KindInfo; exercises: Exercis
 export function PracticePage() {
   const material = useLiveQuery(loadPracticeMaterial, []);
   const [active, setActive] = useState<{ info: KindInfo; exercises: Exercise[] } | null>(null);
+  const [flashcards, setFlashcards] = useState<Flashcard[] | null>(null);
   const available = useMemo(
     () => new Map(KINDS.map((k) => [k.kind, material ? buildExercises(k.kind, material) : []])),
     [material],
   );
 
   if (!material) return null;
+  if (flashcards) return <FlashcardRound cards={flashcards} onExit={() => setFlashcards(null)} />;
   if (active) return <Round info={active.info} exercises={active.exercises} onExit={() => setActive(null)} />;
 
   return (
@@ -225,6 +233,7 @@ export function PracticePage() {
       <PageTitle eyebrow="Practice" title="Exercícios">
         Montados com as suas ideias, chunks e dicionário. Tente primeiro; a resposta só aparece depois.
       </PageTitle>
+      <FlashcardSetup material={material} onStart={setFlashcards} />
       <ul className="space-y-3">
         {KINDS.map((info) => {
           const all = available.get(info.kind) ?? [];
