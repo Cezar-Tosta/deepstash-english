@@ -12,6 +12,7 @@ import { stopSpeaking } from '../speech';
 import { attempt } from '../toast';
 import { ListenButton, ListenSettings } from './Listen';
 import { RichText } from './RichText';
+import { SentenceTranslation } from './SentenceTranslation';
 import { Badge, Button, Card, EmptyState, Eyebrow, Prompt, Segmented, TextInput } from './ui';
 
 const SOURCES: readonly { value: FlashSource; label: string }[] = [
@@ -93,7 +94,7 @@ function InContext({ card }: { card: Flashcard }) {
       {parts ? (
         <>
           {parts.before}
-          <mark className="rounded bg-accent-soft px-1 font-semibold text-ink">{parts.match}</mark>
+          <mark className="rounded bg-accent-soft px-1 font-bold text-ink">{parts.match}</mark>
           {parts.after}
         </>
       ) : (
@@ -187,6 +188,10 @@ export function FlashcardRound({ cards, onExit }: { cards: Flashcard[]; onExit: 
               {current.wordClass && <Badge tone="accent">{current.wordClass}</Badge>}
             </p>
             <p className="text-xl">{current.back || 'Sem tradução anotada.'}</p>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted uppercase">A frase em português</p>
+              <SentenceTranslation sentence={current.context} />
+            </div>
             {current.explanation ? (
               <div>
                 <p className="text-xs font-semibold tracking-wide text-muted uppercase">Neste contexto</p>

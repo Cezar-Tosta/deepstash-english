@@ -1,14 +1,14 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AIError } from '../../ai/AIProvider';
 import { isAIConfigured } from '../../ai/feedback';
-import { deleteVerb, findVerbs, listVerbs, setVerbSelected } from '../../ai/verbs';
+import { addVerb, completeVerb, deleteVerb, findVerbs, listVerbs, setVerbSelected } from '../../ai/verbs';
 import type { VerbEntry } from '../../domain/types';
 import { useOnline, useSettings } from '../hooks';
 import { attempt, showToast } from '../toast';
 import { ListenButton } from './Listen';
-import { Button, Eyebrow, Hint, Spinner } from './ui';
+import { Button, Eyebrow, Hint, Spinner, TextInput } from './ui';
 
 const FORMS: { label: string; pick: (v: VerbEntry) => string }[] = [
   { label: 'Base', pick: (v) => v.base },
@@ -18,7 +18,21 @@ const FORMS: { label: string; pick: (v: VerbEntry) => string }[] = [
   { label: '-ing', pick: (v) => v.gerund },
 ];
 
-function VerbCard({ verb }: { verb: VerbEntry }) {
+function VerbCard({ verb, canComplete }: { verb: VerbEntry; canComplete: boolean }) {
+  const [completing, setCompleting] = useState(false);
+  const bare = verb.drills.length === 0 && !verb.past;
+
+  const complete = async () => {
+    setCompleting(true);
+    try {
+      await completeVerb(verb.id);
+    } catch (e) {
+      showToast(e instanceof AIError ? e.message : 'Não foi possível completar o verbo.', 'error');
+    } finally {
+      setCompleting(false);
+    }
+  };
+
   return (
     <li className={`rounded-xl border p-3 ${verb.selected ? 'border-accent bg-surface' : 'border-line bg-surface opacity-70'}`}>
       <div className="flex items-start justify-between gap-2">
@@ -60,6 +74,23 @@ function VerbCard({ verb }: { verb: VerbEntry }) {
         ))}
       </dl>
 
+      {bare && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
+          <span>Cadastrado sem formas nem exercícios.</span>
+          {canComplete && (
+            <Button small variant="secondary" disabled={completing} onClick={() => void complete()}>
+              {completing ? (
+                <span className="inline-flex items-center gap-2" role="status">
+                  <Spinner /> Completando…
+                </span>
+              ) : (
+                'Completar com a IA'
+              )}
+            </Button>
+          )}
+        </div>
+      )}
+
       {verb.sentence && (
         <p className="mt-2 border-l-2 border-line pl-3 text-sm">
           <span className="text-xs font-semibold text-accent">
@@ -86,11 +117,30 @@ export function IdeaVerbs({ ideaId, hasText }: { ideaId: string; hasText: boolea
   const verbs = useLiveQuery(() => listVerbs(ideaId), [ideaId]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [typed, setTyped] = useState('');
+  const [adding, setAdding] = useState(false);
 
   if (!settings || !verbs) return null;
   const aiReady = isAIConfigured(settings.ai);
   const selected = verbs.filter((v) => v.selected);
   const drills = selected.reduce((sum, v) => sum + v.drills.length, 0);
+
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!typed.trim() || adding) return;
+    setAdding(true);
+    setError('');
+    try {
+      const { complete } = await addVerb(ideaId, typed);
+      setTyped('');
+      showToast(complete ? 'Verbo cadastrado, com formas e exercícios.' : 'Verbo cadastrado. Sem IA, ele fica só com a forma base.');
+    } catch (err) {
+      // Se a IA falhou depois do cadastro, o verbo ficou salvo: o campo é limpo e o erro explica.
+      setError(err instanceof AIError ? err.message : 'Não foi possível cadastrar o verbo.');
+    } finally {
+      setAdding(false);
+    }
+  };
 
   const find = async () => {
     setBusy(true);
@@ -130,6 +180,28 @@ export function IdeaVerbs({ ideaId, hasText }: { ideaId: string; hasText: boolea
         </p>
       )}
 
+      <form onSubmit={(e) => void add(e)} className="mt-3 flex flex-wrap items-end gap-2">
+        <TextInput
+          className="min-w-0 flex-1"
+          label="Cadastrar um verbo (forma base)"
+          value={typed}
+          onChange={setTyped}
+          lang="en"
+          autoComplete="off"
+          autoCapitalize="off"
+          placeholder="hold"
+        />
+        <Button type="submit" variant="secondary" disabled={adding || !typed.trim()}>
+          {adding ? (
+            <span className="inline-flex items-center gap-2" role="status">
+              <Spinner /> Cadastrando…
+            </span>
+          ) : (
+            'Cadastrar verbo'
+          )}
+        </Button>
+      </form>
+
       {verbs.length === 0 ? (
         <div className="mt-2">
           <Hint>
@@ -145,7 +217,7 @@ export function IdeaVerbs({ ideaId, hasText }: { ideaId: string; hasText: boolea
           <p className="mt-2 text-sm text-muted">Marque os verbos que quer estudar. Só os marcados entram nos exercícios.</p>
           <ul className="mt-3 grid items-start gap-2 lg:grid-cols-2">
             {verbs.map((verb) => (
-              <VerbCard key={verb.id} verb={verb} />
+              <VerbCard key={verb.id} verb={verb} canComplete={aiReady && online} />
             ))}
           </ul>
           <div className="mt-3 flex flex-wrap items-center gap-3">

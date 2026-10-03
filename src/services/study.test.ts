@@ -189,6 +189,7 @@ describe('IA: significado e transcrição', () => {
       explanation: 'Sinal que dispara o hábito.',
       phonetic: '/kjuː/',
       wordClass: '',
+      sentenceTranslation: '',
     });
     expect(parseLookup('{"meaning": "gatilho"}').phonetic).toBe('');
     expect(parseLookup('{"meaning": "segurar", "wordClass": "**Verbo**"}').wordClass).toBe('verbo');

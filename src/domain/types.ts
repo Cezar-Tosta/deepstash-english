@@ -203,6 +203,8 @@ export interface VerbDrill {
   /** Frase com "_____" no lugar do verbo conjugado. */
   sentence: string;
   answer: string;
+  /** Tradução da frase completa para o português, quando a IA a enviou. */
+  translation?: string;
 }
 
 /** Um verbo encontrado no texto de uma ideia, com suas formas e exercícios. */
@@ -223,6 +225,13 @@ export interface VerbEntry {
   /** Só os verbos selecionados entram nos exercícios. */
   selected: boolean;
   drills: VerbDrill[];
+  createdAt: ISODateTime;
+}
+
+/** Tradução guardada de uma frase em inglês. A chave é a própria frase. */
+export interface SentenceTranslation {
+  id: string;
+  pt: string;
   createdAt: ISODateTime;
 }
 

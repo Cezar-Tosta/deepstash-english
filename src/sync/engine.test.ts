@@ -25,6 +25,7 @@ function payload(ideas: string[]): BackupFile {
       practiceStats: [],
       ideaChats: [],
       verbs: [],
+      translations: [],
     },
   };
 }

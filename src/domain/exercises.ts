@@ -1,3 +1,4 @@
+import { termWords, tokenize } from './reader';
 import type { Chunk, ChunkReview, ComprehensionVocab, PracticeStat, VerbEntry } from './types';
 
 export const GAP = '_____';
@@ -25,12 +26,101 @@ export function coreTerm(term: string): string {
   return term.replace(/[.…]+$/, '').trim();
 }
 
-/** Troca o termo por uma lacuna dentro da frase; null se o termo não aparece nela. */
-export function blankOut(sentence: string, term: string): string | null {
+export interface Located {
+  before: string;
+  /** O trecho da frase que corresponde ao termo, como está escrito nela. */
+  match: string;
+  after: string;
+}
+
+/** Semelhança mínima (0 a 1) para aceitar um trecho parecido como sendo o termo. */
+const MIN_SIMILARITY = 0.7;
+/** Uma palavra só é aceita por semelhança se compartilhar ao menos este começo. */
+const MIN_STEM = 4;
+
+/** Tamanho da maior subsequência comum entre duas listas de palavras. */
+function commonInOrder(a: readonly string[], b: readonly string[]): number {
+  const row = Array.from({ length: b.length + 1 }, () => 0);
+  for (const x of a) {
+    let diagonal = 0;
+    for (let j = 1; j <= b.length; j += 1) {
+      const above = row[j] ?? 0;
+      row[j] = x === b[j - 1] ? diagonal + 1 : Math.max(above, row[j - 1] ?? 0);
+      diagonal = above;
+    }
+  }
+  return row[b.length] ?? 0;
+}
+
+/** Duas palavras são a mesma com flexão diferente ("hold" e "holding", "habit" e "habits")? */
+function sameStem(a: string, b: string): boolean {
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return short.length >= MIN_STEM && long.startsWith(short) && long.length - short.length <= 3;
+}
+
+/**
+ * Encontra o termo dentro da frase. Primeiro procura o texto exato; se não achar,
+ * aceita o trecho mais parecido, para cobrir o termo cadastrado com uma pequena
+ * diferença da frase: uma palavra a mais ou a menos ("one thing at time" em
+ * "one thing at a time") ou outra flexão ("hold" em "holding").
+ */
+export function locateTerm(sentence: string, term: string): Located | null {
   const core = coreTerm(term);
   if (!core) return null;
-  const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(core)}(?![\\p{L}\\p{N}])`, 'iu');
-  return pattern.test(sentence) ? sentence.replace(pattern, GAP) : null;
+
+  const exact = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(core)}(?![\\p{L}\\p{N}])`, 'iu').exec(sentence);
+  if (exact) {
+    return {
+      before: sentence.slice(0, exact.index),
+      match: exact[0],
+      after: sentence.slice(exact.index + exact[0].length),
+    };
+  }
+
+  const tokens = tokenize(sentence);
+  const wordAt: number[] = [];
+  tokens.forEach((t, i) => {
+    if (t.isWord) wordAt.push(i);
+  });
+  const words = wordAt.map((i) => termWords(tokens[i]?.text ?? '')[0] ?? '');
+  const wanted = termWords(core);
+  if (wanted.length === 0 || words.length === 0) return null;
+
+  let best: { start: number; size: number; score: number } | null = null;
+  const consider = (start: number, size: number, score: number) => {
+    const closer = best !== null && score === best.score && Math.abs(size - wanted.length) < Math.abs(best.size - wanted.length);
+    if (best === null || score > best.score || closer) best = { start, size, score };
+  };
+
+  if (wanted.length === 1) {
+    const only = wanted[0] ?? '';
+    words.forEach((w, i) => {
+      if (sameStem(w, only)) consider(i, 1, 1 - Math.abs(w.length - only.length) / 10);
+    });
+  } else {
+    for (let size = Math.max(1, wanted.length - 1); size <= wanted.length + 2; size += 1) {
+      for (let start = 0; start + size <= words.length; start += 1) {
+        const window = words.slice(start, start + size);
+        // O trecho precisa começar e terminar em palavras do termo: sem bordas soltas.
+        if (!wanted.includes(window[0] ?? '') || !wanted.includes(window.at(-1) ?? '')) continue;
+        const score = (2 * commonInOrder(wanted, window)) / (wanted.length + size);
+        if (score >= MIN_SIMILARITY) consider(start, size, score);
+      }
+    }
+  }
+
+  const found = best as { start: number; size: number; score: number } | null;
+  if (!found) return null;
+  const from = wordAt[found.start] ?? 0;
+  const to = wordAt[found.start + found.size - 1] ?? from;
+  const join = (list: readonly { text: string }[]): string => list.map((t) => t.text).join('');
+  return { before: join(tokens.slice(0, from)), match: join(tokens.slice(from, to + 1)), after: join(tokens.slice(to + 1)) };
+}
+
+/** Troca o termo por uma lacuna dentro da frase; null se o termo não aparece nela. */
+export function blankOut(sentence: string, term: string): string | null {
+  const found = locateTerm(sentence, term);
+  return found ? `${found.before}${GAP}${found.after}` : null;
 }
 
 /** Fração (0 a 1) das palavras da frase original que o usuário acertou, na ordem. */
@@ -206,13 +296,15 @@ const isShort = (sentence: string): boolean => {
 
 /** As formas de pergunta que este termo admite. Todas partem de uma frase em que ele aparece. */
 export function questionsFor(item: StudyItem): Question[] {
-  const answer = coreTerm(item.term);
   const base = { itemKey: item.key, phonetic: item.phonetic };
   const out: Question[] = [];
 
-  const withTerm = item.sentences.find((s) => blankOut(s, item.term));
-  if (withTerm) {
-    const prompt = blankOut(withTerm, item.term) ?? '';
+  const withTerm = item.sentences.find((s) => locateTerm(s, item.term));
+  const found = withTerm ? locateTerm(withTerm, item.term) : null;
+  if (withTerm && found) {
+    // A resposta é o trecho como está escrito na frase, mesmo que o termo tenha sido cadastrado com um deslize.
+    const answer = found.match;
+    const prompt = `${found.before}${GAP}${found.after}`;
     out.push({ ...base, id: `${item.key}:gap`, kind: 'gap', prompt, hint: item.meaning, answer, full: withTerm });
     out.push({ ...base, id: `${item.key}:listen`, kind: 'listen', prompt, hint: '', answer, full: withTerm });
   }
@@ -269,13 +361,44 @@ export function requeue(queue: readonly Question[], index: number): Question[] {
 
 // ---------- Tempos verbais ----------
 
-/** As perguntas de tempo verbal dos verbos selecionados: frase com lacuna, tempo pedido e verbo na forma base. */
-export function tenseQuestions(verbs: readonly VerbEntry[]): Question[] {
+/** Chave de comparação de um tempo verbal: "Past Simple " e "past simple" são o mesmo. */
+export const tenseKey = (tense: string): string => tense.trim().toLowerCase();
+
+export interface TenseFilter {
+  /** Formas base dos verbos que entram. Sem isto, entram todos. */
+  bases?: ReadonlySet<string>;
+  /** Tempos verbais que entram (chaves de `tenseKey`). Sem isto, entram todos. */
+  tenses?: ReadonlySet<string>;
+}
+
+/** As formas base dos verbos marcados para estudo, sem repetição, em ordem alfabética. */
+export function verbBases(verbs: readonly VerbEntry[]): string[] {
+  return [...new Set(verbs.filter((v) => v.selected).map((v) => v.base))].sort((a, b) => a.localeCompare(b));
+}
+
+/** Os tempos verbais que têm ao menos uma frase de exercício, do mais frequente para o menos. */
+export function tenseNames(verbs: readonly VerbEntry[]): string[] {
+  const seen = new Map<string, { name: string; count: number }>();
+  for (const q of tenseQuestions(verbs)) {
+    const name = q.hint.split(' · ')[0] ?? '';
+    const entry = seen.get(tenseKey(name)) ?? { name, count: 0 };
+    entry.count += 1;
+    seen.set(tenseKey(name), entry);
+  }
+  return [...seen.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)).map((e) => e.name);
+}
+
+/**
+ * As perguntas de tempo verbal dos verbos marcados: frase com lacuna, tempo pedido
+ * e verbo na forma base. O filtro restringe a certos verbos e a certos tempos.
+ */
+export function tenseQuestions(verbs: readonly VerbEntry[], filter: TenseFilter = {}): Question[] {
   return verbs
-    .filter((v) => v.selected)
+    .filter((v) => v.selected && (!filter.bases || filter.bases.has(v.base)))
     .flatMap((verb) =>
       verb.drills.flatMap((drill, i): Question[] => {
         if (!/_{3,}/.test(drill.sentence) || !drill.answer.trim()) return [];
+        if (filter.tenses && !filter.tenses.has(tenseKey(drill.tense))) return [];
         const key = `verb:${verb.id}:${i}`;
         return [
           {
@@ -283,7 +406,7 @@ export function tenseQuestions(verbs: readonly VerbEntry[]): Question[] {
             itemKey: key,
             kind: 'tense',
             prompt: drill.sentence.replace(/_{3,}/, GAP),
-            hint: `${drill.tense} · to ${verb.base}`,
+            hint: `${drill.tense.trim()} · to ${verb.base}`,
             answer: drill.answer.trim(),
             full: drill.sentence.replace(/_{3,}/, drill.answer.trim()),
             phonetic: '',
@@ -298,13 +421,46 @@ export function buildTenseTraining(
   verbs: readonly VerbEntry[],
   stats: readonly PracticeStat[],
   count: number,
-  random: () => number = Math.random,
+  options: { filter?: TenseFilter; random?: () => number } = {},
 ): Question[] {
   const byId = new Map(stats.map((s) => [s.id, s]));
-  const ranked = shuffle(tenseQuestions(verbs), random)
+  const ranked = shuffle(tenseQuestions(verbs, options.filter), options.random)
     .sort((a, b) => difficultyOf(byId.get(b.itemKey)) - difficultyOf(byId.get(a.itemKey)))
     .slice(0, Math.max(1, Math.trunc(count) || 1));
-  return shuffle(ranked, random);
+  return shuffle(ranked, options.random);
+}
+
+export interface VerbDifficulty {
+  base: string;
+  right: number;
+  wrong: number;
+}
+
+/**
+ * Os verbos em que o usuário mais erra nos exercícios de tempo verbal, somando
+ * todas as frases do verbo (em todas as ideias). Só entram verbos com mais erros
+ * do que a metade dos acertos, do pior para o melhor.
+ */
+export function hardestVerbs(
+  verbs: readonly VerbEntry[],
+  stats: readonly PracticeStat[],
+  count: number,
+): VerbDifficulty[] {
+  const byId = new Map(stats.map((s) => [s.id, s]));
+  const totals = new Map<string, VerbDifficulty>();
+  for (const verb of verbs.filter((v) => v.selected)) {
+    const total = totals.get(verb.base) ?? { base: verb.base, right: 0, wrong: 0 };
+    verb.drills.forEach((_, i) => {
+      const stat = byId.get(`verb:${verb.id}:${i}`);
+      total.right += stat?.right ?? 0;
+      total.wrong += stat?.wrong ?? 0;
+    });
+    totals.set(verb.base, total);
+  }
+  return [...totals.values()]
+    .filter((v) => v.wrong > 0 && v.wrong * 2 > v.right)
+    .sort((a, b) => b.wrong * 2 - b.right - (a.wrong * 2 - a.right) || a.base.localeCompare(b.base))
+    .slice(0, count);
 }
 
 // ---------- Flashcards ----------
@@ -365,15 +521,6 @@ export function pickFlashcards(
 }
 
 /** A frase em três partes, para destacar o termo dentro dela. */
-export function splitAround(sentence: string, term: string): { before: string; match: string; after: string } | null {
-  const core = coreTerm(term);
-  if (!core) return null;
-  const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(core)}(?![\\p{L}\\p{N}])`, 'iu');
-  const found = pattern.exec(sentence);
-  if (!found) return null;
-  return {
-    before: sentence.slice(0, found.index),
-    match: found[0],
-    after: sentence.slice(found.index + found[0].length),
-  };
+export function splitAround(sentence: string, term: string): Located | null {
+  return locateTerm(sentence, term);
 }

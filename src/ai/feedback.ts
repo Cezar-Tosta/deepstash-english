@@ -180,6 +180,8 @@ export interface WordMeaning {
   phonetic: string;
   /** Classe gramatical naquele contexto (verbo, substantivo, phrasal verb…). */
   wordClass: string;
+  /** Tradução da frase inteira, quando a IA a enviou. */
+  sentenceTranslation: string;
 }
 
 /** A frase com o trecho selecionado entre [[ ]], para a IA saber exatamente o que analisar. */
@@ -209,7 +211,7 @@ export function buildLookupPrompt(term: string, sentence: string): { system: str
       'O que deve ser analisado é exatamente o trecho marcado entre [[ ]] na frase: nem mais, nem menos.',
       ...unit,
       'Responda somente com um objeto JSON, sem texto antes ou depois, neste formato:',
-      '{"meaning": "<tradução em português do trecho marcado, no sentido do contexto>", "phonetic": "<transcrição fonética em IPA, pronúncia americana, entre barras>", "wordClass": "<classe gramatical do trecho nessa frase, em português: verbo, substantivo, adjetivo, advérbio, preposição, phrasal verb, expressão idiomática, colocação…>", "explanation": "<1 ou 2 frases em português sobre como o trecho marcado está sendo usado nessa frase>"}',
+      '{"meaning": "<tradução em português do trecho marcado, no sentido do contexto>", "phonetic": "<transcrição fonética em IPA, pronúncia americana, entre barras>", "wordClass": "<classe gramatical do trecho nessa frase, em português: verbo, substantivo, adjetivo, advérbio, preposição, phrasal verb, expressão idiomática, colocação…>", "explanation": "<1 ou 2 frases em português sobre como o trecho marcado está sendo usado nessa frase>", "sentenceTranslation": "<tradução da frase inteira para o português do Brasil>"}',
     ].join('\n'),
     user: `Termo: ${term}\nPalavras no termo: ${words}\nFrase, com o termo entre [[ ]]: ${markTerm(term, sentence)}`,
   };
@@ -236,6 +238,8 @@ export function parseLookup(raw: string): WordMeaning {
     explanation: typeof explanation === 'string' ? explanation.trim() : '',
     phonetic: typeof phonetic === 'string' ? stripMarkdown(phonetic.trim()) : '',
     wordClass: typeof obj['wordClass'] === 'string' ? stripMarkdown(obj['wordClass'].trim()).toLowerCase() : '',
+    sentenceTranslation:
+      typeof obj['sentenceTranslation'] === 'string' ? stripMarkdown(obj['sentenceTranslation'].trim()) : '',
   };
 }
 
@@ -243,7 +247,12 @@ export function parseLookup(raw: string): WordMeaning {
 export async function lookupMeaning(term: string, sentence: string): Promise<WordMeaning> {
   const provider = await createProvider((await getSettings()).ai);
   if (!provider) throw new AIError('A IA não está configurada. Veja em Ajustes.');
-  return parseLookup(await provider.complete({ ...buildLookupPrompt(term, sentence), json: true }));
+  const result = parseLookup(await provider.complete({ ...buildLookupPrompt(term, sentence), json: true }));
+  // Guarda a tradução da frase: ela aparece depois nos exercícios, sem nova consulta.
+  if (result.sentenceTranslation && sentence.trim()) {
+    await db.translations.put({ id: sentence.trim(), pt: result.sentenceTranslation, createdAt: nowISO() });
+  }
+  return result;
 }
 
 export interface ModelsInUse {

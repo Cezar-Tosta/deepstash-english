@@ -10,6 +10,7 @@ import type {
   ComprehensionVocab,
   Idea,
   Reflection,
+  SentenceTranslation,
   SourceCard,
   SpeakingSession,
   StudySession,
@@ -57,6 +58,7 @@ export class AppDB extends Dexie {
   recordings!: EntityTable<Recording, 'id'>;
   ideaChats!: EntityTable<ChatMessage, 'id'>;
   verbs!: EntityTable<VerbEntry, 'id'>;
+  translations!: EntityTable<SentenceTranslation, 'id'>;
 
   constructor(name = DB_NAME) {
     super(name);
@@ -109,6 +111,9 @@ export class AppDB extends Dexie {
 
     // v6: verbos de cada ideia, para o estudo de tempos verbais. Só acrescenta uma tabela.
     this.version(6).stores({ verbs: 'id, ideaId' });
+
+    // v7: traduções de frases já feitas, para não pedir a mesma à IA duas vezes.
+    this.version(7).stores({ translations: 'id' });
   }
 }
 
@@ -131,5 +136,6 @@ export const DATA_TABLES = [
   'practiceStats',
   'ideaChats',
   'verbs',
+  'translations',
 ] as const;
 export type DataTableName = (typeof DATA_TABLES)[number];

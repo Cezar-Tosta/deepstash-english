@@ -7,13 +7,17 @@ import {
   buildTraining,
   dictationScore,
   hardest,
+  hardestVerbs,
   isCorrect,
+  locateTerm,
   pickFlashcards,
   questionsFor,
   requeue,
   splitAround,
   studyItems,
+  tenseNames,
   tenseQuestions,
+  verbBases,
   withoutContext,
 } from './exercises';
 import { parseIdeaJSON, parseIdeaText } from './ideaImport';
@@ -133,6 +137,53 @@ describe('correção das respostas', () => {
   });
 });
 
+describe('achar o termo dentro da frase', () => {
+  it('texto exato: destaca o trecho como está escrito na frase', () => {
+    expect(locateTerm('I do One Thing at a time.', 'one thing at a time')).toEqual({
+      before: 'I do ',
+      match: 'One Thing at a time',
+      after: '.',
+    });
+  });
+
+  it('chunk cadastrado com uma palavra faltando ainda é achado na frase', () => {
+    expect(locateTerm('So far, I have studied one thing at a time.', 'one thing at time')).toEqual({
+      before: 'So far, I have studied ',
+      match: 'one thing at a time',
+      after: '.',
+    });
+  });
+
+  it('palavra a mais no meio da expressão também é tolerada', () => {
+    expect(locateTerm('Keep it out of your own head, please.', 'out of your head')?.match).toBe('out of your own head');
+  });
+
+  it('palavra com outra flexão é achada', () => {
+    expect(locateTerm('Your mind is not for holding ideas.', 'hold')?.match).toBe('holding');
+    expect(locateTerm('Small habits compound.', 'habit')?.match).toBe('habits');
+  });
+
+  it('não inventa: sem trecho parecido, não há destaque', () => {
+    expect(locateTerm('Nothing to see here.', 'in your head')).toBeNull();
+    expect(locateTerm('The rutabaga is a root.', 'rut')).toBeNull();
+    expect(locateTerm('I held the door.', 'hold')).toBeNull();
+    expect(locateTerm('We met at a time of change.', 'one thing at a time')).toBeNull();
+  });
+
+  it('no exercício, a lacuna cobre o trecho real e a resposta é o inglês correto da frase', () => {
+    const [item] = studyItems({
+      vocab: [],
+      chunks: [{ id: 'k', text: 'one thing at time', meaning: 'uma coisa de cada vez', userSentence: 'So far, I have studied one thing at a time.', originalSentence: '' }] as Chunk[],
+      stats: [],
+      reviews: [],
+      verbs: [],
+    });
+    const gap = questionsFor(item!).find((q) => q.kind === 'gap');
+    expect(gap).toMatchObject({ prompt: 'So far, I have studied _____.', answer: 'one thing at a time' });
+    const [card] = buildFlashcards([item!], 'chunks');
+    expect(splitAround(card!.context, card!.front)?.match).toBe('one thing at a time');
+  });
+});
 describe('treino: nenhuma palavra solta', () => {
   const vocab: ComprehensionVocab[] = [
     { id: 'v1', ideaId: 'a', sessionId: 's', term: 'rut', meaning: 'rotina sem saída', context: 'Stuck in a rut.', wordClass: 'substantivo', explanation: 'Aqui é uma rotina da qual não se sai.', createdAt: '' },
@@ -275,6 +326,67 @@ describe('tempos verbais', () => {
   });
 });
 
+describe('configurar o treino de tempos verbais', () => {
+  const make = (id: string, base: string, tenses: string[], selected = true, ideaId = 'a'): VerbEntry => ({
+    id,
+    ideaId,
+    base,
+    translation: '',
+    thirdPerson: '',
+    past: '',
+    participle: '',
+    gerund: '',
+    textForm: '',
+    textTense: '',
+    sentence: '',
+    selected,
+    drills: tenses.map((tense) => ({ tense, sentence: `She _____ it (${tense}).`, answer: base })),
+    createdAt: '',
+  });
+  const verbs = [
+    make('h', 'hold', ['Past simple', 'Present perfect', 'Future (will)']),
+    make('k', 'keep', ['Past simple', 'present perfect ']),
+    make('h2', 'hold', ['Past simple'], true, 'b'),
+    make('w', 'write', ['Past simple'], false),
+  ];
+
+  it('lista os verbos marcados para estudo, sem repetir o que aparece em mais de uma ideia', () => {
+    expect(verbBases(verbs)).toEqual(['hold', 'keep']);
+  });
+
+  it('lista os tempos disponíveis, juntando grafias diferentes do mesmo tempo', () => {
+    expect(tenseNames(verbs)).toEqual(['Past simple', 'Present perfect', 'Future (will)']);
+  });
+
+  it('filtra por verbo, por tempo, ou pelos dois', () => {
+    const only = (filter: Parameters<typeof tenseQuestions>[1]) => tenseQuestions(verbs, filter).map((q) => q.hint);
+    expect(tenseQuestions(verbs)).toHaveLength(6);
+    expect(only({ bases: new Set(['keep']) })).toEqual(['Past simple · to keep', 'present perfect · to keep']);
+    expect(only({ tenses: new Set(['present perfect']) })).toEqual(['Present perfect · to hold', 'present perfect · to keep']);
+    expect(only({ bases: new Set(['hold']), tenses: new Set(['future (will)']) })).toEqual(['Future (will) · to hold']);
+    expect(only({ bases: new Set(), tenses: new Set(['past simple']) })).toEqual([]);
+  });
+
+  it('a rodada respeita o filtro e a quantidade pedida', () => {
+    const filter = { tenses: new Set(['past simple']) };
+    const round = buildTenseTraining(verbs, [], 2, { filter });
+    expect(round).toHaveLength(2);
+    expect(round.every((q) => q.hint.startsWith('Past simple'))).toBe(true);
+    expect(buildTenseTraining(verbs, [], 99, { filter })).toHaveLength(3);
+  });
+
+  it('aponta os verbos mais errados, somando as frases do verbo em todas as ideias', () => {
+    const stats: PracticeStat[] = [
+      { id: 'verb:h:0', right: 1, wrong: 2, lastAt: '' },
+      { id: 'verb:h2:0', right: 0, wrong: 1, lastAt: '' },
+      { id: 'verb:k:0', right: 6, wrong: 1, lastAt: '' },
+      { id: 'verb:w:0', right: 0, wrong: 9, lastAt: '' },
+    ];
+    // "keep" tem mais acertos que erros e "write" não está marcado para estudo.
+    expect(hardestVerbs(verbs, stats, 5)).toEqual([{ base: 'hold', right: 1, wrong: 3 }]);
+    expect(hardestVerbs(verbs, [], 5)).toEqual([]);
+  });
+});
 describe('importar uma ideia colada', () => {
   it('a primeira linha é o título e cada bloco é um card', () => {
     expect(parseIdeaText('Thought Into Action\n\nYour mind is for having ideas.\n\nDo one thing\nat a time.')).toEqual({

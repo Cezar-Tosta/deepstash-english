@@ -4,7 +4,7 @@ import { resetWeek } from '../services/maintenance';
 import { addChunk, addChunkSentence, addIdea, chunksToPractice, deleteIdea, startSession } from '../services/sessions';
 import { rateChunk } from '../services/reviews';
 import { AIError, type AIProvider } from './AIProvider';
-import { askForVerbs, buildVerbPrompt, deleteVerb, listVerbs, parseVerbs, saveVerbs, setVerbSelected } from './verbs';
+import { addVerb, askForVerbs, buildVerbPrompt, completeVerb, deleteVerb, listVerbs, parseVerbs, saveVerbs, setVerbSelected } from './verbs';
 
 const RAW = JSON.stringify({
   verbs: [
@@ -152,6 +152,64 @@ describe('respostas da IA fora do formato', () => {
     const ai = provider(['nada', 'nada de novo']);
     await expect(askForVerbs(ai, 'Idea', 'text')).rejects.toThrow('modelo-x');
     expect(ai.calls).toBe(2);
+  });
+});
+describe('cadastrar um verbo à mão', () => {
+  const answering = (reply: string) => {
+    const asked: string[] = [];
+    const ai: AIProvider = {
+      id: 'fake',
+      model: 'fake',
+      chat: async () => '',
+      complete: async ({ system }) => {
+        asked.push(system);
+        return reply;
+      },
+    };
+    return { ai, asked };
+  };
+  const WRITE = JSON.stringify({
+    verbs: [{ base: 'write', translation: 'escrever', past: 'wrote', participle: 'written', gerund: 'writing', thirdPerson: 'writes', drills: [{ tense: 'Past simple', sentence: 'She _____ it down.', answer: 'wrote', translation: 'Ela anotou.' }] }],
+  });
+
+  async function idea() {
+    const session = await startSession('2026-10-05');
+    return addIdea(session.id, { title: 'Capture Everything', cards: ['Write it down.'] });
+  }
+
+  it('a IA completa formas e exercícios do verbo informado, e só dele', async () => {
+    const { id } = await idea();
+    const { ai, asked } = answering(WRITE);
+
+    expect(await addVerb(id, ' To Write ', ai)).toEqual({ complete: true });
+
+    expect(asked[0]).toContain('apenas para o verbo "write"');
+    expect(await listVerbs(id)).toEqual([
+      expect.objectContaining({ base: 'write', past: 'wrote', participle: 'written', selected: true, drills: [expect.objectContaining({ answer: 'wrote' })] }),
+    ]);
+  });
+
+  it('sem IA, o verbo fica cadastrado só com a forma base e pode ser completado depois', async () => {
+    const { id } = await idea();
+    expect(await addVerb(id, 'write', null)).toEqual({ complete: false });
+    const [verb] = await listVerbs(id);
+    expect(verb).toMatchObject({ base: 'write', past: '', drills: [] });
+
+    expect(await completeVerb(verb!.id, answering(WRITE).ai)).toBe(true);
+    expect((await listVerbs(id))[0]).toMatchObject({ base: 'write', past: 'wrote' });
+  });
+
+  it('se a IA falhar, o verbo cadastrado não se perde', async () => {
+    const { id } = await idea();
+    await expect(addVerb(id, 'write', answering('nada').ai)).rejects.toBeInstanceOf(AIError);
+    expect((await listVerbs(id)).map((v) => v.base)).toEqual(['write']);
+  });
+
+  it('recusa verbo vazio ou repetido na mesma ideia', async () => {
+    const { id } = await idea();
+    await addVerb(id, 'write', null);
+    await expect(addVerb(id, 'to WRITE', null)).rejects.toThrow('já está');
+    await expect(addVerb(id, '   ', null)).rejects.toBeInstanceOf(AIError);
   });
 });
 describe('treinar com mais chunks no PERSONALIZE', () => {

@@ -24,7 +24,8 @@ export function buildChatSystem(ctx: IdeaChatContext): string {
   return [
     'Você conversa com um brasileiro que estuda inglês lendo ideias de livros (Deepstash). O assunto da conversa é a ideia abaixo.',
     'Seu papel é ajudar a pensar: traga insights, exemplos concretos, conexões com outras áreas, contrapontos e perguntas que aprofundem. Baseie-se no texto dos cards e deixe claro quando algo for conhecimento seu, de fora do texto.',
-    'Responda no idioma em que ele escrever. Se ele escrever em inglês, responda em inglês simples e, numa última linha em português iniciada por "Inglês:", aponte no máximo dois erros relevantes da mensagem dele (ou nada, se não houver).',
+    'Responda SEMPRE em português do Brasil, inclusive quando ele escrever em inglês e inclusive nas perguntas que você fizer. Palavras e trechos do texto original podem ser citados em inglês, entre aspas, seguidos da tradução.',
+    'Se ele escrever em inglês, acrescente no fim uma linha iniciada por "Inglês:" apontando, em português, no máximo dois erros relevantes da mensagem dele (ou nada, se não houver).',
     'Seja direto: até 150 palavras por resposta, a não ser que ele peça mais. Termine, quando fizer sentido, com uma pergunta que o faça avançar.',
     // Só entram as partes que existem para esta ideia.
     ...[

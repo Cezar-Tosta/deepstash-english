@@ -43,27 +43,40 @@ const STEP_VIEWS: Record<StepId, ComponentType<StepProps>> = {
   schedule: ScheduleStep,
 };
 
+/** As etapas como caixas numeradas: a atual em destaque, as já passadas marcadas, todas clicáveis. */
 function Stepper({ current, onSelect }: { current: number; onSelect: (step: StepId) => void }) {
   return (
     <nav aria-label="Etapas da sessão">
-      <ol className="flex items-center gap-1.5">
-        {STEPS.map((step, i) => (
-          <li key={step.id} className="flex-1">
-            <button
-              type="button"
-              aria-label={`Etapa ${i + 1}: ${step.label}`}
-              aria-current={i === current ? 'step' : undefined}
-              onClick={() => onSelect(step.id)}
-              className="flex h-8 w-full items-center"
-            >
-              <span
-                className={`h-1.5 w-full rounded-full transition-colors ${
-                  i === current ? 'bg-accent' : i < current ? 'bg-accent/45' : 'bg-line'
+      <ol className="grid grid-cols-10 gap-1 sm:gap-1.5">
+        {STEPS.map((step, i) => {
+          const active = i === current;
+          return (
+            <li key={step.id} className="min-w-0">
+              <button
+                type="button"
+                title={`${i + 1}. ${step.label}`}
+                aria-label={`Etapa ${i + 1}: ${step.label}`}
+                aria-current={active ? 'step' : undefined}
+                onClick={() => onSelect(step.id)}
+                className={`flex h-10 w-full flex-col items-center justify-center rounded-lg border text-sm font-semibold tabular-nums transition-colors ${
+                  active
+                    ? 'border-accent bg-accent text-accent-ink shadow-sm'
+                    : i < current
+                      ? 'border-accent/40 bg-accent-soft text-accent hover:border-accent'
+                      : 'border-line bg-surface text-muted hover:border-accent hover:text-ink'
                 }`}
-              />
-            </button>
-          </li>
-        ))}
+              >
+                {i + 1}
+              </button>
+              <span
+                aria-hidden="true"
+                className={`mt-1 hidden truncate text-center text-[9px] font-semibold tracking-wide lg:block ${active ? 'text-accent' : 'text-muted'}`}
+              >
+                {step.label === 'IDEA OF THE DAY' ? 'IDEA' : step.label === 'SCHEDULE REVIEW' ? 'SCHEDULE' : step.label}
+              </span>
+            </li>
+          );
+        })}
       </ol>
     </nav>
   );

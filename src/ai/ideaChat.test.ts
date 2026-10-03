@@ -40,6 +40,7 @@ describe('chat sobre a ideia', () => {
     expect(system).toContain('Ideia principal, nas palavras dele: Focus on one task.');
     expect(system).toContain('Opinião que ele escreveu: I partly agree.');
     expect(system).not.toContain('Ação que ele se propôs');
+    expect(system).toContain('Responda SEMPRE em português do Brasil, inclusive quando ele escrever em inglês');
   });
 
   it('guarda a pergunta e a resposta, e envia o histórico na ordem', async () => {

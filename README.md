@@ -15,7 +15,7 @@ O Deepstash apresenta **ideias de livros**. Cada ideia é uma sequência de **ca
 | **3** | chunks úteis, no máximo, por dia | MINE, PERSONALIZE |
 | **1** | explicação oral recontando a ideia | RETELL |
 
-A sessão diária é um assistente de 10 etapas, uma por tela, com salvamento automático:
+A sessão diária é um assistente de 10 etapas, uma por tela, com salvamento automático. No topo, dez caixas numeradas mostram onde você está (a etapa atual em destaque, as anteriores marcadas) e levam direto a qualquer etapa:
 REVIEW → READ → IDEA OF THE DAY → CHECK → MINE → RETELL → PERSONALIZE → REFLECT → SO WHAT? → SCHEDULE REVIEW.
 
 Na etapa READ, cada ideia registra o livro, o título e os cards. O texto dos cards é opcional e pode ser colado de uma vez (uma linha em branco separa um card do outro).
@@ -52,8 +52,12 @@ Três dias depois de registrar um "So what?", a tela Today pergunta "Did you do 
 Nenhum exercício mostra palavra solta: o termo sempre aparece dentro de uma frase. Um termo sem frase registrada fica fora dos exercícios até ganhar uma (a tela avisa quantos estão nessa situação).
 
 - **Treino.** Escolhe os termos em que você mais erra e alterna três formas: completar a frase (com a tradução como dica opcional), ouvir a frase e escrever a palavra que falta, e ouvir uma frase curta e escrevê-la inteira. A pergunta errada volta algumas posições adiante, na mesma rodada, até duas vezes.
-- **Tempos verbais.** Frases com lacuna para conjugar, no tempo pedido, os verbos selecionados nas suas ideias (ver "Verbos da ideia").
+- **Tempos verbais.** Frases com lacuna para conjugar, no tempo pedido, os verbos selecionados nas suas ideias (ver "Verbos da ideia"). Antes de começar você escolhe os verbos, os tempos verbais e a quantidade de frases. O bloco "Verbos em que você mais erra" soma os erros de cada verbo em todas as ideias e tem o atalho "Treinar só estes verbos".
 - **Flashcards.** A frente mostra a frase com o termo destacado; o verso traz a tradução, a classe gramatical (verbo, substantivo, phrasal verb…) e como o termo é usado naquele contexto. Você escolhe a origem e a quantidade; por padrão entram primeiro os mais difíceis.
+
+**Termo em negrito.** No flashcard e na frase revelada depois da conferência, o termo aparece em negrito. A busca do termo na frase tolera pequenas diferenças entre o que foi cadastrado e o que está escrito: uma palavra a mais ou a menos ("one thing at time" em "one thing at a time") e outra flexão ("hold" em "holding"). Nos exercícios, a resposta esperada é sempre o trecho como está na frase.
+
+**Tradução da frase.** Depois de conferir a resposta (no Treino e em Tempos verbais) e no verso do flashcard, a frase em inglês vem acompanhada da tradução em português, em tom mais claro. A tradução é guardada pela frase: vem junto com a análise da palavra e com os exercícios de verbo, ou é pedida à IA na primeira vez em que a frase aparece, e nunca duas vezes.
 
 **Dificuldade de um termo:** erros nos exercícios pesam o dobro dos acertos; para chunks, "não lembrei" e "difícil" nas revisões espaçadas também contam; termos nunca treinados têm prioridade sobre os dominados. O bloco "Onde você mais erra" mostra os campeões de erro. O desempenho por termo é guardado e sincronizado.
 
@@ -61,7 +65,7 @@ A classe gramatical e a explicação de contexto vêm da análise da IA feita ao
 
 ### Verbos da ideia
 
-Na página de cada ideia, "Encontrar os verbos desta ideia" pede à IA os verbos principais do texto (até 8), com tradução, formas (he/she/it, past simple, past participle, -ing), a forma e o tempo em que cada um aparece no texto, e quatro frases com lacuna em tempos diferentes. Você marca quais quer estudar; só os marcados entram em "Tempos verbais". "Treinar estes verbos" abre a rodada só com os verbos daquela ideia.
+Na página de cada ideia, "Encontrar os verbos desta ideia" pede à IA os verbos principais do texto (até 8), com tradução, formas (he/she/it, past simple, past participle, -ing), a forma e o tempo em que cada um aparece no texto, e quatro frases com lacuna em tempos diferentes. Também dá para cadastrar um verbo à mão ("Cadastrar um verbo"): com a IA, ela completa as formas e os exercícios daquele verbo; sem IA, ele fica cadastrado só com a forma base e pode ser completado depois. Você marca quais quer estudar; só os marcados entram em "Tempos verbais". "Treinar estes verbos" abre a rodada só com os verbos daquela ideia.
 
 ### Mais prática dentro da sessão
 
@@ -87,7 +91,7 @@ O menu lateral mostra o provedor e o modelo usado em cada função: texto, image
 
 ### Conversa sobre a ideia
 
-A página de cada ideia tem um chat com a IA. Ela recebe o livro, o texto dos cards, a ideia principal e o que você já escreveu (opinião, ação, chunks), e foi instruída a trazer insights, exemplos, conexões e contrapontos, em respostas curtas. Responde no idioma em que você escrever; em inglês, acrescenta uma linha apontando até dois erros da sua mensagem. A conversa fica guardada com a ideia (e sincronizada), e pode ser apagada. A cada pergunta seguem as últimas 20 mensagens.
+A página de cada ideia tem um chat com a IA. Ela recebe o livro, o texto dos cards, a ideia principal e o que você já escreveu (opinião, ação, chunks), e foi instruída a trazer insights, exemplos, conexões e contrapontos, em respostas curtas. Responde sempre em português, inclusive quando você escreve em inglês (nesse caso, acrescenta uma linha apontando até dois erros da sua mensagem). A conversa fica guardada com a ideia (e sincronizada), e pode ser apagada. A cada pergunta seguem as últimas 20 mensagens.
 
 ### Orientação da IA por etapa
 
@@ -262,7 +266,7 @@ pnpm dev
 
 ## Banco de dados
 
-No navegador: IndexedDB, banco `deepstash-english`. Na nuvem: uma linha por usuário em `public.user_data` (coluna `data` em JSON, no mesmo formato do backup, e `version` para detectar gravações concorrentes). Tabelas: `settings`, `sessions`, `ideas`, `cards`, `vocab`, `chunks`, `reviews`, `speaking`, `reflections`, `weeklyReviews`, `writings`, `aiFeedback`, `bookNotes`, `practiceStats`, `ideaChats`, `verbs` e, só neste navegador, `recordings`.
+No navegador: IndexedDB, banco `deepstash-english`. Na nuvem: uma linha por usuário em `public.user_data` (coluna `data` em JSON, no mesmo formato do backup, e `version` para detectar gravações concorrentes). Tabelas: `settings`, `sessions`, `ideas`, `cards`, `vocab`, `chunks`, `reviews`, `speaking`, `reflections`, `weeklyReviews`, `writings`, `aiFeedback`, `bookNotes`, `practiceStats`, `ideaChats`, `verbs`, `translations` e, só neste navegador, `recordings`.
 
 - Uma sessão por data. A Idea of the Day é `session.ideaOfDayId`, sem campo duplicado na ideia.
 - `ideas` guarda livro, título e ideia principal; `cards` guarda o texto de cada card, com `ideaId` e `position` (ordem de leitura).

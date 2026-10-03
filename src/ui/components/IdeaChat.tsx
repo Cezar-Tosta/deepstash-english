@@ -12,8 +12,9 @@ import { Button, Eyebrow, Hint, Spinner, StarterChips, TextArea } from './ui';
 const STARTERS = [
   'Qual é o ponto mais forte desta ideia?',
   'O que um crítico diria?',
-  'Give me a real-life example.',
-  'How can I apply this at work?',
+  'Dê um exemplo da vida real.',
+  'Como aplico isso no meu trabalho?',
+  'Com que outras ideias isso se conecta?',
 ] as const;
 
 /**
@@ -118,8 +119,8 @@ export function IdeaChat({ ideaId }: { ideaId: string }) {
       {messages.length === 0 ? (
         <div className="mt-2 space-y-3">
           <Hint>
-            A IA conhece os cards desta ideia e o que você já escreveu. Pergunte em português ou em inglês; em inglês, ela
-            também aponta erros da sua mensagem.
+            A IA conhece os cards desta ideia e o que você já escreveu, e responde sempre em português. Se você escrever em
+            inglês, ela também aponta erros da sua mensagem.
           </Hint>
           <StarterChips starters={STARTERS} onPick={send} />
         </div>

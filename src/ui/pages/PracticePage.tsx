@@ -8,6 +8,7 @@ import {
   type Flashcard,
   hardest,
   isCorrect,
+  locateTerm,
   type Question,
   questionsFor,
   requeue,
@@ -19,6 +20,8 @@ import { recordPractice } from '../../services/maintenance';
 import { loadPracticeMaterial } from '../../services/study';
 import { FlashcardRound, FlashcardSetup } from '../components/Flashcards';
 import { ListenButton, ListenSettings } from '../components/Listen';
+import { SentenceTranslation } from '../components/SentenceTranslation';
+import { TenseSetup } from '../components/TenseSetup';
 import { Button, Card, EmptyState, Eyebrow, Hint, PageTitle, Prompt, TextArea, TextInput } from '../components/ui';
 import { speak, stopSpeaking } from '../speech';
 import { attempt } from '../toast';
@@ -42,6 +45,8 @@ function QuestionCard({ question, retry, onNext }: { question: Question; retry: 
   const { kind } = question;
   const heard = kind === 'listen' || kind === 'dictation';
   const score = kind === 'dictation' ? dictationScore(answer, question.answer) : 0;
+  // O trecho respondido, para aparecer em negrito na frase revelada.
+  const revealed = kind === 'dictation' ? null : locateTerm(question.full, question.answer);
   const correct = kind === 'dictation' ? score >= DICTATION_PASS : isCorrect(answer, question.answer);
 
   // As perguntas de escuta começam falando a frase inteira.
@@ -116,9 +121,20 @@ function QuestionCard({ question, retry, onNext }: { question: Question; retry: 
                 ? 'Certo.'
                 : 'Ainda não. Ela volta daqui a pouco.'}
           </p>
-          <p className="font-serif text-lg break-words" lang="en">
-            {question.full}
-          </p>
+          <div>
+            <p className="font-serif text-lg break-words" lang="en">
+              {revealed ? (
+                <>
+                  {revealed.before}
+                  <strong>{revealed.match}</strong>
+                  {revealed.after}
+                </>
+              ) : (
+                question.full
+              )}
+            </p>
+            <SentenceTranslation sentence={question.full} />
+          </div>
           {kind !== 'dictation' && (
             <p className="text-sm text-muted break-words">
               Resposta: <span className="font-serif text-ink" lang="en">{question.answer}</span>
@@ -245,7 +261,6 @@ export function PracticePage() {
 
   const trainable = items.filter((i) => questionsFor(i).length > 0).length;
   const tenses = tenseQuestions(material.verbs).length;
-  const selectedVerbs = material.verbs.filter((v) => v.selected).length;
   const loose = withoutContext(material);
   const difficult = hardest(items, 6);
 
@@ -284,8 +299,7 @@ export function PracticePage() {
       <Card>
         <Prompt>Tempos verbais</Prompt>
         <p className="mt-1 text-sm text-muted">
-          Frases com lacuna para conjugar os verbos das suas ideias no tempo pedido (present simple, past simple, present
-          perfect…).
+          Frases com lacuna para conjugar os verbos das suas ideias. Escolha os verbos, os tempos e quantas frases.
         </p>
         {tenses === 0 ? (
           <div className="mt-3">
@@ -298,16 +312,11 @@ export function PracticePage() {
             </EmptyState>
           </div>
         ) : (
-          <>
-            <Sizes
-              available={tenses}
-              unit={['frase', 'frases']}
-              onPick={(n) => setRound({ title: 'Tempos verbais', questions: buildTenseTraining(material.verbs, material.stats, n) })}
-            />
-            <p className="mt-2 text-xs text-muted">
-              {selectedVerbs} {selectedVerbs === 1 ? 'verbo selecionado' : 'verbos selecionados'} nas suas ideias.
-            </p>
-          </>
+          <TenseSetup
+            verbs={material.verbs}
+            stats={material.stats}
+            onStart={(questions) => setRound({ title: 'Tempos verbais', questions })}
+          />
         )}
       </Card>
 
