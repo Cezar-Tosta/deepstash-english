@@ -132,7 +132,7 @@ export async function requestFeedback(request: FeedbackRequest): Promise<AIFeedb
   if (!provider) throw new AIError('A IA não está configurada. Veja em Ajustes.');
 
   const parsed = parseFeedback(
-    await provider.complete(buildFeedbackPrompt(request.kind, original, request.context)),
+    await provider.complete({ ...buildFeedbackPrompt(request.kind, original, request.context), json: true }),
   );
   const feedback: AIFeedback = {
     id: newId(),
@@ -243,7 +243,7 @@ export function parseLookup(raw: string): WordMeaning {
 export async function lookupMeaning(term: string, sentence: string): Promise<WordMeaning> {
   const provider = await createProvider((await getSettings()).ai);
   if (!provider) throw new AIError('A IA não está configurada. Veja em Ajustes.');
-  return parseLookup(await provider.complete(buildLookupPrompt(term, sentence)));
+  return parseLookup(await provider.complete({ ...buildLookupPrompt(term, sentence), json: true }));
 }
 
 export interface ModelsInUse {

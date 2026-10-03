@@ -13,6 +13,8 @@ export interface ChatTurn {
 export interface AIRequest {
   system: string;
   user: string;
+  /** A resposta deve ser um objeto JSON. Onde o provedor tem "modo JSON", ele é ligado. */
+  json?: boolean;
 }
 
 /**

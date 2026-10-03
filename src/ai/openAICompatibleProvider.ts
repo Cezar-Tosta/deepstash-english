@@ -39,17 +39,27 @@ export function createOpenAICompatibleProvider(options: OpenAICompatibleOptions)
   const base = options.baseUrl.trim().replace(/\/+$/, '');
   const auth: Record<string, string> = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
 
-  async function chat(chatModel: string, messages: { role: string; content: ChatContent }[]): Promise<string> {
-    let response: Response;
+  async function post(body: Record<string, unknown>): Promise<Response> {
     try {
-      response = await fetch(`${base}/chat/completions`, {
+      return await fetch(`${base}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...auth },
-        body: JSON.stringify({ model: chatModel, messages }),
+        body: JSON.stringify(body),
       });
     } catch {
       throw new AIError('Sem conexão com a IA. Seu estudo continua funcionando offline.');
     }
+  }
+
+  async function chat(
+    chatModel: string,
+    messages: { role: string; content: ChatContent }[],
+    json = false,
+  ): Promise<string> {
+    const request = { model: chatModel, messages };
+    let response = await post(json ? { ...request, response_format: { type: 'json_object' } } : request);
+    // Nem todo servidor compatível aceita o modo JSON; nesse caso o pedido segue sem ele.
+    if (json && response.status === 400) response = await post(request);
 
     const body = (await response.json().catch(() => null)) as ChatResponse | null;
     if (!response.ok) {
@@ -68,11 +78,15 @@ export function createOpenAICompatibleProvider(options: OpenAICompatibleOptions)
     id: options.id ?? 'openai-compatible',
     model,
 
-    complete({ system, user }: AIRequest): Promise<string> {
-      return chat(model, [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ]);
+    complete({ system, user, json }: AIRequest): Promise<string> {
+      return chat(
+        model,
+        [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        json,
+      );
     },
 
     chat(system: string, turns: ChatTurn[]): Promise<string> {

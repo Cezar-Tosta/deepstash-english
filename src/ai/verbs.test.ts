@@ -3,8 +3,8 @@ import { db } from '../data/db';
 import { resetWeek } from '../services/maintenance';
 import { addChunk, addChunkSentence, addIdea, chunksToPractice, deleteIdea, startSession } from '../services/sessions';
 import { rateChunk } from '../services/reviews';
-import { AIError } from './AIProvider';
-import { buildVerbPrompt, deleteVerb, listVerbs, parseVerbs, saveVerbs, setVerbSelected } from './verbs';
+import { AIError, type AIProvider } from './AIProvider';
+import { askForVerbs, buildVerbPrompt, deleteVerb, listVerbs, parseVerbs, saveVerbs, setVerbSelected } from './verbs';
 
 const RAW = JSON.stringify({
   verbs: [
@@ -84,6 +84,76 @@ describe('verbos da ideia', () => {
   });
 });
 
+describe('respostas da IA fora do formato', () => {
+  const hold = { base: 'hold', past: 'held', drills: [{ tense: 'Past simple', sentence: 'She _____ it.', answer: 'held' }] };
+  const keep = { base: 'keep', past: 'kept', drills: [] };
+
+  it('aceita a lista de verbos sem o objeto em volta', () => {
+    expect(parseVerbs(JSON.stringify([hold, keep])).map((v) => v.base)).toEqual(['hold', 'keep']);
+  });
+
+  it('aceita cerca de código, texto em volta e vírgula sobrando', () => {
+    const raw = 'Claro! Aqui estão:\n```json\n{"verbs": [{"base": "hold", "past": "held",}, {"base": "keep",},]}\n```\nBons estudos!';
+    expect(parseVerbs(raw).map((v) => v.base)).toEqual(['hold', 'keep']);
+  });
+
+  it('aceita outros nomes de campo que os modelos costumam usar', () => {
+    const raw = JSON.stringify({
+      verbos: [
+        {
+          verb: 'to hold',
+          past_simple: 'held',
+          past_participle: 'held',
+          third_person: 'holds',
+          ing_form: 'holding',
+          exercises: [{ tempo: 'Past simple', frase: 'She _____ it.', resposta: 'held' }],
+        },
+      ],
+    });
+    expect(parseVerbs(raw)[0]).toMatchObject({
+      base: 'hold',
+      past: 'held',
+      participle: 'held',
+      thirdPerson: 'holds',
+      gerund: 'holding',
+      drills: [{ tense: 'Past simple', sentence: 'She _____ it.', answer: 'held' }],
+    });
+  });
+
+  it('resposta cortada no meio: aproveita os verbos que vieram completos', () => {
+    const whole = JSON.stringify({ verbs: [hold, keep, { base: 'write', past: 'wrote', drills: [] }] });
+    const cut = whole.slice(0, whole.indexOf('"write"') + 12);
+    expect(parseVerbs(cut).map((v) => v.base)).toEqual(['hold', 'keep']);
+    expect(parseVerbs(cut)[0]?.drills).toHaveLength(1);
+  });
+
+  it('chaves dentro de frases não confundem a leitura', () => {
+    const raw = JSON.stringify({ verbs: [{ base: 'hold', sentence: 'Use {braces} and "quotes" freely.' }] }).slice(0, -2);
+    expect(parseVerbs(raw)[0]).toMatchObject({ base: 'hold', sentence: 'Use {braces} and "quotes" freely.' });
+  });
+
+  it('sem nenhum verbo legível, é erro', () => {
+    expect(() => parseVerbs('{"verbs": []}')).toThrow(AIError);
+    expect(() => parseVerbs('{"message": "I cannot do that"}')).toThrow(AIError);
+  });
+
+  const provider = (replies: string[]): AIProvider & { calls: number } => {
+    const p = { id: 'fake', model: 'modelo-x', calls: 0, chat: async () => '', complete: async () => replies[p.calls++] ?? '' };
+    return p;
+  };
+
+  it('resposta ilegível ganha uma segunda tentativa, em modo JSON', async () => {
+    const ai = provider(['desculpe, não entendi', JSON.stringify({ verbs: [hold] })]);
+    expect((await askForVerbs(ai, 'Idea', 'text')).map((v) => v.base)).toEqual(['hold']);
+    expect(ai.calls).toBe(2);
+  });
+
+  it('se as duas tentativas falham, o erro diz qual modelo e o que fazer', async () => {
+    const ai = provider(['nada', 'nada de novo']);
+    await expect(askForVerbs(ai, 'Idea', 'text')).rejects.toThrow('modelo-x');
+    expect(ai.calls).toBe(2);
+  });
+});
 describe('treinar com mais chunks no PERSONALIZE', () => {
   it('guarda frases a mais sem apagar as anteriores nem repetir', async () => {
     const session = await startSession('2026-10-05');
