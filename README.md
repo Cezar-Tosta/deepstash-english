@@ -101,21 +101,28 @@ pnpm build
 pnpm preview
 ```
 
-### Usar no celular
+### Publicar no GitHub Pages e usar no celular
 
-Abrir `http://IP-DO-PC:5173` no celular serve para testar, mas **instalar o PWA e usar offline exige HTTPS**. O caminho é publicar a pasta `dist/` em qualquer hospedagem estática gratuita (GitHub Pages, Netlify, Cloudflare Pages, Vercel):
+Instalar o PWA e usar offline exige HTTPS, e o GitHub Pages fornece isso. O workflow `.github/workflows/deploy.yml` roda lint, testes e build e publica a pasta `dist/` a cada push na branch `main`.
 
-```bash
-pnpm build
-# publique o conteúdo de dist/
-```
+1. Crie um repositório vazio no GitHub (sem README) e envie o projeto:
 
-O build usa caminhos relativos e rotas com `#`, então funciona em subpastas sem configurar o servidor. Hospedar o app não envia seus dados a lugar nenhum: eles continuam só no aparelho.
+   ```bash
+   git remote add origin https://github.com/SEU-USUARIO/deepstash-english.git
+   git push -u origin main
+   ```
 
-Depois de abrir o endereço HTTPS no celular:
+2. No repositório: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+3. Acompanhe em **Actions**. Se a primeira execução falhar por ter rodado antes do passo 2, use **Re-run all jobs**. Ao terminar, o app fica em `https://SEU-USUARIO.github.io/deepstash-english/`.
+4. Abra esse endereço no celular e instale:
+   - Android (Chrome): menu → **Instalar app**
+   - iPhone (Safari): Compartilhar → **Adicionar à Tela de Início**
 
-- Android (Chrome): menu → **Instalar app**
-- iPhone (Safari): Compartilhar → **Adicionar à Tela de Início**
+O build usa caminhos relativos e rotas com `#`, então funciona na subpasta do Pages sem ajuste. O site publicado contém só o código do app: seus cards, chunks e a chave de IA ficam no aparelho e nunca vão para o GitHub.
+
+No plano gratuito do GitHub, o Pages exige repositório público. Os dados são guardados por endereço: se o endereço do app mudar (outro nome de repositório ou de usuário), exporte um backup antes e importe no novo.
+
+Para só testar na rede local, sem instalar, abra `http://IP-DO-PC:5173` com `pnpm dev` rodando.
 
 ## Banco de dados
 
