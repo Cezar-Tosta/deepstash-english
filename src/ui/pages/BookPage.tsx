@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Link, useParams } from 'react-router-dom';
 import { db } from '../../data/db';
 import { formatDate, formatDuration, nowISO, today } from '../../domain/dates';
+import { saveRecording } from '../../services/maintenance';
 import { recordSpeaking } from '../../services/sessions';
 import { getBook, saveBookNote } from '../../services/study';
 import { AIFeedbackPanel } from '../components/AIFeedbackPanel';
@@ -39,8 +40,8 @@ export function BookPage() {
   const spokenSec = (spoken ?? []).reduce((sum, s) => sum + s.durationSec, 0);
 
   return (
-    <div className="space-y-8">
-      <header>
+    <div className="grid items-start gap-6 lg:grid-cols-2">
+      <header className="col-span-full">
         {back}
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Livro</p>
         <h1 className="mt-1 font-serif text-3xl leading-tight">{book.title}</h1>
@@ -57,7 +58,7 @@ export function BookPage() {
         <ol className="space-y-3">
           {book.ideas.map((idea, i) => (
             <li key={idea.id}>
-              <Link to={`/knowledge/idea/${idea.id}`} className="block rounded-2xl border border-line bg-surface p-5 hover:bg-sunken">
+              <Link to={`/knowledge/idea/${idea.id}`} className="block rounded-2xl border border-line bg-surface p-4 hover:bg-sunken">
                 <p className="text-xs text-muted">
                   Ideia {i + 1} · {formatDate(idea.date, 'medium')}
                   {studiedIdeaIds.has(idea.id) && ' · ⭐ Idea of the Day'}
@@ -82,8 +83,9 @@ export function BookPage() {
           <Timer
             minSec={120}
             maxSec={180}
+            record
             targetLabel="2–3 minutos sem roteiro"
-            onStop={(durationSec) =>
+            onStop={(durationSec, audio) =>
               attempt(
                 recordSpeaking({
                   kind: 'book',
@@ -93,8 +95,10 @@ export function BookPage() {
                   date: today(),
                   durationSec,
                   targetSec: 180,
-                }).then((id) => {
-                  if (id) showToast(`Fala registrada: ${formatDuration(durationSec)}`);
+                }).then(async (id) => {
+                  if (!id) return;
+                  if (audio) await saveRecording(id, audio);
+                  showToast(`Fala registrada: ${formatDuration(durationSec)}`);
                 }),
               )
             }

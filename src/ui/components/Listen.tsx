@@ -51,7 +51,7 @@ export function ListenSettings() {
 }
 
 /** Player de uma gravação, obedecendo à mesma velocidade e repetição da leitura em voz alta. */
-export function RecordingPlayer({ src }: { src: string }) {
+export function RecordingPlayer({ src, showSettings = true }: { src: string; showSettings?: boolean }) {
   const { rate, loop } = useSpeech();
   const audio = useRef<HTMLAudioElement>(null);
 
@@ -63,7 +63,7 @@ export function RecordingPlayer({ src }: { src: string }) {
     <div className="space-y-2">
       {/* A gravação é a fala do próprio usuário; a transcrição aparece ao lado. */}
       <audio ref={audio} controls loop={loop} src={src} className="w-full" />
-      <ListenSettings />
+      {showSettings && <ListenSettings />}
     </div>
   );
 }

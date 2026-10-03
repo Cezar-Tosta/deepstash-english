@@ -31,7 +31,13 @@ Toda a biblioteca segue essa hierarquia. Em **Knowledge**:
 
 ### Leitura com clique nas palavras
 
-Na página de uma ideia, cada palavra dos cards é clicável. Um clique seleciona a palavra; um segundo clique, em outra palavra do mesmo card, estende a seleção até formar a expressão. O painel mostra a frase em que ela aparece e, pouco depois do clique, a tradução em português naquele contexto (pela IA), num campo que pode ser editado. "Adicionar ao dicionário" guarda termo, tradução, frase e explicação. Sem IA, a tradução é digitada. O dicionário não entra na repetição espaçada; ele alimenta os exercícios.
+Na página de uma ideia, cada palavra dos cards é clicável. Um clique seleciona a palavra; um segundo clique, em outra palavra do mesmo card, estende a seleção até formar a expressão. O painel mostra a frase em que ela aparece e, pouco depois do clique, a análise naquele contexto (pela IA): tradução em português num campo editável, transcrição fonética (IPA) e uma explicação do uso. Expressões de várias palavras são analisadas como uma unidade. "Adicionar ao dicionário" guarda tudo isso junto com a frase. Sem IA, a tradução é digitada.
+
+A mesma palavra pode ter sentidos diferentes em frases diferentes, então cada par termo + frase é uma entrada própria do dicionário, e clicar numa palavra já conhecida em outra frase refaz a análise naquele contexto.
+
+**Termos conhecidos sublinhados.** Tudo o que está no dicionário ou nos chunks, de qualquer ideia, aparece sublinhado nos textos dos cards (na página da ideia e na releitura da etapa CHECK). Passar o mouse mostra tradução, fonética, explicação e a frase em que cada sentido foi registrado. Expressões são reconhecidas inteiras, e a mais longa vence a palavra contida nela.
+
+O dicionário, na aba e na página de cada ideia, é listado em ordem alfabética. O dicionário não entra na repetição espaçada; ele alimenta os exercícios.
 
 ### Retelling gravado e transcrito
 
@@ -43,30 +49,58 @@ Três dias depois de registrar um "So what?", a tela Today pergunta "Did you do 
 
 ### Exercícios (menu Practice)
 
-Montados só com o que você já estudou, em rodadas de até 8 questões:
+Só dois exercícios, ambos de recuperação ativa (lembrar ou escrever antes de ver a resposta):
 
-| Exercício | Material usado |
-|---|---|
-| Flashcards | dicionário, chunks ou os dois; você escolhe quantos entram na rodada |
-| Dicionário: português → inglês | entradas do dicionário com significado |
-| Completar a frase | suas frases com os chunks e as frases do dicionário |
-| Escrever com a expressão | chunks e dicionário; a IA comenta depois, se ligada |
-| Ouvir e escrever | frases dos cards, lidas pela voz do navegador |
+- **Treino.** Escolhe os termos em que você mais erra e faz uma pergunta para cada um, alternando três formas: lembrar o termo pelo significado, completar a frase (sem tradução) e escrever o que ouviu. A pergunta errada volta algumas posições adiante, na mesma rodada, até duas vezes.
+- **Flashcards.** Você escolhe a origem (dicionário, chunks ou os dois) e a quantidade; por padrão entram primeiro os termos mais difíceis.
 
-Os resultados das rodadas não são guardados.
+**Dificuldade de um termo:** erros nos exercícios pesam o dobro dos acertos; para chunks, "não lembrei" e "difícil" nas revisões espaçadas também contam; termos nunca treinados têm prioridade sobre os dominados. O bloco "Onde você mais erra" mostra os campeões de erro. O desempenho por termo é guardado e sincronizado.
 
 ### Áudio
 
-Onde houver "Ouvir" (cards, termos, dicionário, flashcards, ditado), a leitura usa a voz do navegador e obedece a dois controles: velocidade (1×, 0.75× ou 0.5×) e "Repetir em loop". Os mesmos controles valem para a gravação do retelling. A escolha fica lembrada no navegador.
+Onde houver "Ouvir" (cards, termos, dicionário, flashcards, ditado), a leitura usa a voz do navegador e obedece a dois controles: velocidade (1×, 0.75× ou 0.5×) e "Repetir em loop". Os mesmos controles valem para as suas gravações.
 
-Decisões que preservam o método:
+As falas gravadas (retelling, fala da semana, explicação do livro) ficam guardadas **neste navegador** e aparecem no Weekly review, em "Minhas falas da semana", com a transcrição. Os áudios não entram no backup nem vão para a nuvem; em Settings dá para ver o espaço ocupado e apagar os de mais de 4 semanas.
 
-- **Revisão:** primeiro só a expressão; significado, frases e card de origem aparecem depois de REVELAR.
-- **Vocabulário de compreensão** e **chunks para aprender** são coisas diferentes. Só os chunks entram na repetição espaçada.
-- **Sem meta numérica de leitura.** Ler uma ideia já conta; o progresso não premia quantidade.
-- **Limite de 3 chunks por dia.** O quarto só entra substituindo um dos três.
-- **IA opcional e sempre depois da tentativa.** Ela comenta um texto já salvo e nunca o sobrescreve.
-- **Ciclos de 4 semanas** ajustam a meta de speaking (≈1 min → 1–2 → 2 → 2–3) e a orientação sobre tradução.
+### Cadastrar ideias mais rápido
+
+Na etapa READ, "Importar a ideia inteira" oferece dois caminhos, e em ambos o resultado volta para o formulário para você conferir antes de salvar:
+
+- **Colar o texto:** a primeira linha vira o título e cada bloco separado por linha em branco vira um card. No site do Deepstash (navegador) dá para selecionar e copiar a ideia inteira.
+- **Screenshots:** escolha as imagens ou cole com Ctrl+V (até 8). A IA transcreve título e cards. Precisa de um modelo que leia imagens: Anthropic, ou Groq com o "Modelo de visão" de Ajustes.
+
+### Orientação da IA por etapa
+
+Em cada etapa da sessão há o botão "Como fazer esta etapa?". A IA responde com sugestões ligadas ao objetivo daquela etapa e ao conteúdo em estudo (livro, texto dos cards, o que você já escreveu): perguntas-guia na leitura, expressões candidatas no MINE, roteiro em tópicos no RETELL, ângulos de questionamento no REFLECT, tipos de ação no SO WHAT. Ela orienta e sugere; não escreve a resposta por você.
+
+### Manual
+
+O menu **Manual** explica, dentro do app, a sequência correta de estudos: a sessão diária etapa por etapa (o que fazer e o que evitar), as revisões, o acompanhamento das ações, a leitura com dicionário, os exercícios, o fechamento da semana e do livro, a progressão de 4 semanas e o que fazer quando algo sai do trilho. Os tempos e frequências vêm das mesmas definições usadas nas telas, então não desatualizam.
+
+### Frequência de cada etapa
+
+Cada etapa mostra a frequência e o tempo sugerido, e a tela Today tem o quadro "Rotina":
+
+| Atividade | Frequência |
+|---|---|
+| Sessão de estudo (10 etapas, ~30 min) | todo dia |
+| Revisão de cada chunk | 5 vezes: D1, D3, D7, D14, D30 |
+| Did you do it? | 3 dias depois de cada ação |
+| Exercícios | 2 a 3 vezes por semana |
+| Weekly review | 1 vez por semana |
+| Fechamento do livro | ao terminar cada livro |
+| Ciclo de progressão | a cada 4 semanas |
+
+### Recomeçar
+
+- **Resetar uma semana** (tela Progress, na semana escolhida): apaga sessões, ideias, cards, dicionário, chunks com seu histórico, falas, reflexões e o fechamento daquela semana, depois de mostrar o que será apagado. Revisões feitas nessa semana de chunks de semanas anteriores são mantidas.
+- **Recomeçar do zero** (Settings): apaga todos os estudos, mantendo tema e configuração de IA.
+
+Com a nuvem ligada, o que for apagado também some da sua conta. Não há como desfazer; exporte um backup antes, se quiser guardar.
+
+### Layout
+
+Em telas largas, as páginas usam duas colunas (por exemplo, os cards da ideia à esquerda e o que você produziu à direita) e o menu lateral mostra qual IA está em uso. No celular tudo volta a uma coluna, com navegação inferior e a IA em uso no topo; nenhum texto ou botão ultrapassa a largura da tela (palavras longas quebram).
 
 ## Stack
 
@@ -114,7 +148,8 @@ src/
     stats.ts            estatísticas semanais e totais
     books.ts            livro → ideias → cards
     reader.ts           palavras clicáveis, seleção e frase de contexto
-    exercises.ts        montagem e correção dos exercícios
+    exercises.ts        dificuldade por termo, treino adaptativo, flashcards
+    ideaImport.ts       texto colado ou resposta da IA → título e cards
     srs/
       scheduler.ts      interface ReviewScheduler
       fixedInterval.ts  D1/D3/D7/D14/D30
@@ -123,7 +158,7 @@ src/
     db.ts               esquema Dexie e versões
     migrations.ts       conversão de dados entre versões
     backup.ts           export/import JSON
-  services/             sessions, reviews, library, weekly, study (livros, ações, dicionário, exercícios), settings
+  services/             sessions, reviews, library, weekly, study (livros, ações, dicionário), maintenance (reset, desempenho, áudios), settings
   sync/                 engine (regras), cloudStore (interface), supabase (implementação), cloud (estado)
   ai/                   AIProvider, anthropicProvider, openAICompatibleProvider, feedback
   ui/
@@ -198,7 +233,7 @@ pnpm dev
 
 ## Banco de dados
 
-No navegador: IndexedDB, banco `deepstash-english`. Na nuvem: uma linha por usuário em `public.user_data` (coluna `data` em JSON, no mesmo formato do backup, e `version` para detectar gravações concorrentes). Tabelas: `settings`, `sessions`, `ideas`, `cards`, `vocab`, `chunks`, `reviews`, `speaking`, `reflections`, `weeklyReviews`, `writings`, `aiFeedback`.
+No navegador: IndexedDB, banco `deepstash-english`. Na nuvem: uma linha por usuário em `public.user_data` (coluna `data` em JSON, no mesmo formato do backup, e `version` para detectar gravações concorrentes). Tabelas: `settings`, `sessions`, `ideas`, `cards`, `vocab`, `chunks`, `reviews`, `speaking`, `reflections`, `weeklyReviews`, `writings`, `aiFeedback`, `bookNotes`, `practiceStats` e, só neste navegador, `recordings`.
 
 - Uma sessão por data. A Idea of the Day é `session.ideaOfDayId`, sem campo duplicado na ideia.
 - `ideas` guarda livro, título e ideia principal; `cards` guarda o texto de cada card, com `ideaId` e `position` (ordem de leitura).
@@ -267,6 +302,7 @@ Cobertura: criação de sessão, ideias e cards em sequência, Idea of the Day, 
 | 0.5 | IA opcional (Groq, Anthropic e compatíveis com OpenAI) | feito, não testado contra um provedor real |
 | 0.7 | Livros, leitura com clique e dicionário, gravação e transcrição do retelling, acompanhamento das ações, exercícios | feito, testado com IA simulada |
 | 0.6 | Login e sincronização com Supabase | feito, testado contra um servidor simulado |
-| 1.0 | Entrada por screenshot/OCR, tabelas relacionais no Supabase com mesclagem por registro, testes de interface | futuro |
+| 0.8 | Reset por semana, treino adaptativo, áudios da semana, importação por texto e screenshots, orientação da IA por etapa, layout para celular | feito, testado com IA simulada |
+| 1.0 | Áudios na nuvem, tabelas relacionais no Supabase com mesclagem por registro, testes de interface | futuro |
 
 Fora do escopo por decisão de produto: scraping do Deepstash, rede social, ranking e gamificação pesada.

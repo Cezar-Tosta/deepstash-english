@@ -102,7 +102,7 @@ export async function loadSessionBundle(date: ISODate): Promise<SessionBundle | 
     session,
     ideas: withCards,
     ideaOfDay,
-    vocab: vocab.sort(byCreatedAt),
+    vocab: vocab.sort((a, b) => a.term.localeCompare(b.term, 'en', { sensitivity: 'base' })),
     chunks: chunks.sort(byCreatedAt),
     speaking: speaking.sort(byCreatedAt),
     reflection,

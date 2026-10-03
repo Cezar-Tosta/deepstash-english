@@ -4,15 +4,17 @@ import {
   type Flashcard,
   type FlashSource,
   pickFlashcards,
-  type PracticeMaterial,
+  type StudyItem,
 } from '../../domain/exercises';
+import { recordPractice } from '../../services/maintenance';
 import { stopSpeaking } from '../speech';
+import { attempt } from '../toast';
 import { ListenButton, ListenSettings } from './Listen';
 import { Button, Card, EmptyState, Eyebrow, Prompt, Segmented, TextInput } from './ui';
 
 const SOURCES: readonly { value: FlashSource; label: string }[] = [
   { value: 'both', label: 'Palavras e chunks' },
-  { value: 'dictionary', label: 'Só palavras do dicionário' },
+  { value: 'dictionary', label: 'Só palavras' },
   { value: 'chunks', label: 'Só chunks' },
 ];
 
@@ -20,11 +22,17 @@ const QUICK = [5, 10, 20] as const;
 const DEFAULT_COUNT = 10;
 
 /** Escolha do que estudar e de quantos flashcards entram na rodada. */
-export function FlashcardSetup({ material, onStart }: { material: PracticeMaterial; onStart: (cards: Flashcard[]) => void }) {
+export function FlashcardSetup({ items, onStart }: { items: readonly StudyItem[]; onStart: (cards: Flashcard[]) => void }) {
   const [source, setSource] = useState<FlashSource>('both');
   const [count, setCount] = useState(String(DEFAULT_COUNT));
-  const available = buildFlashcards(material, source);
+  const [hardFirst, setHardFirst] = useState(true);
+  const available = buildFlashcards(items, source);
   const wanted = Math.min(available.length, Math.max(1, Number.parseInt(count, 10) || 1));
+
+  const start = () => {
+    const difficulty = new Map(items.map((i) => [i.key, i.difficulty]));
+    onStart(pickFlashcards(available, wanted, hardFirst ? { difficulty } : {}));
+  };
 
   return (
     <Card>
@@ -32,17 +40,17 @@ export function FlashcardSetup({ material, onStart }: { material: PracticeMateri
       <p className="mt-1 text-sm text-muted">
         A expressão em inglês na frente; você tenta lembrar e vira o cartão para conferir.
       </p>
-      <div className="mt-4 space-y-4">
+      <div className="mt-3 space-y-3">
         <Segmented label="O que entra nos flashcards" value={source} options={SOURCES} onChange={setSource} />
         {available.length === 0 ? (
           <EmptyState title="Ainda sem material.">
-            Adicione palavras ao dicionário pela leitura ou escolha chunks nas sessões, com o significado anotado.
+            Adicione palavras ao dicionário pela leitura ou escolha chunks nas sessões.
           </EmptyState>
         ) : (
           <>
             <div className="flex flex-wrap items-end gap-2">
               <TextInput
-                className="w-28"
+                className="w-24"
                 label="Quantos"
                 type="number"
                 inputMode="numeric"
@@ -60,7 +68,11 @@ export function FlashcardSetup({ material, onStart }: { material: PracticeMateri
                 Todos ({available.length})
               </Button>
             </div>
-            <Button onClick={() => onStart(pickFlashcards(available, wanted))}>
+            <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm">
+              <input type="checkbox" className="size-5 accent-(--accent)" checked={hardFirst} onChange={(e) => setHardFirst(e.target.checked)} />
+              Priorizar as que mais erro
+            </label>
+            <Button variant="secondary" onClick={start}>
               Começar com {wanted} {wanted === 1 ? 'flashcard' : 'flashcards'}
             </Button>
           </>
@@ -83,7 +95,9 @@ export function FlashcardRound({ cards, onExit }: { cards: Flashcard[]; onExit: 
 
   const answer = (knew: boolean) => {
     stopSpeaking();
-    if (!knew && current) setMissed([...missed, current]);
+    if (!current) return;
+    attempt(recordPractice(current.itemKey, knew));
+    if (!knew) setMissed([...missed, current]);
     setFlipped(false);
     setIndex(index + 1);
   };
@@ -91,7 +105,7 @@ export function FlashcardRound({ cards, onExit }: { cards: Flashcard[]; onExit: 
   if (!current) {
     const knew = deck.length - missed.length;
     return (
-      <Card>
+      <Card className="mx-auto max-w-2xl">
         <Eyebrow>Rodada concluída</Eyebrow>
         <p className="mt-2 text-xl">
           Você sabia {knew} de {deck.length}.
@@ -122,7 +136,7 @@ export function FlashcardRound({ cards, onExit }: { cards: Flashcard[]; onExit: 
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex items-center justify-between text-sm">
         <button type="button" onClick={onExit} className="min-h-10 font-medium text-accent">
           ← Exercícios
@@ -134,13 +148,14 @@ export function FlashcardRound({ cards, onExit }: { cards: Flashcard[]; onExit: 
 
       <Card className="text-center">
         <Eyebrow>{current.source === 'chunks' ? 'Chunk' : 'Dicionário'}</Eyebrow>
-        <p className="my-8 font-serif text-3xl leading-tight" lang="en">
+        <p className="mt-6 font-serif text-3xl leading-tight break-words" lang="en">
           {current.front}
         </p>
+        <p className="mb-4 min-h-6 text-muted">{current.phonetic}</p>
         <ListenButton text={current.front} />
 
         {flipped ? (
-          <div className="mt-6 space-y-3 border-t border-line pt-6" aria-live="polite">
+          <div className="mt-5 space-y-3 border-t border-line pt-5" aria-live="polite">
             <p className="text-xl">{current.back || 'Sem significado anotado.'}</p>
             {current.context && (
               <div>
@@ -158,7 +173,7 @@ export function FlashcardRound({ cards, onExit }: { cards: Flashcard[]; onExit: 
             </div>
           </div>
         ) : (
-          <div className="mt-6">
+          <div className="mt-5">
             <Button block onClick={() => setFlipped(true)}>
               VIRAR
             </Button>

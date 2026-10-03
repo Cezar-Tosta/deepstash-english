@@ -2,6 +2,8 @@ import Dexie, { type EntityTable } from 'dexie';
 import type {
   AIFeedback,
   BookNote,
+  PracticeStat,
+  Recording,
   Chunk,
   ChunkReview,
   ComprehensionVocab,
@@ -49,6 +51,8 @@ export class AppDB extends Dexie {
   writings!: EntityTable<WritingExercise, 'id'>;
   aiFeedback!: EntityTable<AIFeedback, 'id'>;
   bookNotes!: EntityTable<BookNote, 'id'>;
+  practiceStats!: EntityTable<PracticeStat, 'id'>;
+  recordings!: EntityTable<Recording, 'id'>;
 
   constructor(name = DB_NAME) {
     super(name);
@@ -92,6 +96,9 @@ export class AppDB extends Dexie {
 
     // v3: fechamento por livro. Só acrescenta uma tabela; nada é convertido.
     this.version(3).stores({ bookNotes: 'id' });
+
+    // v4: desempenho nos exercícios e áudios das falas. Só acrescenta tabelas.
+    this.version(4).stores({ practiceStats: 'id', recordings: 'id, createdAt' });
   }
 }
 
@@ -111,5 +118,6 @@ export const DATA_TABLES = [
   'writings',
   'aiFeedback',
   'bookNotes',
+  'practiceStats',
 ] as const;
 export type DataTableName = (typeof DATA_TABLES)[number];

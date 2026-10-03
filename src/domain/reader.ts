@@ -76,3 +76,58 @@ export function splitSentences(text: string): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
+
+// ---------- Termos conhecidos dentro do texto ----------
+
+export interface Annotation<T> {
+  /** Índices de token (inclusive) cobertos pelo termo. */
+  start: number;
+  end: number;
+  entry: T;
+}
+
+const normalizeWord = (word: string): string => word.toLowerCase().replace(/[’`]/g, "'");
+
+/** As palavras de um termo, prontas para comparar. Reticências de chunks abertos ("before you...") são ignoradas. */
+export function termWords(term: string): string[] {
+  return tokenize(term)
+    .filter((t) => t.isWord)
+    .map((t) => normalizeWord(t.text));
+}
+
+/**
+ * Localiza no texto os termos já conhecidos (dicionário e chunks), inclusive
+ * expressões de várias palavras. Quando dois termos disputam o mesmo trecho, vence
+ * o mais longo: "out of your head" tem prioridade sobre "head".
+ */
+export function annotate<T extends { term: string }>(
+  tokens: readonly Token[],
+  entries: readonly T[],
+): Annotation<T>[] {
+  const wordAt: number[] = [];
+  tokens.forEach((t, i) => {
+    if (t.isWord) wordAt.push(i);
+  });
+  const words = wordAt.map((i) => normalizeWord(tokens[i]?.text ?? ''));
+
+  const candidates = entries
+    .map((entry) => ({ entry, words: termWords(entry.term) }))
+    .filter((c) => c.words.length > 0)
+    .sort((a, b) => b.words.length - a.words.length);
+
+  const taken = Array.from({ length: words.length }, () => false);
+  const found: Annotation<T>[] = [];
+  for (const candidate of candidates) {
+    const size = candidate.words.length;
+    for (let i = 0; i + size <= words.length; i += 1) {
+      let fits = true;
+      for (let k = 0; k < size && fits; k += 1) {
+        fits = !taken[i + k] && words[i + k] === candidate.words[k];
+      }
+      if (!fits) continue;
+      for (let k = 0; k < size; k += 1) taken[i + k] = true;
+      found.push({ start: wordAt[i] ?? 0, end: wordAt[i + size - 1] ?? 0, entry: candidate.entry });
+    }
+  }
+  return found.sort((a, b) => a.start - b.start);
+}

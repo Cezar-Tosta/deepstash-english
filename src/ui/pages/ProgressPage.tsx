@@ -6,6 +6,7 @@ import { MAX_CHUNKS_PER_DAY } from '../../domain/session';
 import { totals, weeklyHistory, type WeekStats, weekStats } from '../../domain/stats';
 import { loadStatsInput } from '../../services/library';
 import { BarChart, type BarDatum } from '../components/BarChart';
+import { ResetWeek } from '../components/Maintenance';
 import { Button, Card, Eyebrow, PageTitle } from '../components/ui';
 import { useToday } from '../hooks';
 
@@ -17,7 +18,7 @@ function Tile({ label, value, goal }: { label: string; value: string; goal?: str
   return (
     <div className="rounded-2xl border border-line bg-surface p-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">{label}</p>
-      <p className="mt-1 text-3xl font-semibold tabular-nums">
+      <p className="mt-1 text-2xl font-semibold tabular-nums">
         {value}
         {goal && <span className="text-base font-normal text-muted">/{goal}</span>}
       </p>
@@ -50,12 +51,12 @@ export function ProgressPage() {
   const all = totals(input);
 
   return (
-    <div className="space-y-6">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       <PageTitle eyebrow="Progress" title="Sua semana">
         A meta é consistência, não perfeição.
       </PageTitle>
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="col-span-full flex items-center justify-between gap-2">
         <Button small variant="secondary" aria-label="Semana anterior" onClick={() => setWeekStart(addDays(weekStart, -7))}>
           ←
         </Button>
@@ -68,7 +69,7 @@ export function ProgressPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="col-span-full grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Tile label="Ideas read" value={String(week.ideasRead)} />
         <Tile label="Ideas studied" value={String(week.ideasStudied)} goal="7" />
         <Tile label="Chunks" value={String(week.chunksCreated)} goal={String(MAX_CHUNKS_PER_DAY * 7)} />
@@ -117,11 +118,39 @@ export function ProgressPage() {
             </li>
           ))}
         </ul>
+        <div className="mt-3 border-t border-line pt-3">
+          <ResetWeek weekStart={weekStart} />
+        </div>
       </Card>
 
-      <section className="space-y-3">
+      <Card>
+        <Eyebrow>Desde o início</Eyebrow>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+          {(
+            [
+              ['Ideias lidas', all.ideasRead],
+              ['Cards lidos', all.cardsRead],
+              ['Ideias aprofundadas', all.ideasStudied],
+              ['Chunks criados', all.chunksCreated],
+              ['Chunks aprendidos', all.chunksLearned],
+              ['Revisões concluídas', all.reviewsDone],
+              ['Taxa de recuperação', percent(all.recallRate)],
+              ['Tempo de speaking (min:s)', formatDuration(all.speakingSec)],
+              ['Dias estudados', all.studyDays],
+              ['Semanas completas', all.completeWeeks],
+            ] as const
+          ).map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-muted">{label}</dt>
+              <dd className="text-lg font-semibold tabular-nums">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
+
+      <section className="col-span-full space-y-3">
         <Eyebrow>Evolução · últimas {HISTORY_WEEKS} semanas</Eyebrow>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <BarChart title="Ideias lidas por semana" data={series(history, (w) => w.ideasRead, '')} />
           <BarChart title="Chunks novos por semana" data={series(history, (w) => w.chunksCreated, '')} />
           <BarChart title="Revisões concluídas por semana" data={series(history, (w) => w.reviewsDone, '')} />
@@ -159,30 +188,6 @@ export function ProgressPage() {
         </details>
       </section>
 
-      <Card>
-        <Eyebrow>Desde o início</Eyebrow>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          {(
-            [
-              ['Ideias lidas', all.ideasRead],
-              ['Cards lidos', all.cardsRead],
-              ['Ideias aprofundadas', all.ideasStudied],
-              ['Chunks criados', all.chunksCreated],
-              ['Chunks aprendidos', all.chunksLearned],
-              ['Revisões concluídas', all.reviewsDone],
-              ['Taxa de recuperação', percent(all.recallRate)],
-              ['Tempo de speaking (min:s)', formatDuration(all.speakingSec)],
-              ['Dias estudados', all.studyDays],
-              ['Semanas completas', all.completeWeeks],
-            ] as const
-          ).map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-muted">{label}</dt>
-              <dd className="text-lg font-semibold tabular-nums">{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </Card>
     </div>
   );
 }

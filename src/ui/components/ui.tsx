@@ -51,13 +51,13 @@ export function Button({ variant = 'primary', block, small, className, ...props 
 
 export function Card({ children, className }: { children: ReactNode; className?: string | undefined }) {
   return (
-    <section className={cx('rounded-2xl border border-line bg-surface p-5', className)}>{children}</section>
+    <section className={cx('rounded-2xl border border-line bg-surface p-4', className)}>{children}</section>
   );
 }
 
 export function PageTitle({ eyebrow, title, children }: { eyebrow?: string | undefined; title: string; children?: ReactNode }) {
   return (
-    <header className="mb-6">
+    <header className="col-span-full mb-1">
       {eyebrow && <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{eyebrow}</p>}
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">{title}</h1>
       {children && <div className="mt-2 text-sm text-muted">{children}</div>}

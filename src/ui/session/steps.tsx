@@ -9,6 +9,7 @@ import { looksLikeSingleWord, MAX_CHUNKS_PER_DAY } from '../../domain/session';
 import { scheduler } from '../../domain/srs';
 import type { StepId } from '../../domain/types';
 import { ChunkLimitError } from '../../services/errors';
+import { saveRecording } from '../../services/maintenance';
 import { getUpcoming } from '../../services/reviews';
 import {
   addCards,
@@ -36,6 +37,8 @@ import {
 } from '../../services/sessions';
 import { AIFeedbackPanel } from '../components/AIFeedbackPanel';
 import { RecordingPlayer } from '../components/Listen';
+import { GlossedParagraph } from '../components/Reader';
+import { IdeaImport } from '../components/IdeaImport';
 import { ReviewFlow } from '../components/ReviewFlow';
 import { Timer } from '../components/Timer';
 import {
@@ -212,6 +215,9 @@ export function ReadStep({ bundle }: StepProps) {
   const { session, ideas } = bundle;
   const [title, setTitle] = useState('');
   const [book, setBook] = useState<string | null>(null);
+  /** Cards trazidos pela importação, esperando o usuário confirmar a ideia. */
+  const [cards, setCards] = useState<string[]>([]);
+  const [importing, setImporting] = useState(false);
   const remembered = useLiveQuery(lastBookTitle, [ideas.length]);
 
   // Sugere o livro da última ideia registrada, até o usuário digitar outro.
@@ -222,7 +228,12 @@ export function ReadStep({ bundle }: StepProps) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    attempt(addIdea(session.id, { title, bookTitle: book ?? '' }).then(() => setTitle('')));
+    attempt(
+      addIdea(session.id, { title, bookTitle: book ?? '', cards }).then(() => {
+        setTitle('');
+        setCards([]);
+      }),
+    );
   };
 
   const totalCards = ideas.reduce((sum, i) => sum + i.cards.length, 0);
@@ -268,9 +279,41 @@ export function ReadStep({ bundle }: StepProps) {
           placeholder="Thought Into Action"
           autoComplete="off"
         />
+        {cards.length > 0 && (
+          <div className="rounded-xl bg-accent-soft px-3 py-2 text-sm">
+            <p className="font-medium">{cardCount(cards.length)} prontos para entrar com esta ideia</p>
+            <ol className="mt-1 list-inside list-decimal space-y-1 text-muted">
+              {cards.map((c, i) => (
+                <li key={i} className="break-words">
+                  {c.length > 90 ? `${c.slice(0, 90)}…` : c}
+                </li>
+              ))}
+            </ol>
+            <button type="button" onClick={() => setCards([])} className="mt-1 min-h-8 text-sm font-medium text-accent">
+              Descartar os cards importados
+            </button>
+          </div>
+        )}
         <Button type="submit" variant="secondary" block disabled={!title.trim()}>
-          Adicionar ideia
+          Adicionar ideia{cards.length > 0 && ` com ${cardCount(cards.length)}`}
         </Button>
+        <button
+          type="button"
+          aria-expanded={importing}
+          onClick={() => setImporting(!importing)}
+          className="min-h-10 text-sm font-medium text-accent"
+        >
+          {importing ? 'Fechar importação' : 'Importar a ideia inteira (texto colado ou screenshots)'}
+        </button>
+        {importing && (
+          <IdeaImport
+            onImported={(idea) => {
+              if (idea.title) setTitle(idea.title);
+              setCards(idea.cards);
+              setImporting(false);
+            }}
+          />
+        )}
       </form>
       <Hint>Registre quantas ideias você leu hoje; não há número certo. O texto dos cards é opcional.</Hint>
     </div>
@@ -374,9 +417,7 @@ export function CheckStep({ bundle, goTo }: StepProps) {
             {withText.map((card) => (
               <li key={card.id} className="border-l-2 border-line pl-3">
                 <p className="text-xs font-semibold text-muted">Card {card.position + 1}</p>
-                <p className="whitespace-pre-wrap font-serif leading-relaxed" lang="en">
-                  {card.content}
-                </p>
+                <GlossedParagraph text={card.content} className="whitespace-pre-wrap font-serif leading-loose" />
               </li>
             ))}
           </ol>
@@ -605,6 +646,7 @@ export function RetellStep({ bundle, goTo }: StepProps) {
     if (!id) return;
     showToast(`Fala registrada: ${formatDuration(durationSec)}`);
     if (!audio) return;
+    await saveRecording(id, audio);
     setPlayback(URL.createObjectURL(audio));
     if (!transcription) return;
     setTranscribing(true);
@@ -656,8 +698,8 @@ export function RetellStep({ bundle, goTo }: StepProps) {
         />
         <p className="mt-2 text-center text-xs text-muted">
           {transcription
-            ? 'A fala é gravada e transcrita ao terminar. O áudio não fica guardado.'
-            : 'A fala é gravada para você se ouvir. Com Groq configurada em Ajustes, ela também é transcrita.'}
+            ? 'A fala é gravada e transcrita ao terminar. O áudio fica neste navegador, para o fechamento da semana.'
+            : 'A fala é gravada e fica neste navegador, para você se ouvir. Com Groq em Ajustes, ela também é transcrita.'}
         </p>
       </Card>
 

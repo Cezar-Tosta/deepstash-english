@@ -9,6 +9,7 @@ import {
   GROQ_BASE_URL,
   GROQ_DEFAULT_MODEL,
   GROQ_TRANSCRIPTION_MODEL,
+  GROQ_VISION_MODEL,
 } from './AIProvider';
 
 export function isAIConfigured(ai: AISettings): boolean {
@@ -26,15 +27,21 @@ export async function createProvider(ai: AISettings): Promise<AIProvider | null>
   }
   const { createOpenAICompatibleProvider } = await import('./openAICompatibleProvider');
   if (ai.provider === 'groq') {
-    return createOpenAICompatibleProvider(
-      GROQ_BASE_URL,
-      ai.model.trim() || GROQ_DEFAULT_MODEL,
-      ai.apiKey.trim(),
-      'groq',
-      GROQ_TRANSCRIPTION_MODEL,
-    );
+    return createOpenAICompatibleProvider({
+      baseUrl: GROQ_BASE_URL,
+      model: ai.model.trim() || GROQ_DEFAULT_MODEL,
+      apiKey: ai.apiKey.trim(),
+      id: 'groq',
+      transcriptionModel: GROQ_TRANSCRIPTION_MODEL,
+      visionModel: ai.visionModel?.trim() || GROQ_VISION_MODEL,
+    });
   }
-  return createOpenAICompatibleProvider(ai.baseUrl, ai.model, ai.apiKey);
+  return createOpenAICompatibleProvider({
+    baseUrl: ai.baseUrl,
+    model: ai.model,
+    apiKey: ai.apiKey,
+    ...(ai.visionModel?.trim() ? { visionModel: ai.visionModel.trim() } : {}),
+  });
 }
 
 export const FEEDBACK_LABELS: Record<FeedbackKind, string> = {
@@ -166,15 +173,18 @@ export interface WordMeaning {
   meaning: string;
   /** Uma ou duas frases em português explicando o uso no contexto. */
   explanation: string;
+  /** Transcrição fonética em IPA, entre barras. Vazia se a IA não informou. */
+  phonetic: string;
 }
 
 export function buildLookupPrompt(term: string, sentence: string): { system: string; user: string } {
   return {
     system: [
       'Você é um dicionário inglês → português para um estudante brasileiro que lê resumos de livros.',
-      'Explique o termo no sentido que ele tem NA FRASE dada, não todos os sentidos possíveis.',
+      'Analise o termo dentro da frase dada: informe o sentido que ele tem ALI, não todos os sentidos possíveis.',
+      'Quando o termo tiver mais de uma palavra, analise o conjunto como uma unidade (expressão idiomática, phrasal verb, colocação), sem traduzir palavra por palavra.',
       'Responda somente com um objeto JSON, sem texto antes ou depois, neste formato:',
-      '{"meaning": "<tradução curta em português, no sentido do contexto>", "explanation": "<1 ou 2 frases em português sobre o uso nessa frase; diga se é expressão idiomática, phrasal verb ou colocação>"}',
+      '{"meaning": "<tradução curta em português, no sentido do contexto>", "phonetic": "<transcrição fonética do termo em IPA, pronúncia americana, entre barras>", "explanation": "<1 ou 2 frases em português sobre o uso nessa frase; diga a classe gramatical ou se é expressão idiomática, phrasal verb ou colocação>"}',
     ].join('\n'),
     user: `Termo: ${term}\nFrase: ${sentence}`,
   };
@@ -195,7 +205,12 @@ export function parseLookup(raw: string): WordMeaning {
     throw new AIError('A IA respondeu em um formato inesperado.');
   }
   const explanation = obj['explanation'];
-  return { meaning: meaning.trim(), explanation: typeof explanation === 'string' ? explanation.trim() : '' };
+  const phonetic = obj['phonetic'];
+  return {
+    meaning: meaning.trim(),
+    explanation: typeof explanation === 'string' ? explanation.trim() : '',
+    phonetic: typeof phonetic === 'string' ? phonetic.trim() : '',
+  };
 }
 
 /** Significado de uma palavra ou expressão dentro da frase em que ela apareceu. */

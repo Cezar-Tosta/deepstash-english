@@ -7,19 +7,66 @@ export interface StepDef {
   id: StepId;
   label: string;
   hint: string;
+  /** Com que frequência a etapa é feita. */
+  frequency: string;
+  /** Tempo sugerido, em minutos. */
+  minutes: number;
 }
 
+const DAILY = 'Todo dia';
+
 export const STEPS: readonly StepDef[] = [
-  { id: 'review', label: 'REVIEW', hint: 'Recupere antes de olhar.' },
-  { id: 'read', label: 'READ', hint: 'Leia as ideias sem traduzir primeiro.' },
-  { id: 'focus', label: 'IDEA OF THE DAY', hint: 'Escolha uma ideia para aprofundar.' },
-  { id: 'check', label: 'CHECK', hint: 'Confirme a compreensão.' },
-  { id: 'mine', label: 'MINE', hint: 'Até 3 chunks úteis.' },
-  { id: 'retell', label: 'RETELL', hint: 'Explique sem olhar.' },
-  { id: 'personalize', label: 'PERSONALIZE', hint: 'Use o inglês.' },
-  { id: 'reflect', label: 'REFLECT', hint: 'Do I agree?' },
-  { id: 'sowhat', label: 'SO WHAT?', hint: 'Transforme em ação.' },
-  { id: 'schedule', label: 'SCHEDULE REVIEW', hint: 'Agende e encerre.' },
+  { id: 'review', label: 'REVIEW', hint: 'Recupere antes de olhar.', frequency: `${DAILY}, antes de ler`, minutes: 5 },
+  { id: 'read', label: 'READ', hint: 'Leia as ideias sem traduzir primeiro.', frequency: DAILY, minutes: 8 },
+  { id: 'focus', label: 'IDEA OF THE DAY', hint: 'Escolha uma ideia para aprofundar.', frequency: DAILY, minutes: 1 },
+  { id: 'check', label: 'CHECK', hint: 'Confirme a compreensão.', frequency: DAILY, minutes: 3 },
+  { id: 'mine', label: 'MINE', hint: 'Até 3 chunks úteis.', frequency: `${DAILY}, no máximo 3 chunks`, minutes: 3 },
+  { id: 'retell', label: 'RETELL', hint: 'Explique sem olhar.', frequency: DAILY, minutes: 3 },
+  { id: 'personalize', label: 'PERSONALIZE', hint: 'Use o inglês.', frequency: DAILY, minutes: 3 },
+  { id: 'reflect', label: 'REFLECT', hint: 'Do I agree?', frequency: DAILY, minutes: 2 },
+  { id: 'sowhat', label: 'SO WHAT?', hint: 'Transforme em ação.', frequency: DAILY, minutes: 1 },
+  { id: 'schedule', label: 'SCHEDULE REVIEW', hint: 'Agende e encerre.', frequency: DAILY, minutes: 1 },
+];
+
+export interface RoutineItem {
+  activity: string;
+  frequency: string;
+  detail: string;
+}
+
+/** A rotina completa do método: o que fazer e de quanto em quanto tempo. */
+export const ROUTINE: readonly RoutineItem[] = [
+  {
+    activity: 'Sessão de estudo',
+    frequency: 'Todo dia',
+    detail: `${STEPS.reduce((sum, s) => sum + s.minutes, 0)} min: as 10 etapas, do REVIEW ao SCHEDULE REVIEW.`,
+  },
+  {
+    activity: 'Revisão de cada chunk',
+    frequency: '5 vezes',
+    detail: '1, 3, 7, 14 e 30 dias depois de aprendido (D1, D3, D7, D14, D30).',
+  },
+  {
+    activity: 'Did you do it?',
+    frequency: '3 dias depois',
+    detail: 'Cada ação do "So what?" é cobrada uma vez, na tela Today.',
+  },
+  { activity: 'Exercícios', frequency: '2 a 3 vezes por semana', detail: 'Treino curto com os termos em que você mais erra.' },
+  {
+    activity: 'Weekly review',
+    frequency: '1 vez por semana',
+    detail: 'No fim da semana: relembrar as ideias, Top 3, ouvir suas falas, fala livre e texto de 80 a 120 palavras.',
+  },
+  {
+    activity: 'Fechamento do livro',
+    frequency: 'Ao terminar cada livro',
+    detail: 'Explicar o livro em 2 minutos e escrever o que fica dele.',
+  },
+  {
+    activity: 'Ciclo de progressão',
+    frequency: 'A cada 4 semanas',
+    detail: 'A meta de fala sobe de 1 para 2 a 3 minutos e a tradução vai sendo reduzida.',
+  },
 ];
 
 export function stepIndex(id: StepId): number {

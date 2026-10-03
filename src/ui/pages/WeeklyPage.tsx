@@ -6,6 +6,7 @@ import { countWords } from '../../domain/session';
 import { weekStats } from '../../domain/stats';
 import type { Chunk } from '../../domain/types';
 import { loadStatsInput } from '../../services/library';
+import { saveRecording } from '../../services/maintenance';
 import { reactivateChunk, retireChunk } from '../../services/reviews';
 import { recordSpeaking } from '../../services/sessions';
 import {
@@ -20,6 +21,7 @@ import {
   type WeekIdea,
 } from '../../services/weekly';
 import { AIFeedbackPanel } from '../components/AIFeedbackPanel';
+import { SpokenWeek } from '../components/Maintenance';
 import { Timer } from '../components/Timer';
 import {
   AutoTextArea,
@@ -197,8 +199,9 @@ function WeeklySpeaking({ bundle, date }: { bundle: WeekBundle; date: string }) 
         <Timer
           minSec={120}
           maxSec={180}
+          record
           targetLabel="2–3 minutos sem roteiro"
-          onStop={(durationSec) =>
+          onStop={(durationSec, audio) =>
             attempt(
               recordSpeaking({
                 kind: 'weekly',
@@ -208,7 +211,7 @@ function WeeklySpeaking({ bundle, date }: { bundle: WeekBundle; date: string }) 
                 date: date >= weekStart && date <= addDays(weekStart, 6) ? date : addDays(weekStart, 6),
                 durationSec,
                 targetSec: 180,
-              }),
+              }).then((id) => (id && audio ? saveRecording(id, audio) : undefined)),
             )
           }
         />
@@ -361,7 +364,7 @@ export function WeeklyPage() {
   const done = Boolean(bundle.review.completedAt);
 
   return (
-    <div className="space-y-9">
+    <div className="mx-auto max-w-3xl space-y-8">
       <div>
         <Link to="/progress" className="mb-2 flex min-h-10 items-center text-sm font-medium text-accent">
           ← Progress
@@ -390,13 +393,16 @@ export function WeeklyPage() {
             <Hint>Não mantenha um item em revisão só para completar o calendário.</Hint>
             <VocabularyCheck chunks={bundle.chunks} date={date} />
           </Part>
-          <Part number={4} title="Speaking semanal">
+          <Part number={4} title="Minhas falas da semana">
+            <SpokenWeek weekStart={weekStart} />
+          </Part>
+          <Part number={5} title="Speaking semanal">
             <WeeklySpeaking bundle={bundle} date={date} />
           </Part>
-          <Part number={5} title="Weekly writing (opcional)">
+          <Part number={6} title="Weekly writing (opcional)">
             <WeeklyWriting bundle={bundle} />
           </Part>
-          <Part number={6} title="Balanço">
+          <Part number={7} title="Balanço">
             <Balance bundle={bundle} />
           </Part>
           <Button

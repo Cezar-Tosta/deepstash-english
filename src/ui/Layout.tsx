@@ -1,9 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { ReactNode } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
+import { ANTHROPIC_DEFAULT_MODEL, GROQ_DEFAULT_MODEL } from '../ai/AIProvider';
+import { isAIConfigured } from '../ai/feedback';
+import type { AISettings } from '../domain/types';
 import { getDueChunks } from '../services/reviews';
 import { useCloud } from '../sync/cloud';
-import { useOnline, useToday } from './hooks';
+import { useOnline, useSettings, useToday } from './hooks';
 import { dismissToast, useToast } from './toast';
 
 const icon = (paths: ReactNode) => (
@@ -19,6 +22,7 @@ const NAV = [
   { to: '/practice', label: 'PRACTICE', icon: icon(<><path d="M4 20l4-1 11-11-3-3L5 16z" /><path d="M14 6l3 3" /></>) },
   { to: '/progress', label: 'PROGRESS', icon: icon(<><path d="M4 20h16" /><path d="M7 20v-6M12 20V6M17 20v-9" /></>) },
   { to: '/settings', label: 'SETTINGS', icon: icon(<><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></>) },
+  { to: '/manual', label: 'MANUAL', icon: icon(<><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2 1-1.2 1.9" /><path d="M12 16.6v.1" /></>) },
 ] as const;
 
 function Toaster() {
@@ -39,15 +43,46 @@ function Toaster() {
   );
 }
 
+const PROVIDER_NAME = {
+  none: '',
+  groq: 'Groq',
+  anthropic: 'Anthropic',
+  'openai-compatible': 'Compatível com OpenAI',
+} as const;
+
+/** Qual IA está em uso, ou o aviso de que não há nenhuma. Leva aos Ajustes. */
+function AIStatus({ ai }: { ai: AISettings }) {
+  const active = isAIConfigured(ai);
+  const fallback =
+    ai.provider === 'groq' ? GROQ_DEFAULT_MODEL : ai.provider === 'anthropic' ? ANTHROPIC_DEFAULT_MODEL : '';
+  return (
+    <Link
+      to="/settings"
+      className="mx-3 mt-6 hidden rounded-xl border border-line px-3 py-2 text-xs hover:bg-sunken md:block"
+    >
+      <span className="block font-semibold tracking-wide text-muted">IA em uso</span>
+      {active ? (
+        <>
+          <span className="block font-medium">{PROVIDER_NAME[ai.provider]}</span>
+          <span className="block break-all text-muted">{ai.model.trim() || fallback}</span>
+        </>
+      ) : (
+        <span className="block font-medium text-warn">Não configurada</span>
+      )}
+    </Link>
+  );
+}
+
 /** Navegação inferior no celular, barra lateral no desktop. */
 export function Layout() {
   const date = useToday();
   const online = useOnline();
   const cloud = useCloud();
+  const settings = useSettings();
   const due = useLiveQuery(() => getDueChunks(date), [date])?.length ?? 0;
 
   return (
-    <div className="min-h-dvh bg-paper text-ink md:flex">
+    <div className="min-h-dvh overflow-x-clip bg-paper text-ink md:flex">
       <nav
         aria-label="Principal"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:static md:w-56 md:shrink-0 md:border-t-0 md:border-r md:pb-0"
@@ -59,12 +94,12 @@ export function Layout() {
         </p>
         <ul className="flex md:flex-col md:gap-1 md:px-3">
           {NAV.map((item) => (
-            <li key={item.to} className="flex-1 md:flex-none">
+            <li key={item.to} className="min-w-0 flex-1 md:flex-none">
               <NavLink
                 to={item.to}
                 end={item.to === '/'}
                 className={({ isActive }) =>
-                  `relative flex min-h-16 flex-col items-center justify-center gap-1 text-[9px] font-semibold tracking-wide transition-colors md:min-h-12 md:flex-row md:justify-start md:gap-3 md:rounded-xl md:px-3 md:text-xs ${
+                  `relative flex min-h-16 flex-col items-center justify-center gap-1 text-[8px] font-semibold tracking-normal min-[400px]:text-[9px] transition-colors md:min-h-12 md:flex-row md:justify-start md:gap-3 md:rounded-xl md:px-3 md:text-xs ${
                     isActive ? 'text-accent md:bg-accent-soft' : 'text-muted hover:text-ink'
                   }`
                 }
@@ -83,9 +118,10 @@ export function Layout() {
             </li>
           ))}
         </ul>
+        {settings && <AIStatus ai={settings.ai} />}
       </nav>
 
-      <main className="mx-auto w-full max-w-2xl px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-28 md:px-8 md:pt-10 md:pb-16">
+      <main className="mx-auto w-full max-w-6xl min-w-0 px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-28 md:px-8 md:pt-8 md:pb-12">
         {!online && (
           <p role="status" className="mb-4 rounded-xl bg-sunken px-4 py-2 text-sm text-muted">
             Sem conexão. Tudo continua funcionando e sendo salvo neste navegador.
@@ -95,6 +131,11 @@ export function Layout() {
           <p role="alert" className="mb-4 rounded-xl bg-sunken px-4 py-2 text-sm text-danger">
             {cloud.error}
           </p>
+        )}
+        {settings && (
+          <Link to="/settings" className="mb-3 block text-right text-xs text-muted md:hidden">
+            IA: {isAIConfigured(settings.ai) ? PROVIDER_NAME[settings.ai.provider] : 'não configurada'}
+          </Link>
         )}
         <Outlet />
       </main>

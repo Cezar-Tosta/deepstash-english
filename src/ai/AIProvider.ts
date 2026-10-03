@@ -1,3 +1,9 @@
+/** Uma imagem (screenshot de card) já codificada para envio. */
+export interface ImageInput {
+  mediaType: string;
+  base64: string;
+}
+
 export interface AIRequest {
   system: string;
   user: string;
@@ -14,6 +20,8 @@ export interface AIProvider {
   complete(request: AIRequest): Promise<string>;
   /** Transcreve uma gravação em inglês. Só existe nos provedores que oferecem esse serviço. */
   transcribe?(audio: Blob): Promise<string>;
+  /** Responde ao pedido olhando as imagens. Só existe nos provedores com modelo de visão. */
+  readImages?(prompt: string, images: ImageInput[]): Promise<string>;
 }
 
 export class AIError extends Error {
@@ -28,3 +36,5 @@ export const GROQ_BASE_URL = 'https://api.groq.com/openai/v1';
 export const GROQ_DEFAULT_MODEL = 'llama-3.3-70b-versatile';
 export const GROQ_TRANSCRIPTION_MODEL = 'whisper-large-v3-turbo';
 export const OPENAI_TRANSCRIPTION_MODEL = 'whisper-1';
+/** Modelo da Groq que aceita imagens. A Groq troca de modelos com frequência; é editável em Ajustes. */
+export const GROQ_VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';

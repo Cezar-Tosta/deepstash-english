@@ -9,6 +9,7 @@ import { Layout } from './ui/Layout';
 import { IdeaDetailPage } from './ui/pages/IdeaDetailPage';
 import { BookPage } from './ui/pages/BookPage';
 import { KnowledgePage } from './ui/pages/KnowledgePage';
+import { ManualPage } from './ui/pages/ManualPage';
 import { PracticePage } from './ui/pages/PracticePage';
 import { ProgressPage } from './ui/pages/ProgressPage';
 import { ReviewPage } from './ui/pages/ReviewPage';
@@ -65,6 +66,7 @@ function App() {
           <Route path="progress" element={<ProgressPage />} />
           <Route path="weekly/:weekStart?" element={<WeeklyPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="manual" element={<ManualPage />} />
           <Route path="*" element={<TodayPage />} />
         </Route>
       </Routes>

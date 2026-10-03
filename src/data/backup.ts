@@ -119,7 +119,7 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
 
 /** Apaga os dados de estudo deste navegador (usado ao sair da conta). */
 export async function clearLocalData(): Promise<void> {
-  const tables = [db.settings, ...DATA_TABLES.map((name) => db.table(name))];
+  const tables = [db.settings, db.recordings, ...DATA_TABLES.map((name) => db.table(name))];
   await db.transaction('rw', tables, async () => {
     await Promise.all(tables.map((table) => table.clear()));
   });

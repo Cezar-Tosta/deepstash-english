@@ -9,6 +9,7 @@ import { MAX_CHUNKS_PER_DAY, sessionProgress } from '../../domain/session';
 import { getDueChunks } from '../../services/reviews';
 import { getPendingActions } from '../../services/study';
 import { ActionFollowUp } from '../components/ActionFollowUp';
+import { Routine } from '../components/Maintenance';
 import { loadSessionBundle, startSession } from '../../services/sessions';
 import { Button, Card, Eyebrow, PageTitle, ProgressBar } from '../components/ui';
 import { useSettings, useToday } from '../hooks';
@@ -63,7 +64,7 @@ export function TodayPage() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       <PageTitle eyebrow="Today" title={formatDate(date, 'long')}>
         Semana {week} do ciclo · {plan.focus}
       </PageTitle>
@@ -77,6 +78,9 @@ export function TodayPage() {
             <strong>3 expressões</strong> úteis e faça <strong>1 explicação</strong> em voz alta. Cerca de 30 minutos
             por dia.
           </p>
+          <Link to="/manual" className="mt-2 inline-flex min-h-10 items-center font-medium text-accent underline underline-offset-2">
+            Ler o manual: a sequência completa de estudos →
+          </Link>
         </Card>
       )}
 
@@ -116,9 +120,10 @@ export function TodayPage() {
       </Card>
 
       <ActionFollowUp actions={actions ?? []} />
+      <Routine />
 
       {totalSessions > 0 && (
-        <Link to={`/weekly/${startOfWeek(date)}`} className="block rounded-2xl border border-line bg-surface p-5 hover:bg-sunken">
+        <Link to={`/weekly/${startOfWeek(date)}`} className="block rounded-2xl border border-line bg-surface p-4 hover:bg-sunken">
           <Eyebrow>Weekly review</Eyebrow>
           <p className="mt-1">Fechamento da semana: relembrar as Ideas of the Day, Top 3 ideias e escrita curta.</p>
         </Link>

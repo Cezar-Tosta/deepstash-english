@@ -52,12 +52,12 @@ function BookList({ query }: { query: string }) {
           {!q && 'Os livros aparecem aqui conforme você registra as ideias lidas em cada sessão.'}
         </EmptyState>
       )}
-      <ul className="space-y-3">
+      <ul className="grid items-start gap-3 lg:grid-cols-2">
         {shown?.map((book) => (
           <li key={book.key}>
             <Link
               to={`/knowledge/book/${encodeURIComponent(book.key)}`}
-              className="block rounded-2xl border border-line bg-surface p-5 hover:bg-sunken"
+              className="block rounded-2xl border border-line bg-surface p-4 hover:bg-sunken"
             >
               <p className="font-serif text-xl leading-snug">{book.title}</p>
               <p className="mt-1 text-sm text-muted">
@@ -94,10 +94,10 @@ function IdeaList({ query }: { query: string }) {
           {query ? 'Tente outra palavra, livro, tema ou data.' : 'As ideias registradas nas sessões aparecem aqui.'}
         </EmptyState>
       )}
-      <ul className="space-y-3">
+      <ul className="grid items-start gap-3 lg:grid-cols-2">
         {items?.map(({ idea, isIdeaOfDay, cardCount, chunks }) => (
           <li key={idea.id}>
-            <Link to={`/knowledge/idea/${idea.id}`} className="block rounded-2xl border border-line bg-surface p-5 hover:bg-sunken">
+            <Link to={`/knowledge/idea/${idea.id}`} className="block rounded-2xl border border-line bg-surface p-4 hover:bg-sunken">
               <p className="text-xs text-muted">
                 {formatDate(idea.date, 'medium')}
                 {idea.bookTitle && ` · ${idea.bookTitle}`}
@@ -132,7 +132,7 @@ function ChunkList({ query }: { query: string }) {
           {query || filter !== 'all' ? 'Mude o filtro ou a busca.' : 'Os chunks que você escolher nas sessões aparecem aqui.'}
         </EmptyState>
       )}
-      <ul className="space-y-3">
+      <ul className="grid items-start gap-3 lg:grid-cols-2">
         {items?.map((item) => (
           <ChunkItem key={item.chunk.id} item={item} date={date} />
         ))}
@@ -151,14 +151,15 @@ function DictionaryList({ query }: { query: string }) {
         </EmptyState>
       )}
       {items && items.length > 0 && <ListenSettings />}
-      <ul className="space-y-3">
+      <ul className="grid items-start gap-3 lg:grid-cols-2">
         {items?.map(({ entry, idea }) => (
-          <li key={entry.id} className="rounded-2xl border border-line bg-surface p-5">
+          <li key={entry.id} className="rounded-2xl border border-line bg-surface p-4">
             <div className="flex items-start justify-between gap-3">
               <p>
                 <span className="font-serif text-lg" lang="en">
                   {entry.term}
                 </span>
+                {entry.phonetic && <span className="ml-2 text-xs text-muted">{entry.phonetic}</span>}
                 {entry.meaning && <span className="text-muted"> — {entry.meaning}</span>}
               </p>
               <div className="flex shrink-0 items-center gap-3">
@@ -196,7 +197,7 @@ export function KnowledgePage() {
   const [query, setQuery] = useState('');
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <PageTitle eyebrow="Knowledge" title="Biblioteca" />
       <Segmented
         label="Biblioteca"

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildLookupPrompt, canTranscribe, parseLookup } from '../ai/feedback';
 import { AIError } from '../ai/AIProvider';
 import { db } from '../data/db';
-import { addIdea, saveReflection, startSession } from './sessions';
+import { addChunk, addIdea, saveReflection, startSession } from './sessions';
 import {
   addToDictionary,
   findInDictionary,
@@ -10,6 +10,7 @@ import {
   getNeighbors,
   getPendingActions,
   listBooks,
+  loadGlossary,
   saveBookNote,
   saveFollowUp,
   searchDictionary,
@@ -98,12 +99,47 @@ describe('dicionário', () => {
     expect(await db.chunks.count()).toBe(0);
   });
 
-  it('adicionar o mesmo termo de novo atualiza em vez de duplicar', async () => {
+  it('o mesmo termo na mesma frase atualiza; em outra frase vira outro sentido', async () => {
     const { a } = await seed();
-    await addToDictionary({ ideaId: a.id, term: 'cue', meaning: 'deixa' });
-    await addToDictionary({ ideaId: a.id, term: 'Cue', meaning: 'gatilho' });
-    expect(await db.vocab.count()).toBe(1);
-    expect((await findInDictionary('CUE'))?.meaning).toBe('gatilho');
+    await addToDictionary({ ideaId: a.id, term: 'cue', meaning: 'deixa', context: 'Wait for your cue.' });
+    await addToDictionary({ ideaId: a.id, term: 'Cue', meaning: 'deixa (teatro)', context: 'Wait for your cue.' });
+    await addToDictionary({ ideaId: a.id, term: 'cue', meaning: 'gatilho', context: 'Every habit starts with a cue.' });
+
+    expect(await db.vocab.count()).toBe(2);
+    expect((await findInDictionary('CUE', 'Wait for your cue.'))?.meaning).toBe('deixa (teatro)');
+    expect(await findInDictionary('cue', 'A frase nova, nunca consultada.')).toBeNull();
+  });
+
+  it('lista em ordem alfabética, sem depender de maiúsculas', async () => {
+    const { a } = await seed();
+    for (const term of ['rut', 'Cue', 'ability', 'habit']) await addToDictionary({ ideaId: a.id, term, meaning: 'x' });
+    expect((await searchDictionary('')).map((i) => i.entry.term)).toEqual(['ability', 'Cue', 'habit', 'rut']);
+  });
+
+  it('guarda a transcrição fonética', async () => {
+    const { a } = await seed();
+    await addToDictionary({ ideaId: a.id, term: 'cue', meaning: 'gatilho', phonetic: '/kjuː/' });
+    expect((await searchDictionary('cue'))[0]?.entry.phonetic).toBe('/kjuː/');
+  });
+});
+
+describe('glossário para sublinhar nos textos', () => {
+  it('reúne dicionário e chunks de todas as ideias, agrupando os sentidos de um mesmo termo', async () => {
+    const { day1, a, c } = await seed();
+    await addToDictionary({ ideaId: a.id, term: 'cue', meaning: 'gatilho', context: 'Every habit starts with a cue.' });
+    await addToDictionary({ ideaId: c.id, term: 'Cue', meaning: 'deixa', context: 'Wait for your cue.' });
+    await addToDictionary({ ideaId: a.id, term: 'grit', meaning: '' });
+    const chunk = await addChunk(day1.id, { text: 'before you...', meaning: 'antes de você' });
+
+    const glossary = await loadGlossary();
+    // A grafia e a ordem dos sentidos seguem a ordem de leitura do banco, que não é fixa.
+    expect(glossary.map((g) => g.term.toLowerCase())).toEqual(['before you', 'cue']);
+    expect(glossary[1]?.senses.map((s) => [s.meaning, s.context]).sort()).toEqual([
+      ['deixa', 'Wait for your cue.'],
+      ['gatilho', 'Every habit starts with a cue.'],
+    ]);
+    expect(glossary[0]?.senses[0]).toMatchObject({ source: 'chunk', meaning: 'antes de você' });
+    expect(chunk.text).toBe('before you...');
   });
 });
 
@@ -113,12 +149,22 @@ describe('IA: significado e transcrição', () => {
     expect(prompt.user).toBe('Termo: cue\nFrase: Every habit starts with a cue.');
   });
 
-  it('lê a resposta do dicionário e recusa formato inesperado', () => {
-    expect(parseLookup('```json\n{"meaning": "gatilho", "explanation": "Sinal que dispara o hábito."}\n```')).toEqual({
+  it('lê significado, fonética e explicação, e recusa formato inesperado', () => {
+    const raw = JSON.stringify({ meaning: 'gatilho', phonetic: '/kjuː/', explanation: 'Sinal que dispara o hábito.' });
+    expect(parseLookup(`Claro! ${raw}`)).toEqual({
       meaning: 'gatilho',
       explanation: 'Sinal que dispara o hábito.',
+      phonetic: '/kjuː/',
     });
+    expect(parseLookup('{"meaning": "gatilho"}').phonetic).toBe('');
     expect(() => parseLookup('não sei')).toThrow(AIError);
+  });
+
+  it('pede análise no contexto e do conjunto de palavras como unidade', () => {
+    const { system } = buildLookupPrompt('out of your head', 'Keep it out of your head.');
+    expect(system).toContain('dentro da frase');
+    expect(system).toContain('como uma unidade');
+    expect(system).toContain('IPA');
   });
 
   it('transcrição só com Groq ou serviço compatível com OpenAI', () => {

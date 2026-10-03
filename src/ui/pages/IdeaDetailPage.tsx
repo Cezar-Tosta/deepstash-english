@@ -50,7 +50,7 @@ export function IdeaDetailPage() {
   const withText = cards.filter((c) => c.content.trim());
 
   return (
-    <article className="space-y-7">
+    <article className="space-y-5">
       <header>
         {back}
         <p className="text-sm text-muted">
@@ -70,6 +70,7 @@ export function IdeaDetailPage() {
         {isIdeaOfDay && <p className="mt-2 text-xs font-semibold tracking-wide text-accent">⭐ IDEA OF THE DAY</p>}
       </header>
 
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <Section title={`Cards da ideia (${cards.length})`}>
         {withText.length === 0 ? (
           <p className="text-muted">
@@ -80,6 +81,7 @@ export function IdeaDetailPage() {
         )}
       </Section>
 
+      <div className="space-y-5">
       <Section title="Main idea">
         {idea.mainIdea ? <p className="font-serif text-lg" lang="en">{idea.mainIdea}</p> : none}
       </Section>
@@ -94,6 +96,7 @@ export function IdeaDetailPage() {
                 {vocab.map((v) => (
                   <li key={v.id}>
                     <span className="font-serif" lang="en">{v.term}</span>
+                    {v.phonetic && <span className="ml-2 text-xs text-muted">{v.phonetic}</span>}
                     {v.meaning && <span className="text-muted"> — {v.meaning}</span>}
                   </li>
                 ))}
@@ -166,6 +169,9 @@ export function IdeaDetailPage() {
           )}
         </Section>
       )}
+
+      </div>
+      </div>
 
       {(neighbors?.prev || neighbors?.next) && (
         <nav aria-label="Ideias do mesmo livro" className="flex justify-between gap-3 border-t border-line pt-4 text-sm">

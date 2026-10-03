@@ -10,7 +10,7 @@ export function ReviewPage() {
   const upcoming = useLiveQuery(() => getUpcoming(date, 30), [date]);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-2xl space-y-5">
       <PageTitle eyebrow="Review" title="Revisões de hoje">
         Primeiro tente lembrar. A resposta só aparece depois.
       </PageTitle>

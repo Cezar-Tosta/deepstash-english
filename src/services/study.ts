@@ -100,11 +100,22 @@ export interface DictionaryInput {
   meaning: string;
   context?: string | undefined;
   explanation?: string | undefined;
+  phonetic?: string | undefined;
 }
+
+const sameText = (a: string | undefined, b: string | undefined): boolean =>
+  (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+
+/** Ordem alfabética ignorando maiúsculas e acentos. */
+export const byTerm = (a: { term: string }, b: { term: string }): number =>
+  a.term.localeCompare(b.term, 'en', { sensitivity: 'base' });
 
 /**
  * O dicionário é o vocabulário de compreensão: guarda o que foi consultado, com o
  * contexto, mas não entra na repetição espaçada (isso é papel dos chunks).
+ *
+ * A mesma palavra pode ter sentidos diferentes em frases diferentes, então cada
+ * par termo + frase é uma entrada própria. Repetir o mesmo par atualiza a entrada.
  */
 export function addToDictionary(input: DictionaryInput): Promise<ComprehensionVocab> {
   return db.transaction('rw', db.vocab, db.ideas, async () => {
@@ -114,7 +125,7 @@ export function addToDictionary(input: DictionaryInput): Promise<ComprehensionVo
     if (!idea) throw new DomainError('Ideia não encontrada.');
 
     const existing = (await db.vocab.where('ideaId').equals(idea.id).toArray()).find(
-      (v) => v.term.toLowerCase() === term.toLowerCase(),
+      (v) => sameText(v.term, term) && sameText(v.context, input.context),
     );
     const entry: ComprehensionVocab = {
       id: existing?.id ?? newId(),
@@ -124,6 +135,7 @@ export function addToDictionary(input: DictionaryInput): Promise<ComprehensionVo
       meaning: input.meaning.trim(),
       ...(input.context?.trim() ? { context: input.context.trim() } : {}),
       ...(input.explanation?.trim() ? { explanation: input.explanation.trim() } : {}),
+      ...(input.phonetic?.trim() ? { phonetic: input.phonetic.trim() } : {}),
       createdAt: existing?.createdAt ?? nowISO(),
     };
     await db.vocab.put(entry);
@@ -131,11 +143,13 @@ export function addToDictionary(input: DictionaryInput): Promise<ComprehensionVo
   });
 }
 
-/** Entrada já salva para este termo, em qualquer ideia: evita consultar a IA de novo. */
-export async function findInDictionary(term: string): Promise<ComprehensionVocab | null> {
-  const wanted = term.trim().toLowerCase();
+/**
+ * Entrada já salva para este termo nesta mesma frase. Em outra frase o sentido pode
+ * ser outro, então a análise é refeita no novo contexto.
+ */
+export async function findInDictionary(term: string, context: string): Promise<ComprehensionVocab | null> {
   const all = await db.vocab.toArray();
-  return all.find((v) => v.term.toLowerCase() === wanted && v.meaning) ?? null;
+  return all.find((v) => sameText(v.term, term) && sameText(v.context, context) && v.meaning) ?? null;
 }
 
 export interface DictionaryItem {
@@ -143,23 +157,77 @@ export interface DictionaryItem {
   idea: Idea | null;
 }
 
+/** Em ordem alfabética. */
 export async function searchDictionary(query: string): Promise<DictionaryItem[]> {
   const [entries, ideas] = await Promise.all([db.vocab.toArray(), db.ideas.toArray()]);
   const ideasById = new Map(ideas.map((i) => [i.id, i]));
   const q = query.trim().toLowerCase();
   return entries
     .filter((e) => !q || `${e.term} ${e.meaning} ${e.context ?? ''}`.toLowerCase().includes(q))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .sort(byTerm)
     .map((entry) => ({ entry, idea: ideasById.get(entry.ideaId) ?? null }));
+}
+
+// ---------- Glossário: o que já é conhecido, para sublinhar nos textos ----------
+
+export interface Sense {
+  meaning: string;
+  phonetic: string;
+  explanation: string;
+  /** Frase em que este sentido foi registrado. */
+  context: string;
+  source: 'dictionary' | 'chunk';
+}
+
+export interface GlossaryEntry {
+  term: string;
+  /** Um termo pode ter sido registrado em mais de uma frase, com sentidos diferentes. */
+  senses: Sense[];
+}
+
+/** Dicionário e chunks de todas as ideias, agrupados por termo. */
+export async function loadGlossary(): Promise<GlossaryEntry[]> {
+  const [vocab, chunks] = await Promise.all([db.vocab.toArray(), db.chunks.toArray()]);
+  const byKey = new Map<string, GlossaryEntry>();
+  const add = (term: string, sense: Sense) => {
+    const clean = term.replace(/[.…]+$/, '').trim();
+    if (!clean || !sense.meaning) return;
+    const key = clean.toLowerCase();
+    const entry = byKey.get(key) ?? { term: clean, senses: [] };
+    if (!entry.senses.some((s) => sameText(s.meaning, sense.meaning) && sameText(s.context, sense.context))) {
+      entry.senses.push(sense);
+    }
+    byKey.set(key, entry);
+  };
+  for (const v of vocab) {
+    add(v.term, {
+      meaning: v.meaning.trim(),
+      phonetic: v.phonetic ?? '',
+      explanation: v.explanation ?? '',
+      context: v.context ?? '',
+      source: 'dictionary',
+    });
+  }
+  for (const c of chunks) {
+    add(c.text, {
+      meaning: c.meaning.trim(),
+      phonetic: '',
+      explanation: '',
+      context: c.originalSentence,
+      source: 'chunk',
+    });
+  }
+  return [...byKey.values()].sort(byTerm);
 }
 
 // ---------- Exercícios ----------
 
 export async function loadPracticeMaterial(): Promise<PracticeMaterial> {
-  const [vocab, chunks, cards] = await Promise.all([
+  const [vocab, chunks, stats, reviews] = await Promise.all([
     db.vocab.toArray(),
     db.chunks.toArray(),
-    db.cards.toArray(),
+    db.practiceStats.toArray(),
+    db.reviews.toArray(),
   ]);
-  return { vocab, chunks, cards };
+  return { vocab, chunks, stats, reviews };
 }

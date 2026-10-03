@@ -118,7 +118,7 @@ export async function getIdeaDetail(ideaId: string): Promise<IdeaDetail | null> 
     cards,
     session,
     isIdeaOfDay,
-    vocab,
+    vocab: vocab.sort((a, b) => a.term.localeCompare(b.term, 'en', { sensitivity: 'base' })),
     chunks: await Promise.all(chunks.map((c) => withHistory(c, idea))),
     speaking,
     reflection: reflection ?? null,

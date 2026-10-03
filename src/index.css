@@ -56,6 +56,17 @@
   --chart: #0e8aa8;
 }
 
+/* Nada pode empurrar a página para os lados: textos longos quebram em vez de vazar. */
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+main {
+  overflow-wrap: break-word;
+}
+
 html {
   background: var(--paper);
   -webkit-text-size-adjust: 100%;

@@ -1,5 +1,5 @@
 import { type ChangeEvent, useEffect, useRef, useState } from 'react';
-import { ANTHROPIC_DEFAULT_MODEL, GROQ_DEFAULT_MODEL } from '../../ai/AIProvider';
+import { ANTHROPIC_DEFAULT_MODEL, GROQ_DEFAULT_MODEL, GROQ_VISION_MODEL } from '../../ai/AIProvider';
 import { isAIConfigured } from '../../ai/feedback';
 import { backupCounts, BackupError, type BackupFile, exportBackup, parseBackup, restoreBackup } from '../../data/backup';
 import { cyclePosition, weekPlan } from '../../domain/cycle';
@@ -9,6 +9,7 @@ import { errorMessage } from '../../services/errors';
 import { useCloud } from '../../sync/cloud';
 import { markBackupDone, restartCycle, setAISettings, setTheme } from '../../services/settings';
 import { AccountSection } from '../components/AccountSection';
+import { DataSection } from '../components/Maintenance';
 import { Button, Card, Eyebrow, Hint, Notice, PageTitle, Segmented, TextInput } from '../components/ui';
 import { useSettings, useToday } from '../hooks';
 import { attempt, showToast } from '../toast';
@@ -155,7 +156,7 @@ function AISection({ saved }: { saved: AISettings }) {
         clicar nos cards e, com a Groq, transcreve o seu retelling. Nunca responde no seu lugar.
       </Hint>
       <div className="mt-4 space-y-4">
-        <Segmented label="Provedor de IA" value={draft.provider} options={PROVIDERS} onChange={(provider) => patch({ ...(provider === draft.provider ? {} : { model: '', apiKey: '', baseUrl: '' }), provider })} />
+        <Segmented label="Provedor de IA" value={draft.provider} options={PROVIDERS} onChange={(provider) => patch({ ...(provider === draft.provider ? {} : { model: '', apiKey: '', baseUrl: '', visionModel: '' }), provider })} />
 
         {draft.provider === 'anthropic' && (
           <>
@@ -172,6 +173,13 @@ function AISection({ saved }: { saved: AISettings }) {
           <>
             <TextInput label="Chave de API da Groq" type="password" autoComplete="off" value={draft.apiKey} onChange={(apiKey) => patch({ apiKey })} placeholder="gsk_…" />
             <TextInput label="Modelo" autoComplete="off" value={draft.model} onChange={(model) => patch({ model })} placeholder={GROQ_DEFAULT_MODEL} />
+            <TextInput
+              label="Modelo de visão (para ler screenshots de cards)"
+              autoComplete="off"
+              value={draft.visionModel ?? ''}
+              onChange={(visionModel) => patch({ visionModel })}
+              placeholder={GROQ_VISION_MODEL}
+            />
             <Hint>
               Crie a chave em console.groq.com/keys. Sem modelo informado, usa {GROQ_DEFAULT_MODEL}; se a Groq o
               desativar, informe aqui outro da lista em console.groq.com/docs/models.
@@ -260,7 +268,7 @@ export function SettingsPage() {
   const plan = weekPlan(week);
 
   return (
-    <div className="space-y-5">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       <PageTitle eyebrow="Settings" title="Ajustes" />
 
       <Card>
@@ -310,9 +318,10 @@ export function SettingsPage() {
       <AccountSection />
       <BackupSection lastBackupAt={settings.lastBackupAt} />
       <AISection saved={settings.ai} />
+      <DataSection />
       {!cloud.enabled && <StorageSection />}
 
-      <p className="text-center text-xs text-muted">Deepstash English Study System · v{__APP_VERSION__}</p>
+      <p className="col-span-full text-center text-xs text-muted">Deepstash English Study System · v{__APP_VERSION__}</p>
     </div>
   );
 }

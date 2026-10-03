@@ -26,6 +26,8 @@ export interface AISettings {
   model: string;
   /** Fica só neste aparelho (IndexedDB). Nunca entra no backup nem no código-fonte. */
   apiKey: string;
+  /** Modelo que lê imagens, usado para importar screenshots de cards. Vazio = padrão do provedor. */
+  visionModel?: string;
 }
 
 export interface UserSettings {
@@ -92,6 +94,8 @@ export interface ComprehensionVocab {
   context?: string;
   /** Explicação do sentido naquele contexto. */
   explanation?: string;
+  /** Transcrição fonética (IPA). */
+  phonetic?: string;
   createdAt: ISODateTime;
 }
 
@@ -182,6 +186,23 @@ export interface WritingExercise {
   revisedText: string;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
+}
+
+/** Desempenho acumulado de um termo (palavra do dicionário ou chunk) nos exercícios. */
+export interface PracticeStat {
+  /** `vocab:<id>` ou `chunk:<id>`. */
+  id: string;
+  right: number;
+  wrong: number;
+  lastAt: ISODateTime;
+}
+
+/** Áudio de uma fala. Fica só neste navegador: não entra no backup nem na nuvem. */
+export interface Recording {
+  /** Igual ao id da SpeakingSession a que pertence. */
+  id: string;
+  blob: Blob;
+  createdAt: ISODateTime;
 }
 
 export type FollowUpStatus = 'done' | 'partly' | 'not';
