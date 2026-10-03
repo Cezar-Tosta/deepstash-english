@@ -4,13 +4,12 @@ import { Link, useSearchParams } from 'react-router-dom';
 import type { ChunkFilter } from '../../domain/chunks';
 import { formatDate } from '../../domain/dates';
 import { searchChunks, searchIdeas } from '../../services/library';
-import { deleteVocab } from '../../services/sessions';
 import { listBooks, searchDictionary } from '../../services/study';
 import { ChunkItem } from '../components/ChunkItem';
+import { DeleteEntry } from '../components/DictionaryItems';
 import { ListenButton, ListenSettings } from '../components/Listen';
-import { Button, EmptyState, PageTitle, Segmented, TextInput } from '../components/ui';
+import { EmptyState, PageTitle, Segmented, TextInput } from '../components/ui';
 import { useToday } from '../hooks';
-import { attempt } from '../toast';
 
 type Tab = 'books' | 'ideas' | 'english' | 'dictionary';
 
@@ -162,11 +161,9 @@ function DictionaryList({ query }: { query: string }) {
                 {entry.phonetic && <span className="ml-2 text-xs text-muted">{entry.phonetic}</span>}
                 {entry.meaning && <span className="text-muted"> — {entry.meaning}</span>}
               </p>
-              <div className="flex shrink-0 items-center gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-3">
                 <ListenButton text={entry.context ? `${entry.term}. ${entry.context}` : entry.term} />
-                <Button small variant="ghost" aria-label={`Remover ${entry.term}`} onClick={() => attempt(deleteVocab(entry.id))}>
-                  Remover
-                </Button>
+                <DeleteEntry entry={entry} />
               </div>
             </div>
             {entry.context && (

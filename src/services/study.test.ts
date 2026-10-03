@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLookupPrompt, canTranscribe, parseLookup } from '../ai/feedback';
+import { buildLookupPrompt, canTranscribe, markTerm, parseLookup } from '../ai/feedback';
 import { AIError } from '../ai/AIProvider';
 import { db } from '../data/db';
 import { addChunk, addIdea, saveReflection, startSession } from './sessions';
@@ -144,9 +144,17 @@ describe('glossário para sublinhar nos textos', () => {
 });
 
 describe('IA: significado e transcrição', () => {
-  it('pede o sentido do termo dentro da frase', () => {
-    const prompt = buildLookupPrompt('cue', 'Every habit starts with a cue.');
-    expect(prompt.user).toBe('Termo: cue\nFrase: Every habit starts with a cue.');
+  it('marca na frase exatamente o trecho selecionado', () => {
+    expect(markTerm('cue', 'Every habit starts with a cue.')).toBe('Every habit starts with a [[cue]].');
+    expect(markTerm('out of your head', 'Keep it Out of your head.')).toBe('Keep it [[Out of your head]].');
+    expect(markTerm('missing', 'No match here.')).toBe('No match here.');
+  });
+
+  it('uma palavra: pede o sentido dela naquela frase', () => {
+    const { system, user } = buildLookupPrompt('cue', 'Every habit starts with a cue.');
+    expect(user).toBe('Termo: cue\nPalavras no termo: 1\nFrase, com o termo entre [[ ]]: Every habit starts with a [[cue]].');
+    expect(system).toContain('classe gramatical');
+    expect(system).not.toContain('bloco único');
   });
 
   it('lê significado, fonética e explicação, e recusa formato inesperado', () => {
@@ -160,10 +168,14 @@ describe('IA: significado e transcrição', () => {
     expect(() => parseLookup('não sei')).toThrow(AIError);
   });
 
-  it('pede análise no contexto e do conjunto de palavras como unidade', () => {
-    const { system } = buildLookupPrompt('out of your head', 'Keep it out of your head.');
-    expect(system).toContain('dentro da frase');
-    expect(system).toContain('como uma unidade');
+  it('várias palavras: tradução e comentário são do grupo inteiro, não de cada palavra', () => {
+    const { system, user } = buildLookupPrompt('out of your head', 'Keep it out of your head.');
+    expect(user).toContain('Palavras no termo: 4');
+    expect(user).toContain('Keep it [[out of your head]].');
+    expect(system).toContain('tem 4 palavras');
+    expect(system).toContain('bloco único');
+    expect(system).toContain('UMA tradução para o trecho inteiro');
+    expect(system).toContain('não explique as palavras separadamente');
     expect(system).toContain('IPA');
   });
 

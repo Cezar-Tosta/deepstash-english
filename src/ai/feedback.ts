@@ -179,16 +179,36 @@ export interface WordMeaning {
   phonetic: string;
 }
 
+/** A frase com o trecho selecionado entre [[ ]], para a IA saber exatamente o que analisar. */
+export function markTerm(term: string, sentence: string): string {
+  const at = sentence.toLowerCase().indexOf(term.toLowerCase());
+  if (at < 0) return sentence;
+  return `${sentence.slice(0, at)}[[${sentence.slice(at, at + term.length)}]]${sentence.slice(at + term.length)}`;
+}
+
 export function buildLookupPrompt(term: string, sentence: string): { system: string; user: string } {
+  const words = term.trim().split(/\s+/).filter(Boolean).length;
+  const unit =
+    words > 1
+      ? [
+          `O trecho selecionado tem ${words} palavras. Trate-o como um bloco único.`,
+          'Em "meaning", dê UMA tradução para o trecho inteiro, do jeito que se diria em português, e não a tradução de cada palavra.',
+          'Em "explanation", comente o sentido e o uso do trecho inteiro nessa frase (se é expressão idiomática, phrasal verb, colocação ou uma oração); não explique as palavras separadamente.',
+          'Em "phonetic", transcreva o trecho inteiro.',
+        ]
+      : [
+          'Em "meaning", dê a tradução da palavra no sentido que ela tem nessa frase, e não todos os sentidos possíveis.',
+          'Em "explanation", diga a classe gramatical e comente o uso nessa frase.',
+        ];
   return {
     system: [
       'Você é um dicionário inglês → português para um estudante brasileiro que lê resumos de livros.',
-      'Analise o termo dentro da frase dada: informe o sentido que ele tem ALI, não todos os sentidos possíveis.',
-      'Quando o termo tiver mais de uma palavra, analise o conjunto como uma unidade (expressão idiomática, phrasal verb, colocação), sem traduzir palavra por palavra.',
+      'O que deve ser analisado é exatamente o trecho marcado entre [[ ]] na frase: nem mais, nem menos.',
+      ...unit,
       'Responda somente com um objeto JSON, sem texto antes ou depois, neste formato:',
-      '{"meaning": "<tradução curta em português, no sentido do contexto>", "phonetic": "<transcrição fonética do termo em IPA, pronúncia americana, entre barras>", "explanation": "<1 ou 2 frases em português sobre o uso nessa frase; diga a classe gramatical ou se é expressão idiomática, phrasal verb ou colocação>"}',
+      '{"meaning": "<tradução em português do trecho marcado, no sentido do contexto>", "phonetic": "<transcrição fonética em IPA, pronúncia americana, entre barras>", "explanation": "<1 ou 2 frases em português sobre o trecho marcado>"}',
     ].join('\n'),
-    user: `Termo: ${term}\nFrase: ${sentence}`,
+    user: `Termo: ${term}\nPalavras no termo: ${words}\nFrase, com o termo entre [[ ]]: ${markTerm(term, sentence)}`,
   };
 }
 

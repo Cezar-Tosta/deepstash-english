@@ -170,6 +170,7 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
   const term = picked ? selectionText(tokens, picked.selection) : '';
   const context = picked ? sentenceAround(tokens, picked.selection) : '';
   const aiReady = Boolean(settings && isAIConfigured(settings.ai));
+  const wordCount = picked ? tokens.slice(picked.selection.start, picked.selection.end + 1).filter((t) => t.isWord).length : 0;
 
   const pick = (cardId: string, index: number) => {
     const current = picked?.cardId === cardId ? picked.selection : null;
@@ -265,13 +266,16 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
               </Button>
             </div>
           </div>
+          <p className="mt-1 text-xs font-semibold tracking-wide text-accent uppercase">
+            {wordCount > 1 ? `Expressão · ${wordCount} palavras, analisadas em conjunto` : 'Palavra'}
+          </p>
           <p className="mt-1 text-sm text-muted" lang="en">
             “{context}”
           </p>
 
           <div className="mt-3 space-y-3">
             <TextInput
-              label="Tradução em português (pode editar)"
+              label={wordCount > 1 ? 'Tradução da expressão (pode editar)' : 'Tradução em português (pode editar)'}
               value={meaning}
               onChange={setMeaning}
               autoComplete="off"

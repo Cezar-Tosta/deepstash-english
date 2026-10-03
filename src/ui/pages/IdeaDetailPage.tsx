@@ -6,6 +6,7 @@ import { bookKey } from '../../domain/books';
 import { getIdeaDetail } from '../../services/library';
 import { getNeighbors } from '../../services/study';
 import { FOLLOW_UP_LABEL } from '../components/ActionFollowUp';
+import { IdeaDictionary } from '../components/DictionaryItems';
 import { Reader } from '../components/Reader';
 import { ChunkItem } from '../components/ChunkItem';
 import { EmptyState, Eyebrow } from '../components/ui';
@@ -86,28 +87,21 @@ export function IdeaDetailPage() {
         {idea.mainIdea ? <p className="font-serif text-lg" lang="en">{idea.mainIdea}</p> : none}
       </Section>
 
+      <Section title="Dicionário desta ideia">
+        {vocab.length === 0 ? (
+          none
+        ) : (
+          <IdeaDictionary entries={vocab} />
+        )}
+        {session?.misunderstood && (
+          <p className="mt-3 whitespace-pre-wrap text-sm text-muted">
+            <span className="font-semibold">O que entendi errado ou não sabia:</span> {session.misunderstood}
+          </p>
+        )}
+      </Section>
+
       {isIdeaOfDay && (
         <>
-          <Section title="Dicionário desta ideia">
-            {vocab.length === 0 ? (
-              none
-            ) : (
-              <ul className="space-y-1">
-                {vocab.map((v) => (
-                  <li key={v.id}>
-                    <span className="font-serif" lang="en">{v.term}</span>
-                    {v.phonetic && <span className="ml-2 text-xs text-muted">{v.phonetic}</span>}
-                    {v.meaning && <span className="text-muted"> — {v.meaning}</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {session?.misunderstood && (
-              <p className="mt-3 whitespace-pre-wrap text-sm text-muted">
-                <span className="font-semibold">O que entendi errado ou não sabia:</span> {session.misunderstood}
-              </p>
-            )}
-          </Section>
 
           <Section title="Chunks, my sentences and review history">
             {chunks.length === 0 ? (
