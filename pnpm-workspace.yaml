@@ -1,0 +1,6 @@
+packages:
+  - "."
+
+# Supply chain: só instala versões publicadas há mais de 24h e não roda scripts de pós-instalação.
+minimumReleaseAge: 1440
+ignoreScripts: true
