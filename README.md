@@ -67,7 +67,11 @@ As falas gravadas (retelling, fala da semana, explicação do livro) ficam guard
 Na etapa READ, "Importar a ideia inteira" oferece dois caminhos, e em ambos o resultado volta para o formulário para você conferir antes de salvar:
 
 - **Colar o texto:** a primeira linha vira o título e cada bloco separado por linha em branco vira um card. No site do Deepstash (navegador) dá para selecionar e copiar a ideia inteira.
-- **Screenshots:** escolha as imagens ou cole com Ctrl+V (até 8). A IA transcreve título e cards. Precisa de um modelo que leia imagens: Anthropic, ou Groq com o "Modelo de visão" de Ajustes.
+- **Screenshots da ideia inteira:** escolha as imagens ou cole com Ctrl+V (até 8). A IA transcreve título e cards. Precisa de um modelo que leia imagens: Anthropic, ou Groq com o "Modelo de visão" de Ajustes.
+
+**Imagem por card.** Dentro de uma ideia já criada, em "Cards da ideia", "+ Cards a partir de imagens" lê um screenshot por vez: cada imagem vira um card, na ordem escolhida, com o progresso "Lendo imagem N de M". Cada card também tem "Ler de uma imagem", que preenche ou substitui só aquele card. Um ícone girando indica a leitura em andamento.
+
+O menu lateral mostra o provedor e o modelo usado em cada função: texto, imagens e áudio.
 
 ### Orientação da IA por etapa
 

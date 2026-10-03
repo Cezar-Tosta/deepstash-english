@@ -12,12 +12,10 @@ import { ChunkLimitError } from '../../services/errors';
 import { saveRecording } from '../../services/maintenance';
 import { getUpcoming } from '../../services/reviews';
 import {
-  addCards,
   addChunk,
   addIdea,
   addVocab,
   type ChunkInput,
-  deleteCard,
   deleteChunk,
   deleteIdea,
   deleteVocab,
@@ -29,8 +27,6 @@ import {
   saveTranscript,
   type SessionBundle,
   setIdeaOfDay,
-  splitIntoCards,
-  updateCard,
   updateChunk,
   updateIdea,
   updateSessionNotes,
@@ -38,6 +34,7 @@ import {
 import { AIFeedbackPanel } from '../components/AIFeedbackPanel';
 import { RecordingPlayer } from '../components/Listen';
 import { GlossedParagraph } from '../components/Reader';
+import { CardSequence } from '../components/CardSequence';
 import { IdeaImport } from '../components/IdeaImport';
 import { ReviewFlow } from '../components/ReviewFlow';
 import { Timer } from '../components/Timer';
@@ -99,52 +96,6 @@ export function ReviewStep({ bundle }: StepProps) {
 }
 
 // ---------- 2. READ ----------
-
-/** Os cards da ideia, na ordem em que são lidos. O texto é opcional. */
-function CardSequence({ item }: { item: IdeaWithCards }) {
-  const [pasted, setPasted] = useState('');
-  const blocks = splitIntoCards(pasted);
-
-  return (
-    <div className="space-y-3">
-      {item.cards.length > 0 && (
-        <ol className="space-y-3">
-          {item.cards.map((card) => (
-            <li key={card.id}>
-              <AutoTextArea
-                label={`Card ${card.position + 1}`}
-                value={card.content}
-                onSave={(content) => updateCard(card.id, content)}
-                rows={3}
-                lang="en"
-                placeholder="Texto do card (opcional)."
-              />
-              <Button small variant="ghost" aria-label={`Remover card ${card.position + 1}`} onClick={() => attempt(deleteCard(card.id))}>
-                Remover card
-              </Button>
-            </li>
-          ))}
-        </ol>
-      )}
-      <Button small variant="secondary" onClick={() => attempt(addCards(item.idea.id, ['']))}>
-        + Card
-      </Button>
-      <TextArea
-        label="Ou cole vários cards de uma vez"
-        value={pasted}
-        onChange={setPasted}
-        rows={3}
-        lang="en"
-        placeholder="Separe um card do outro com uma linha em branco."
-      />
-      {blocks.length > 0 && (
-        <Button small variant="secondary" onClick={() => attempt(addCards(item.idea.id, blocks).then(() => setPasted('')))}>
-          Adicionar {cardCount(blocks.length)}
-        </Button>
-      )}
-    </div>
-  );
-}
 
 function IdeaEditor({ item, isIdeaOfDay }: { item: IdeaWithCards; isIdeaOfDay: boolean }) {
   const [open, setOpen] = useState<'cards' | 'details' | null>(null);

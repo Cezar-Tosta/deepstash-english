@@ -1,8 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { ReactNode } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { ANTHROPIC_DEFAULT_MODEL, GROQ_DEFAULT_MODEL } from '../ai/AIProvider';
-import { isAIConfigured } from '../ai/feedback';
+import { modelsInUse } from '../ai/feedback';
 import type { AISettings } from '../domain/types';
 import { getDueChunks } from '../services/reviews';
 import { useCloud } from '../sync/cloud';
@@ -43,28 +42,33 @@ function Toaster() {
   );
 }
 
-const PROVIDER_NAME = {
-  none: '',
-  groq: 'Groq',
-  anthropic: 'Anthropic',
-  'openai-compatible': 'Compatível com OpenAI',
-} as const;
-
-/** Qual IA está em uso, ou o aviso de que não há nenhuma. Leva aos Ajustes. */
+/** Qual IA está em uso e qual modelo atende cada função, ou o aviso de que não há nenhuma. */
 function AIStatus({ ai }: { ai: AISettings }) {
-  const active = isAIConfigured(ai);
-  const fallback =
-    ai.provider === 'groq' ? GROQ_DEFAULT_MODEL : ai.provider === 'anthropic' ? ANTHROPIC_DEFAULT_MODEL : '';
+  const models = modelsInUse(ai);
+  const rows: [string, string][] = models
+    ? [
+        ['Texto', models.text],
+        ['Imagens', models.images],
+        ['Áudio', models.audio ?? 'não transcreve'],
+      ]
+    : [];
   return (
     <Link
       to="/settings"
       className="mx-3 mt-6 hidden rounded-xl border border-line px-3 py-2 text-xs hover:bg-sunken md:block"
     >
       <span className="block font-semibold tracking-wide text-muted">IA em uso</span>
-      {active ? (
+      {models ? (
         <>
-          <span className="block font-medium">{PROVIDER_NAME[ai.provider]}</span>
-          <span className="block break-all text-muted">{ai.model.trim() || fallback}</span>
+          <span className="block font-medium">{models.provider}</span>
+          <dl className="mt-1 space-y-1">
+            {rows.map(([label, model]) => (
+              <div key={label}>
+                <dt className="text-[10px] tracking-wide text-muted uppercase">{label}</dt>
+                <dd className="break-all">{model}</dd>
+              </div>
+            ))}
+          </dl>
         </>
       ) : (
         <span className="block font-medium text-warn">Não configurada</span>
@@ -134,7 +138,7 @@ export function Layout() {
         )}
         {settings && (
           <Link to="/settings" className="mb-3 block text-right text-xs text-muted md:hidden">
-            IA: {isAIConfigured(settings.ai) ? PROVIDER_NAME[settings.ai.provider] : 'não configurada'}
+            IA: {modelsInUse(settings.ai)?.provider ?? 'não configurada'}
           </Link>
         )}
         <Outlet />

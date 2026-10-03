@@ -303,4 +303,22 @@ export function Segmented<T extends string>({ label, value, options, onChange }:
   );
 }
 
+/** Ícone girando para operações em andamento. O texto ao lado diz o que está acontecendo. */
+export function Spinner({ className }: { className?: string | undefined }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={cx('size-4 shrink-0 animate-spin', className)}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" opacity="0.25" />
+      <path d="M21 12a9 9 0 0 0-9-9" />
+    </svg>
+  );
+}
+
 export { cx };

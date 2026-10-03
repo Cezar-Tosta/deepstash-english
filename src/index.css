@@ -94,7 +94,7 @@ select {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *:not(.animate-spin) {
     transition: none !important;
     animation: none !important;
   }

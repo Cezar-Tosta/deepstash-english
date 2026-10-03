@@ -4,7 +4,7 @@ import { importIdeaFromImages } from '../../ai/coach';
 import { isAIConfigured } from '../../ai/feedback';
 import { type ImportedIdea, parseIdeaText } from '../../domain/ideaImport';
 import { useOnline, useSettings } from '../hooks';
-import { Button, Hint, TextArea } from './ui';
+import { Button, Hint, Spinner, TextArea } from './ui';
 
 const MAX_IMAGES = 8;
 
@@ -25,6 +25,8 @@ function toImageInput(file: File): Promise<ImageInput> {
  * linha é o título, cada bloco é um card) ou mandar screenshots para a IA transcrever.
  * O resultado volta para o formulário, para o usuário conferir antes de salvar.
  */
+export { toImageInput };
+
 export function IdeaImport({ onImported }: { onImported: (idea: ImportedIdea) => void }) {
   const settings = useSettings();
   const online = useOnline();
@@ -89,10 +91,16 @@ export function IdeaImport({ onImported }: { onImported: (idea: ImportedIdea) =>
         {aiReady && (
           <label
             className={`inline-flex min-h-10 cursor-pointer items-center rounded-xl border border-line bg-surface px-3 text-sm font-semibold hover:bg-sunken ${
-              busy || !online ? 'pointer-events-none opacity-40' : ''
+              busy ? 'pointer-events-none' : !online ? 'pointer-events-none opacity-40' : ''
             }`}
           >
-            {busy ? 'Lendo as imagens…' : 'Ler screenshots com a IA'}
+            {busy ? (
+              <span className="inline-flex items-center gap-2" role="status">
+                <Spinner /> Lendo as imagens…
+              </span>
+            ) : (
+              'Ler screenshots com a IA'
+            )}
             <input type="file" accept="image/*" multiple className="sr-only" onChange={onPick} disabled={busy || !online} />
           </label>
         )}

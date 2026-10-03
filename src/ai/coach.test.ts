@@ -39,3 +39,36 @@ describe('orientação da IA por etapa', () => {
     expect(user).toContain('Ainda não há conteúdo');
   });
 });
+
+describe('leitura de imagem por card', () => {
+  it('remove cerca de código e aspas em volta do texto, sem mexer no conteúdo', async () => {
+    const { cleanCardText } = await import('./coach');
+    expect(cleanCardText('```\nDo one thing at a time.\n```')).toBe('Do one thing at a time.');
+    expect(cleanCardText('“Keep it out of your head.”')).toBe('Keep it out of your head.');
+    expect(cleanCardText('  He said "focus" twice.\n\nSecond paragraph.  ')).toBe('He said "focus" twice.\n\nSecond paragraph.');
+  });
+});
+
+describe('modelos em uso', () => {
+  it('informa o modelo de cada função, com os padrões do provedor', async () => {
+    const { modelsInUse } = await import('./feedback');
+    const base = { baseUrl: '', model: '', apiKey: 'k' };
+    expect(modelsInUse({ ...base, provider: 'groq' })).toEqual({
+      provider: 'Groq',
+      text: 'llama-3.3-70b-versatile',
+      images: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      audio: 'whisper-large-v3-turbo',
+    });
+    expect(modelsInUse({ ...base, provider: 'groq', model: 'meu-modelo', visionModel: 'minha-visao' })).toMatchObject({
+      text: 'meu-modelo',
+      images: 'minha-visao',
+    });
+    expect(modelsInUse({ ...base, provider: 'anthropic' })).toEqual({
+      provider: 'Anthropic',
+      text: 'claude-opus-5-5',
+      images: 'claude-opus-5-5',
+      audio: null,
+    });
+    expect(modelsInUse({ ...base, provider: 'none' })).toBeNull();
+  });
+});

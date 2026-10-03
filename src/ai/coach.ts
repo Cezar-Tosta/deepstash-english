@@ -88,3 +88,30 @@ export async function importIdeaFromImages(images: ImageInput[]): Promise<Import
   }
   return idea;
 }
+
+const CARD_PROMPT = [
+  'A imagem é a captura de tela de um único card do aplicativo Deepstash.',
+  'Transcreva o texto do card exatamente como está, em inglês, sem traduzir, resumir ou corrigir.',
+  'Ignore botões, menus, contadores e o nome do autor da interface. Preserve as quebras de parágrafo.',
+  'Responda somente com o texto do card, sem aspas e sem comentários.',
+].join('\n');
+
+/** Lê um screenshot e devolve o texto de um card. Uma imagem = um card. */
+export async function readCardFromImage(image: ImageInput): Promise<string> {
+  const provider = await createProvider((await getSettings()).ai);
+  if (!provider?.readImages) throw new AIError('A IA configurada não lê imagens. Use Groq ou Anthropic, ou digite o texto.');
+  const text = cleanCardText(await provider.readImages(CARD_PROMPT, [image]));
+  if (!text) throw new AIError('Não foi possível ler texto nesta imagem.');
+  return text;
+}
+
+/** Tira a moldura que alguns modelos põem em volta da resposta (cerca de código, aspas). */
+export function cleanCardText(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^```[a-z]*\n?/i, '')
+    .replace(/\n?```$/, '')
+    .trim()
+    .replace(/^["“](.*)["”]$/s, '$1')
+    .trim();
+}

@@ -6,10 +6,12 @@ import { getSettings } from '../services/settings';
 import {
   AIError,
   type AIProvider,
+  ANTHROPIC_DEFAULT_MODEL,
   GROQ_BASE_URL,
   GROQ_DEFAULT_MODEL,
   GROQ_TRANSCRIPTION_MODEL,
   GROQ_VISION_MODEL,
+  OPENAI_TRANSCRIPTION_MODEL,
 } from './AIProvider';
 
 export function isAIConfigured(ai: AISettings): boolean {
@@ -218,4 +220,42 @@ export async function lookupMeaning(term: string, sentence: string): Promise<Wor
   const provider = await createProvider((await getSettings()).ai);
   if (!provider) throw new AIError('A IA não está configurada. Veja em Ajustes.');
   return parseLookup(await provider.complete(buildLookupPrompt(term, sentence)));
+}
+
+export interface ModelsInUse {
+  provider: string;
+  /** Correções, traduções e orientação. */
+  text: string;
+  /** Leitura de screenshots de cards. */
+  images: string;
+  /** Transcrição da fala; null quando o provedor não transcreve áudio. */
+  audio: string | null;
+}
+
+const PROVIDER_NAMES: Record<AISettings['provider'], string> = {
+  none: '',
+  groq: 'Groq',
+  anthropic: 'Anthropic',
+  'openai-compatible': 'Compatível com OpenAI',
+};
+
+/** Qual modelo atende cada função, já com os padrões aplicados. Null se a IA não está configurada. */
+export function modelsInUse(ai: AISettings): ModelsInUse | null {
+  if (!isAIConfigured(ai)) return null;
+  const provider = PROVIDER_NAMES[ai.provider];
+  const custom = ai.model.trim();
+  const vision = ai.visionModel?.trim();
+  if (ai.provider === 'groq') {
+    return {
+      provider,
+      text: custom || GROQ_DEFAULT_MODEL,
+      images: vision || GROQ_VISION_MODEL,
+      audio: GROQ_TRANSCRIPTION_MODEL,
+    };
+  }
+  if (ai.provider === 'anthropic') {
+    const model = custom || ANTHROPIC_DEFAULT_MODEL;
+    return { provider, text: model, images: model, audio: null };
+  }
+  return { provider, text: custom, images: vision || custom, audio: OPENAI_TRANSCRIPTION_MODEL };
 }
