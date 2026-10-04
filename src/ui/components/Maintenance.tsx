@@ -17,15 +17,15 @@ import { attempt, showToast } from '../toast';
 import { ListenSettings, RecordingPlayer } from './Listen';
 import { Button, Card, Eyebrow, Hint } from './ui';
 
-// ---------- Resetar uma semana ----------
+// ---------- Resetar um ciclo ----------
 
-/** Apaga os estudos de uma semana para refazê-la. Mostra o que será apagado antes de confirmar. */
-export function ResetWeek({ weekStart }: { weekStart: ISODate }) {
+/** Apaga os estudos de um ciclo para refazê-lo. Mostra o que será apagado antes de confirmar. */
+export function ResetWeek({ weekStart, weekEnd }: { weekStart: ISODate; weekEnd: ISODate }) {
   const [confirming, setConfirming] = useState(false);
   const contents = useLiveQuery(() => weekContents(weekStart), [weekStart]);
   const empty = !contents || contents.sessions + contents.speaking === 0;
 
-  // Trocar de semana cancela um pedido de confirmação que era da semana anterior.
+  // Trocar de ciclo cancela um pedido de confirmação que era do ciclo anterior.
   useEffect(() => setConfirming(false), [weekStart]);
 
   if (empty) return null;
@@ -33,20 +33,20 @@ export function ResetWeek({ weekStart }: { weekStart: ISODate }) {
   if (!confirming) {
     return (
       <Button small variant="danger" onClick={() => setConfirming(true)}>
-        Resetar esta semana
+        Resetar este ciclo
       </Button>
     );
   }
   return (
     <div role="alert" className="rounded-xl bg-sunken p-3 text-sm">
       <p className="font-medium text-danger">
-        Apagar a semana de {formatDate(weekStart, 'short')} a {formatDate(addDays(weekStart, 6), 'short')}?
+        Apagar o ciclo de {formatDate(weekStart, 'short')} a {formatDate(weekEnd, 'short')}?
       </p>
       <p className="mt-1">
         Serão apagados {contents.sessions} {contents.sessions === 1 ? 'sessão' : 'sessões'}, {contents.ideas}{' '}
         {contents.ideas === 1 ? 'ideia' : 'ideias'} com seus cards e dicionário, {contents.chunks}{' '}
         {contents.chunks === 1 ? 'chunk' : 'chunks'} com o histórico de revisão, {contents.speaking}{' '}
-        {contents.speaking === 1 ? 'fala' : 'falas'}, reflexões e o fechamento da semana. Não dá para desfazer.
+        {contents.speaking === 1 ? 'fala' : 'falas'}, reflexões e o fechamento do ciclo. Não dá para desfazer.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button
@@ -56,12 +56,12 @@ export function ResetWeek({ weekStart }: { weekStart: ISODate }) {
             attempt(
               resetWeek(weekStart).then(() => {
                 setConfirming(false);
-                showToast('Semana resetada. Você pode estudá-la de novo.');
+                showToast('Ciclo resetado. Você pode estudá-lo de novo.');
               }),
             )
           }
         >
-          Apagar a semana
+          Apagar o ciclo
         </Button>
         <Button small variant="ghost" onClick={() => setConfirming(false)}>
           Cancelar
@@ -83,7 +83,7 @@ export function DataSection() {
   return (
     <Card>
       <Eyebrow>Dados de estudo</Eyebrow>
-      <Hint>Para refazer uma semana específica, use “Resetar esta semana” na tela Progress. Aqui você apaga tudo e recomeça.</Hint>
+      <Hint>Para refazer um ciclo específico, use “Resetar este ciclo” na tela Progress. Aqui você apaga tudo e recomeça.</Hint>
 
       <div className="mt-3">
         {confirming ? (
@@ -152,7 +152,7 @@ export function DataSection() {
 
 // ---------- Falas da semana ----------
 
-const KIND_LABEL = { daily: 'Retelling', weekly: 'Fala da semana', book: 'Livro' } as const;
+const KIND_LABEL = { daily: 'Retelling', weekly: 'Fala do ciclo', book: 'Livro' } as const;
 
 /** Uma fala em poucas linhas: quando, o quê, o player e, sob demanda, a transcrição. */
 function SpokenRow({ item }: { item: SpokenItem }) {
@@ -225,7 +225,7 @@ function SpokenRow({ item }: { item: SpokenItem }) {
 export function SpokenWeek({ weekStart }: { weekStart: ISODate }) {
   const items = useLiveQuery(() => listWeekSpeaking(weekStart), [weekStart]);
   if (!items) return null;
-  if (items.length === 0) return <Hint>Nenhuma fala registrada nesta semana.</Hint>;
+  if (items.length === 0) return <Hint>Nenhuma fala registrada neste ciclo.</Hint>;
   const total = items.reduce((sum, i) => sum + i.speaking.durationSec, 0);
   return (
     <div className="space-y-2">

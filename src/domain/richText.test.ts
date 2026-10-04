@@ -38,11 +38,7 @@ describe('formatação das respostas da IA', () => {
 
   it('reconhece listas numeradas, marcadores com * e títulos', () => {
     const blocks = parseRichText('### Roteiro\n1. Start\n2. End\n* extra');
-    expect(blocks.map((b) => (b.kind === 'list' ? `${b.kind}:${b.ordered}` : b.kind))).toEqual([
-      'heading',
-      'list:true',
-      'list:false',
-    ]);
+    expect(blocks.map((b) => (b.kind === 'list' ? `${b.kind}:${b.ordered}` : b.kind))).toEqual(['heading', 'list:true', 'list:false']);
   });
 
   it('texto sem formatação passa intacto', () => {

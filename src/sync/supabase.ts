@@ -22,11 +22,7 @@ const UNIQUE_VIOLATION = '23505';
 export function createSupabaseStore(supabase: SupabaseClient, userId: string): CloudStore {
   return {
     async load() {
-      const { data, error } = await supabase
-        .from(TABLE)
-        .select('data, version')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const { data, error } = await supabase.from(TABLE).select('data, version').eq('user_id', userId).maybeSingle();
       if (error) throw new CloudError(error.message);
       if (!data) return null;
       try {

@@ -61,9 +61,7 @@ const FORMATS = {
 } as const satisfies Record<string, Intl.DateTimeFormatOptions>;
 
 export function formatDate(date: ISODate, style: keyof typeof FORMATS = 'medium'): string {
-  return new Intl.DateTimeFormat('pt-BR', { ...FORMATS[style], timeZone: 'UTC' }).format(
-    new Date(toUTC(date)),
-  );
+  return new Intl.DateTimeFormat('pt-BR', { ...FORMATS[style], timeZone: 'UTC' }).format(new Date(toUTC(date)));
 }
 
 export function formatDuration(totalSec: number): string {

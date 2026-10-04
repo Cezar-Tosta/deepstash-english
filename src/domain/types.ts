@@ -8,17 +8,7 @@ export type SessionStatus = 'in_progress' | 'completed';
 export type ThemePref = 'system' | 'light' | 'dark';
 export type AIProviderKind = 'none' | 'anthropic' | 'groq' | 'openai-compatible';
 
-export type StepId =
-  | 'review'
-  | 'read'
-  | 'focus'
-  | 'check'
-  | 'mine'
-  | 'retell'
-  | 'personalize'
-  | 'reflect'
-  | 'sowhat'
-  | 'schedule';
+export type StepId = 'review' | 'read' | 'focus' | 'check' | 'mine' | 'retell' | 'personalize' | 'reflect' | 'sowhat' | 'schedule';
 
 export interface AISettings {
   provider: AIProviderKind;
@@ -33,8 +23,13 @@ export interface AISettings {
 export interface UserSettings {
   id: 'settings';
   theme: ThemePref;
-  /** Segunda-feira em que o ciclo de 4 semanas atual começou. */
+  /** Início do ciclo a partir do qual as 4 fases são contadas. Null = desde o primeiro ciclo. */
   cycleStartDate: ISODate | null;
+  /**
+   * Datas em que cada ciclo de 7 dias começa. Ausente em dados antigos: aí vale a
+   * semana de calendário (segunda a domingo) de cada sessão.
+   */
+  cycleStarts?: ISODate[];
   ai: AISettings;
   lastBackupAt: ISODateTime | null;
 }

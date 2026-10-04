@@ -1,7 +1,6 @@
 import { db } from '../data/db';
 import { DEFAULT_SETTINGS } from '../domain/defaults';
-import { startOfWeek, today } from '../domain/dates';
-import type { AISettings, ISODate, ThemePref, UserSettings } from '../domain/types';
+import type { AISettings, ThemePref, UserSettings } from '../domain/types';
 
 export { DEFAULT_SETTINGS };
 
@@ -22,11 +21,6 @@ export function setTheme(theme: ThemePref): Promise<void> {
 
 export function setAISettings(ai: AISettings): Promise<void> {
   return patchSettings({ ai });
-}
-
-/** Recomeça a contagem das 4 semanas na semana de `date`. O histórico não é tocado. */
-export function restartCycle(date: ISODate = today()): Promise<void> {
-  return patchSettings({ cycleStartDate: startOfWeek(date) });
 }
 
 export function markBackupDone(at: string): Promise<void> {

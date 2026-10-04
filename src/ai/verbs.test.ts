@@ -4,7 +4,17 @@ import { resetWeek } from '../services/maintenance';
 import { addChunk, addChunkSentence, addIdea, chunksToPractice, deleteIdea, startSession } from '../services/sessions';
 import { rateChunk } from '../services/reviews';
 import { AIError, type AIProvider } from './AIProvider';
-import { addVerb, askForVerbs, buildVerbPrompt, completeVerb, deleteVerb, listVerbs, parseVerbs, saveVerbs, setVerbSelected } from './verbs';
+import {
+  addVerb,
+  askForVerbs,
+  buildVerbPrompt,
+  completeVerb,
+  deleteVerb,
+  listVerbs,
+  parseVerbs,
+  saveVerbs,
+  setVerbSelected,
+} from './verbs';
 
 const RAW = JSON.stringify({
   verbs: [
@@ -169,7 +179,17 @@ describe('cadastrar um verbo à mão', () => {
     return { ai, asked };
   };
   const WRITE = JSON.stringify({
-    verbs: [{ base: 'write', translation: 'escrever', past: 'wrote', participle: 'written', gerund: 'writing', thirdPerson: 'writes', drills: [{ tense: 'Past simple', sentence: 'She _____ it down.', answer: 'wrote', translation: 'Ela anotou.' }] }],
+    verbs: [
+      {
+        base: 'write',
+        translation: 'escrever',
+        past: 'wrote',
+        participle: 'written',
+        gerund: 'writing',
+        thirdPerson: 'writes',
+        drills: [{ tense: 'Past simple', sentence: 'She _____ it down.', answer: 'wrote', translation: 'Ela anotou.' }],
+      },
+    ],
   });
 
   async function idea() {
@@ -185,7 +205,13 @@ describe('cadastrar um verbo à mão', () => {
 
     expect(asked[0]).toContain('apenas para o verbo "write"');
     expect(await listVerbs(id)).toEqual([
-      expect.objectContaining({ base: 'write', past: 'wrote', participle: 'written', selected: true, drills: [expect.objectContaining({ answer: 'wrote' })] }),
+      expect.objectContaining({
+        base: 'write',
+        past: 'wrote',
+        participle: 'written',
+        selected: true,
+        drills: [expect.objectContaining({ answer: 'wrote' })],
+      }),
     ]);
   });
 

@@ -1,14 +1,6 @@
-import { addDays, startOfWeek, weekDates } from './dates';
+import { legacyStarts, periodDates, periodOf, periods, periodStarting } from './periods';
 import { SESSION_DAYS_PER_WEEK } from './session';
-import type {
-  Chunk,
-  ChunkReview,
-  Idea,
-  ISODate,
-  SourceCard,
-  SpeakingSession,
-  StudySession,
-} from './types';
+import type { Chunk, ChunkReview, Idea, ISODate, SourceCard, SpeakingSession, StudySession } from './types';
 
 export interface StatsInput {
   sessions: readonly StudySession[];
@@ -17,6 +9,12 @@ export interface StatsInput {
   chunks: readonly Chunk[];
   reviews: readonly ChunkReview[];
   speaking: readonly SpeakingSession[];
+  /** Inícios dos ciclos de 7 dias. Ausente: valem as semanas de calendário em que houve estudo. */
+  cycleStarts?: readonly ISODate[];
+}
+
+function startsOf(input: StatsInput): readonly ISODate[] {
+  return input.cycleStarts ?? legacyStarts([...input.sessions.map((s) => s.date), ...input.ideas.map((i) => i.date)]);
 }
 
 export interface DayStats {
@@ -33,6 +31,8 @@ export interface DayStats {
 
 export interface WeekStats {
   weekStart: ISODate;
+  /** Último dia do ciclo, inclusive. */
+  weekEnd: ISODate;
   ideasRead: number;
   cardsRead: number;
   /** Ideias aprofundadas (Idea of the Day). */
@@ -43,17 +43,21 @@ export interface WeekStats {
   recallRate: number | null;
   speakingSec: number;
   studyDays: number;
-  /** Dias em que houve leitura de ideia (sessão). A meta é de segunda a sexta. */
+  /** Dias em que houve leitura de ideia (sessão). A meta são os 5 primeiros dias do ciclo. */
   sessionDays: number;
   days: DayStats[];
 }
 
-/** Um dia conta como estudado quando houve leitura de ideia ou revisão concluída. */
+/**
+ * Os números do ciclo que começa em `weekStart`. Um dia conta como estudado quando
+ * houve leitura de ideia ou revisão concluída.
+ */
 export function weekStats(input: StatsInput, weekStart: ISODate): WeekStats {
+  const period = periodStarting(startsOf(input), weekStart);
   const ideasById = new Map(input.ideas.map((i) => [i.id, i]));
   let recalled = 0;
 
-  const days = weekDates(weekStart).map((date): DayStats => {
+  const days = periodDates(period).map((date): DayStats => {
     const session = input.sessions.find((s) => s.date === date);
     const ideas = input.ideas.filter((i) => i.date === date).length;
     const reviews = input.reviews.filter((r) => r.completedDate === date);
@@ -65,9 +69,7 @@ export function weekStats(input: StatsInput, weekStart: ISODate): WeekStats {
       cards: input.cards.filter((c) => c.date === date).length,
       ideaOfDayTitle: ideaOfDay?.title ?? null,
       chunks: input.chunks.filter((c) => c.createdDate === date).map((c) => c.text),
-      speakingSec: input.speaking
-        .filter((s) => s.date === date)
-        .reduce((sum, s) => sum + s.durationSec, 0),
+      speakingSec: input.speaking.filter((s) => s.date === date).reduce((sum, s) => sum + s.durationSec, 0),
       reviews: reviews.length,
       sessionCompleted: session?.status === 'completed',
       studied: ideas > 0 || reviews.length > 0,
@@ -78,6 +80,7 @@ export function weekStats(input: StatsInput, weekStart: ISODate): WeekStats {
   const reviewsDone = sum((d) => d.reviews);
   return {
     weekStart,
+    weekEnd: period.end,
     ideasRead: sum((d) => d.ideas),
     cardsRead: sum((d) => d.cards),
     ideasStudied: days.filter((d) => d.ideaOfDayTitle !== null).length,
@@ -91,11 +94,15 @@ export function weekStats(input: StatsInput, weekStart: ISODate): WeekStats {
   };
 }
 
-/** As `weeks` semanas que terminam em `lastWeekStart`, da mais antiga para a mais recente. */
-export function weeklyHistory(input: StatsInput, lastWeekStart: ISODate, weeks: number): WeekStats[] {
-  return Array.from({ length: weeks }, (_, i) =>
-    weekStats(input, addDays(lastWeekStart, -7 * (weeks - 1 - i))),
-  );
+/**
+ * Os últimos `count` ciclos até o que começa em `lastStart`, do mais antigo para o mais
+ * recente. Só entram ciclos que existem: os dias entre um ciclo e outro não têm histórico.
+ */
+export function weeklyHistory(input: StatsInput, lastStart: ISODate, count: number): WeekStats[] {
+  return periods(startsOf(input))
+    .filter((p) => p.start <= lastStart)
+    .slice(-count)
+    .map((p) => weekStats(input, p.start));
 }
 
 export interface Totals {
@@ -116,11 +123,12 @@ export function totals(input: StatsInput): Totals {
   for (const i of input.ideas) studied.add(i.date);
   for (const r of input.reviews) studied.add(r.completedDate);
 
-  // Semana completa: sessão nos cinco dias úteis. Revisões de fim de semana não entram na conta.
+  // Ciclo completo: sessão em cinco dias dele. Revisões dos dias 6 e 7 não entram na conta.
+  const starts = startsOf(input);
   const perWeek = new Map<ISODate, number>();
   for (const date of new Set(input.ideas.map((i) => i.date))) {
-    const week = startOfWeek(date);
-    perWeek.set(week, (perWeek.get(week) ?? 0) + 1);
+    const week = periodOf(starts, date)?.start;
+    if (week !== undefined) perWeek.set(week, (perWeek.get(week) ?? 0) + 1);
   }
 
   const ideaIds = new Set(input.ideas.map((i) => i.id));
@@ -130,8 +138,7 @@ export function totals(input: StatsInput): Totals {
     cardsRead: input.cards.length,
     ideasStudied: input.sessions.filter((s) => s.ideaOfDayId && ideaIds.has(s.ideaOfDayId)).length,
     chunksCreated: input.chunks.length,
-    chunksLearned: input.chunks.filter((c) => c.status === 'learned' || c.status === 'retired')
-      .length,
+    chunksLearned: input.chunks.filter((c) => c.status === 'learned' || c.status === 'retired').length,
     reviewsDone: input.reviews.length,
     recallRate: input.reviews.length === 0 ? null : recalled / input.reviews.length,
     speakingSec: input.speaking.reduce((sum, s) => sum + s.durationSec, 0),

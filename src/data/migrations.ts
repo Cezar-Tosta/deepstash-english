@@ -17,8 +17,7 @@ function rename(row: Row, from: string, to: string): Row {
  */
 export function migrateV1toV2(tables: Tables): Tables {
   const oldCards = tables['cards'] ?? [];
-  const mapAll = (name: string, from: string, to: string): Row[] =>
-    (tables[name] ?? []).map((row) => rename(row, from, to));
+  const mapAll = (name: string, from: string, to: string): Row[] => (tables[name] ?? []).map((row) => rename(row, from, to));
 
   return {
     ...tables,

@@ -13,6 +13,7 @@ import type {
   SpeakingSession,
   StudySession,
 } from '../domain/types';
+import { getCycleStarts } from './cycles';
 
 const normalize = (text: string): string =>
   text
@@ -110,9 +111,7 @@ export async function getIdeaDetail(ideaId: string): Promise<IdeaDetail | null> 
     db.reflections.where('ideaId').equals(ideaId).first(),
   ]);
   // A página da Idea of the Day mostra os 3 chunks do dia, que saem do conjunto das ideias lidas.
-  const chunks = (isIdeaOfDay ? sessionChunks : ownChunks).sort((a, b) =>
-    a.createdAt.localeCompare(b.createdAt),
-  );
+  const chunks = (isIdeaOfDay ? sessionChunks : ownChunks).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return {
     idea,
     cards,
@@ -127,22 +126,12 @@ export async function getIdeaDetail(ideaId: string): Promise<IdeaDetail | null> 
 
 // ---------- MY ENGLISH ----------
 
-export async function searchChunks(
-  query: string,
-  filter: ChunkFilter,
-  date: ISODate = today(),
-): Promise<ChunkWithHistory[]> {
-  const [chunks, reviews, ideas] = await Promise.all([
-    db.chunks.toArray(),
-    db.reviews.toArray(),
-    db.ideas.toArray(),
-  ]);
+export async function searchChunks(query: string, filter: ChunkFilter, date: ISODate = today()): Promise<ChunkWithHistory[]> {
+  const [chunks, reviews, ideas] = await Promise.all([db.chunks.toArray(), db.reviews.toArray(), db.ideas.toArray()]);
   const ideasById = new Map(ideas.map((i) => [i.id, i]));
   return chunks
     .map((chunk): ChunkWithHistory => {
-      const own = reviews
-        .filter((r) => r.chunkId === chunk.id)
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      const own = reviews.filter((r) => r.chunkId === chunk.id).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       return {
         chunk,
         reviews: own,
@@ -169,13 +158,14 @@ export async function searchChunks(
 
 /** Os dados são locais e pequenos; carregar tudo e calcular no domínio mantém as regras testáveis. */
 export async function loadStatsInput(): Promise<StatsInput> {
-  const [sessions, ideas, cards, chunks, reviews, speaking] = await Promise.all([
+  const [sessions, ideas, cards, chunks, reviews, speaking, cycleStarts] = await Promise.all([
     db.sessions.toArray(),
     db.ideas.toArray(),
     db.cards.toArray(),
     db.chunks.toArray(),
     db.reviews.toArray(),
     db.speaking.toArray(),
+    getCycleStarts(),
   ]);
-  return { sessions, ideas, cards, chunks, reviews, speaking };
+  return { sessions, ideas, cards, chunks, reviews, speaking, cycleStarts };
 }

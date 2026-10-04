@@ -57,17 +57,12 @@ export const FEEDBACK_LABELS: Record<FeedbackKind, string> = {
 const FOCUS: Record<FeedbackKind, string> = {
   grammar: 'Corrija apenas erros de gramática e ortografia, mudando o mínimo possível.',
   improve: 'Corrija os erros e melhore a clareza, preservando a ideia e o nível do aluno.',
-  natural:
-    'Corrija os erros e, em "moreNatural", mostre como um falante nativo diria a mesma coisa.',
+  natural: 'Corrija os erros e, em "moreNatural", mostre como um falante nativo diria a mesma coisa.',
   retell:
     'O texto é a transcrição de uma fala improvisada do aluno recontando uma ideia. Ignore hesitações e falhas da transcrição. Em "corrected", reescreva a fala corrigida, mantendo o conteúdo e o nível dele. Em "why", comente em português, em até 4 frases: se ele transmitiu a ideia principal, os 2 ou 3 erros de inglês mais importantes, e se usou as expressões que está aprendendo. Em "moreNatural" responda null.',
 };
 
-export function buildFeedbackPrompt(
-  kind: FeedbackKind,
-  text: string,
-  context: string,
-): { system: string; user: string } {
+export function buildFeedbackPrompt(kind: FeedbackKind, text: string, context: string): { system: string; user: string } {
   return {
     system: [
       'Você é um professor de inglês de um aluno brasileiro que estuda com cards curtos de ideias.',
@@ -131,9 +126,7 @@ export async function requestFeedback(request: FeedbackRequest): Promise<AIFeedb
   const provider = await createProvider((await getSettings()).ai);
   if (!provider) throw new AIError('A IA não está configurada. Veja em Ajustes.');
 
-  const parsed = parseFeedback(
-    await provider.complete({ ...buildFeedbackPrompt(request.kind, original, request.context), json: true }),
-  );
+  const parsed = parseFeedback(await provider.complete({ ...buildFeedbackPrompt(request.kind, original, request.context), json: true }));
   const feedback: AIFeedback = {
     id: newId(),
     kind: request.kind,
@@ -149,14 +142,8 @@ export async function requestFeedback(request: FeedbackRequest): Promise<AIFeedb
   return feedback;
 }
 
-export async function getFeedbackFor(
-  targetType: FeedbackTarget,
-  targetId: string,
-): Promise<AIFeedback[]> {
-  const items = await db.aiFeedback
-    .where('[targetType+targetId]')
-    .equals([targetType, targetId])
-    .toArray();
+export async function getFeedbackFor(targetType: FeedbackTarget, targetId: string): Promise<AIFeedback[]> {
+  const items = await db.aiFeedback.where('[targetType+targetId]').equals([targetType, targetId]).toArray();
   return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
@@ -238,8 +225,7 @@ export function parseLookup(raw: string): WordMeaning {
     explanation: typeof explanation === 'string' ? explanation.trim() : '',
     phonetic: typeof phonetic === 'string' ? stripMarkdown(phonetic.trim()) : '',
     wordClass: typeof obj['wordClass'] === 'string' ? stripMarkdown(obj['wordClass'].trim()).toLowerCase() : '',
-    sentenceTranslation:
-      typeof obj['sentenceTranslation'] === 'string' ? stripMarkdown(obj['sentenceTranslation'].trim()) : '',
+    sentenceTranslation: typeof obj['sentenceTranslation'] === 'string' ? stripMarkdown(obj['sentenceTranslation'].trim()) : '',
   };
 }
 

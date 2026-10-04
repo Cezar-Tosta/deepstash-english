@@ -18,11 +18,7 @@ export async function getDueChunks(date: ISODate = today()): Promise<Chunk[]> {
   const candidates = await db.chunks.where('nextReviewDate').belowOrEqual(date).toArray();
   return candidates
     .filter((c) => isDue(c, date))
-    .sort(
-      (a, b) =>
-        (a.nextReviewDate ?? '').localeCompare(b.nextReviewDate ?? '') ||
-        a.createdAt.localeCompare(b.createdAt),
-    );
+    .sort((a, b) => (a.nextReviewDate ?? '').localeCompare(b.nextReviewDate ?? '') || a.createdAt.localeCompare(b.createdAt));
 }
 
 export async function getDueItems(date: ISODate = today()): Promise<DueItem[]> {
@@ -41,12 +37,7 @@ export async function getDueItems(date: ISODate = today()): Promise<DueItem[]> {
 }
 
 /** Registra a tentativa (sem nunca apagar as anteriores) e reagenda o chunk. */
-export function rateChunk(
-  chunkId: string,
-  rating: Rating,
-  userSentence = '',
-  date: ISODate = today(),
-): Promise<ChunkReview> {
+export function rateChunk(chunkId: string, rating: Rating, userSentence = '', date: ISODate = today()): Promise<ChunkReview> {
   return db.transaction('rw', db.chunks, db.reviews, async () => {
     const chunk = await db.chunks.get(chunkId);
     if (!chunk) throw new DomainError('Expressão não encontrada.');
@@ -95,10 +86,7 @@ export interface UpcomingDay {
 
 /** Revisões já agendadas para os próximos `days` dias (sem contar hoje). */
 export async function getUpcoming(date: ISODate = today(), days = 30): Promise<UpcomingDay[]> {
-  const chunks = await db.chunks
-    .where('nextReviewDate')
-    .between(addDays(date, 1), addDays(date, days), true, true)
-    .toArray();
+  const chunks = await db.chunks.where('nextReviewDate').between(addDays(date, 1), addDays(date, days), true, true).toArray();
   const counts = new Map<ISODate, number>();
   for (const c of chunks) {
     if (c.nextReviewDate) counts.set(c.nextReviewDate, (counts.get(c.nextReviewDate) ?? 0) + 1);

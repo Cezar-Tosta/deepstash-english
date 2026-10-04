@@ -32,8 +32,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
       <div role="alert" className="mx-auto max-w-md px-6 py-16 text-ink">
         <h1 className="text-xl font-semibold">Algo deu errado</h1>
         <p className="mt-3 text-muted">
-          Seus dados continuam guardados neste aparelho. Recarregue o app; se o erro voltar, o navegador pode estar
-          bloqueando o armazenamento (modo privado, por exemplo).
+          Seus dados continuam guardados neste aparelho. Recarregue o app; se o erro voltar, o navegador pode estar bloqueando o
+          armazenamento (modo privado, por exemplo).
         </p>
         <p className="mt-3 rounded-lg bg-sunken p-3 font-mono text-sm">{this.state.error.message}</p>
         <button
@@ -53,24 +53,24 @@ function App() {
   return (
     // HashRouter: as rotas funcionam em qualquer hospedagem estática, sem configurar o servidor.
     <CloudGate>
-    <HashRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route index element={<TodayPage />} />
-          <Route path="session" element={<SessionPage />} />
-          <Route path="review" element={<ReviewPage />} />
-          <Route path="knowledge" element={<KnowledgePage />} />
-          <Route path="knowledge/idea/:ideaId" element={<IdeaDetailPage />} />
-          <Route path="knowledge/book/:key" element={<BookPage />} />
-          <Route path="practice" element={<PracticePage />} />
-          <Route path="progress" element={<ProgressPage />} />
-          <Route path="weekly/:weekStart?" element={<WeeklyPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="manual" element={<ManualPage />} />
-          <Route path="*" element={<TodayPage />} />
-        </Route>
-      </Routes>
-    </HashRouter>
+      <HashRouter>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route index element={<TodayPage />} />
+            <Route path="session" element={<SessionPage />} />
+            <Route path="review" element={<ReviewPage />} />
+            <Route path="knowledge" element={<KnowledgePage />} />
+            <Route path="knowledge/idea/:ideaId" element={<IdeaDetailPage />} />
+            <Route path="knowledge/book/:key" element={<BookPage />} />
+            <Route path="practice" element={<PracticePage />} />
+            <Route path="progress" element={<ProgressPage />} />
+            <Route path="weekly/:weekStart?" element={<WeeklyPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="manual" element={<ManualPage />} />
+            <Route path="*" element={<TodayPage />} />
+          </Route>
+        </Routes>
+      </HashRouter>
     </CloudGate>
   );
 }

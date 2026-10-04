@@ -1,12 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import {
-  AIError,
-  ANTHROPIC_DEFAULT_MODEL,
-  type AIProvider,
-  type AIRequest,
-  type ChatTurn,
-  type ImageInput,
-} from './AIProvider';
+import { AIError, ANTHROPIC_DEFAULT_MODEL, type AIProvider, type AIRequest, type ChatTurn, type ImageInput } from './AIProvider';
 
 // Modelos que aceitam o fallback automático quando um classificador recusa o pedido.
 const FALLBACK_MODELS = new Set(['claude-fable-5-1', 'claude-opus-5-5', 'claude-opus-5']);
@@ -28,16 +21,12 @@ export function createAnthropicProvider(apiKey: string, model: string): AIProvid
         output_config: { effort: 'low' },
         ...(system ? { system } : {}),
         messages,
-        ...(FALLBACK_MODELS.has(resolvedModel)
-          ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }
-          : {}),
+        ...(FALLBACK_MODELS.has(resolvedModel) ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const } : {}),
       });
       if (response.stop_reason === 'refusal') {
         throw new AIError('O modelo recusou este pedido.');
       }
-      const text = response.content
-        .flatMap((block) => (block.type === 'text' ? [block.text] : []))
-        .join('');
+      const text = response.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('');
       if (!text) throw new AIError('A IA respondeu sem texto.');
       return text;
     } catch (error) {

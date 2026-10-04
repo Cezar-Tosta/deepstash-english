@@ -30,10 +30,10 @@ const AFTER: { when: string; what: string; to: string }[] = [
   { when: 'D1 · D3 · D7 · D14 · D30', what: 'Revisar cada chunk', to: '/review' },
   { when: '3 dias depois', what: 'Did you do it?', to: '/' },
   { when: '2 a 3× por semana', what: 'Treino e flashcards', to: '/practice' },
-  { when: 'Sábado e domingo', what: 'Só revisões', to: '/review' },
-  { when: 'Sexta-feira', what: 'Weekly review', to: '/weekly' },
+  { when: 'Dias 6 e 7 do ciclo', what: 'Só revisões', to: '/review' },
+  { when: 'Dia 5 do ciclo', what: 'Weekly review', to: '/weekly' },
   { when: 'Fim do livro', what: 'Explicar o livro', to: '/knowledge' },
-  { when: 'A cada 4 semanas', what: 'Sobe a meta de fala', to: '/progress' },
+  { when: 'A cada ciclo de 7 dias', what: 'Sobe a fase (meta de fala)', to: '/settings' },
 ];
 
 function Arrow({ down }: { down?: boolean }) {

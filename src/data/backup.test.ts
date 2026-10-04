@@ -44,7 +44,13 @@ describe('configuração de IA entre navegadores', () => {
   });
 
   it('ignora configuração de IA malformada', () => {
-    const raw = { app: 'deepstash-english', version: 2, exportedAt: '', data: {}, settings: { theme: 'light', cycleStartDate: null, ai: { provider: 'inventado' } } };
+    const raw = {
+      app: 'deepstash-english',
+      version: 2,
+      exportedAt: '',
+      data: {},
+      settings: { theme: 'light', cycleStartDate: null, ai: { provider: 'inventado' } },
+    };
     expect(parseBackup(JSON.stringify(raw)).settings).toEqual({ theme: 'light', cycleStartDate: null });
   });
 });

@@ -78,7 +78,11 @@ describe('resetar uma semana', () => {
 describe('recomeçar do zero', () => {
   it('apaga todos os estudos, preservando tema e IA e reiniciando o ciclo', async () => {
     await study('2026-09-29', 'A');
-    await db.settings.put({ ...(await db.settings.get('settings'))!, theme: 'dark', ai: { provider: 'groq', baseUrl: '', model: '', apiKey: 'k' } });
+    await db.settings.put({
+      ...(await db.settings.get('settings'))!,
+      theme: 'dark',
+      ai: { provider: 'groq', baseUrl: '', model: '', apiKey: 'k' },
+    });
 
     await resetAll();
 
@@ -151,14 +155,14 @@ describe('frequência das etapas', () => {
 
   it('a rotina cobre do dia a dia ao ciclo de 4 semanas', () => {
     expect(ROUTINE.map((r) => r.frequency)).toEqual([
-      'Segunda a sexta',
-      'Sábado e domingo',
+      'Dias 1 a 5 do ciclo',
+      'Dias 6 e 7 do ciclo',
       '5 vezes',
       '3 dias depois',
       '2 a 3 vezes por semana',
-      'Sexta-feira',
+      'Dia 5 do ciclo',
       'Ao terminar cada livro',
-      'A cada 4 semanas',
+      'Uma por ciclo, de 1 a 4',
     ]);
   });
 });

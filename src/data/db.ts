@@ -24,16 +24,7 @@ import { migrateV1toV2, type Tables } from './migrations';
 export const DB_NAME = 'deepstash-english';
 
 /** Tabelas cujo conteúdo muda na migração 1 → 2. */
-const V2_MIGRATED = [
-  'sessions',
-  'cards',
-  'vocab',
-  'chunks',
-  'speaking',
-  'reflections',
-  'weeklyReviews',
-  'writings',
-] as const;
+const V2_MIGRATED = ['sessions', 'cards', 'vocab', 'chunks', 'speaking', 'reflections', 'weeklyReviews', 'writings'] as const;
 
 /**
  * Banco local (IndexedDB). Toda mudança de esquema entra como uma nova

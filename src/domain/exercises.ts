@@ -193,10 +193,7 @@ export interface StudyItem {
 export function difficultyOf(stat: PracticeStat | undefined, reviews: readonly ChunkReview[] = []): number {
   const right = stat?.right ?? 0;
   const wrong = stat?.wrong ?? 0;
-  const fromReviews = reviews.reduce(
-    (sum, r) => sum + (r.rating === 'AGAIN' ? 2 : r.rating === 'HARD' ? 1 : 0),
-    0,
-  );
+  const fromReviews = reviews.reduce((sum, r) => sum + (r.rating === 'AGAIN' ? 2 : r.rating === 'HARD' ? 1 : 0), 0);
   const untouched = right + wrong === 0 ? 1 : 0;
   return wrong * 2 - right + fromReviews + untouched;
 }
@@ -328,11 +325,7 @@ export function questionsFor(item: StudyItem): Question[] {
  * pergunta para cada um. A forma da pergunta gira conforme o quanto o termo já foi
  * treinado, para que o mesmo termo não volte sempre do mesmo jeito.
  */
-export function buildTraining(
-  items: readonly StudyItem[],
-  count: number,
-  random: () => number = Math.random,
-): Question[] {
+export function buildTraining(items: readonly StudyItem[], count: number, random: () => number = Math.random): Question[] {
   const ranked = shuffle(items, random)
     .map((item) => ({ item, questions: questionsFor(item) }))
     .filter((entry) => entry.questions.length > 0)
@@ -441,11 +434,7 @@ export interface VerbDifficulty {
  * todas as frases do verbo (em todas as ideias). Só entram verbos com mais erros
  * do que a metade dos acertos, do pior para o melhor.
  */
-export function hardestVerbs(
-  verbs: readonly VerbEntry[],
-  stats: readonly PracticeStat[],
-  count: number,
-): VerbDifficulty[] {
+export function hardestVerbs(verbs: readonly VerbEntry[], stats: readonly PracticeStat[], count: number): VerbDifficulty[] {
   const byId = new Map(stats.map((s) => [s.id, s]));
   const totals = new Map<string, VerbDifficulty>();
   for (const verb of verbs.filter((v) => v.selected)) {
@@ -514,9 +503,7 @@ export function pickFlashcards(
   const shuffled = shuffle(cards, options.random);
   const { difficulty } = options;
   if (!difficulty) return shuffled.slice(0, wanted);
-  const chosen = shuffled
-    .sort((a, b) => (difficulty.get(b.itemKey) ?? 0) - (difficulty.get(a.itemKey) ?? 0))
-    .slice(0, wanted);
+  const chosen = shuffled.sort((a, b) => (difficulty.get(b.itemKey) ?? 0) - (difficulty.get(a.itemKey) ?? 0)).slice(0, wanted);
   return shuffle(chosen, options.random);
 }
 

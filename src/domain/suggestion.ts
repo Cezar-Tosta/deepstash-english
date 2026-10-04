@@ -2,8 +2,8 @@ import type { ISODate } from './types';
 
 export interface SuggestionInput {
   date: ISODate;
-  /** 0 = domingo … 6 = sábado. */
-  weekday: number;
+  /** Dia do ciclo de 7 dias, de 1 a 7; null num dia sem ciclo em andamento. */
+  cycleDay: number | null;
   dueReviews: number;
   overdueReviews: number;
   session: 'none' | 'in_progress' | 'completed';
@@ -19,7 +19,7 @@ export interface SuggestionInput {
   hardItems: number;
   /** Dias desde o último exercício; null se nunca treinou. */
   daysSincePractice: number | null;
-  /** Ideas of the Day já estudadas nesta semana. */
+  /** Ideas of the Day já estudadas neste ciclo. */
   weekIdeas: number;
   weeklyDone: boolean;
 }
@@ -36,9 +36,8 @@ export interface Suggestion {
 const TRAINING_SIZE = 5;
 /** O treino é sugerido quando faz pelo menos este número de dias desde o último. */
 const PRACTICE_EVERY_DAYS = 2;
-const FRIDAY = 5;
-const SATURDAY = 6;
-const SUNDAY = 0;
+/** Último dia de sessão do ciclo: é quando se faz o fechamento. Depois dele, só revisões. */
+const LAST_SESSION_DAY = 5;
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
@@ -50,7 +49,8 @@ const plural = (n: number, one: string, many: string): string => `${n} ${n === 1
  */
 export function suggestToday(input: SuggestionInput): Suggestion[] {
   const plan: Suggestion[] = [];
-  const weekend = input.weekday === SATURDAY || input.weekday === SUNDAY;
+  const weekend = input.cycleDay !== null && input.cycleDay > LAST_SESSION_DAY;
+  const noCycle = input.cycleDay === null;
 
   // Com a sessão ainda por começar num dia útil, as revisões são a primeira etapa dela.
   if (input.dueReviews > 0 && (weekend || input.session !== 'none')) {
@@ -66,14 +66,15 @@ export function suggestToday(input: SuggestionInput): Suggestion[] {
     });
   }
 
-  // Sábado e domingo: só as revisões. Sessão, ações, treino e fechamento ficam para os dias úteis.
+  // Dias 6 e 7 do ciclo: só as revisões. Sessão, ações, treino e fechamento ficam para os dias de sessão.
   if (weekend) return plan;
 
   if (input.session === 'none') {
     plan.push({
       id: 'session',
-      title: 'Faça a sessão de hoje',
+      title: noCycle ? 'Comece um novo ciclo com a sessão de hoje' : 'Faça a sessão de hoje',
       detail: [
+        noCycle && 'Não há ciclo em andamento: a sessão de hoje abre um ciclo de 7 dias.',
         input.dueReviews > 0 && `Começa por ${plural(input.dueReviews, 'revisão', 'revisões')}.`,
         'Leia as ideias no Deepstash, aprofunde uma, guarde até 3 chunks e reconte em voz alta',
         `(meta de fala: ${input.speakingLabel}).`,
@@ -120,11 +121,11 @@ export function suggestToday(input: SuggestionInput): Suggestion[] {
     });
   }
 
-  // O fechamento é na sexta, depois da última sessão da semana.
-  if (input.weekday === FRIDAY && input.session === 'completed' && !input.weeklyDone && input.weekIdeas > 0) {
+  // O fechamento é no dia 5, depois da última sessão do ciclo.
+  if (input.cycleDay === LAST_SESSION_DAY && input.session === 'completed' && !input.weeklyDone && input.weekIdeas > 0) {
     plan.push({
       id: 'weekly',
-      title: 'Feche a semana',
+      title: 'Feche o ciclo',
       detail: `Relembre ${plural(input.weekIdeas, 'ideia', 'ideias')}, escolha as melhores, ouça suas falas e fale 2 a 3 minutos.`,
       minutes: 20,
       to: '/weekly',

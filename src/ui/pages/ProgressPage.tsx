@@ -1,13 +1,15 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { addDays, formatDate, formatDuration, isWeekend, startOfWeek } from '../../domain/dates';
+import { formatDate, formatDuration } from '../../domain/dates';
+import { CYCLE_SESSION_DAYS, periodAround, periodOf, periods } from '../../domain/periods';
 import { MAX_CHUNKS_PER_DAY, SESSION_DAYS_PER_WEEK } from '../../domain/session';
 import { totals, weeklyHistory, type WeekStats, weekStats } from '../../domain/stats';
+import type { ISODate } from '../../domain/types';
 import { loadStatsInput } from '../../services/library';
 import { BarChart, type BarDatum } from '../components/BarChart';
 import { ResetWeek } from '../components/Maintenance';
-import { Button, Card, Eyebrow, PageTitle } from '../components/ui';
+import { Button, Card, EmptyState, Eyebrow, PageTitle } from '../components/ui';
 import { useToday } from '../hooks';
 
 const HISTORY_WEEKS = 8;
@@ -34,43 +36,63 @@ function series(history: WeekStats[], pick: (w: WeekStats) => number, unit: stri
       label: formatDate(w.weekStart, 'short'),
       value,
       display,
-      description: `Semana de ${formatDate(w.weekStart, 'medium')}: ${display}`,
+      description: `Ciclo de ${formatDate(w.weekStart, 'short')} a ${formatDate(w.weekEnd, 'medium')}: ${display}`,
     };
   });
 }
 
 export function ProgressPage() {
   const date = useToday();
-  const thisWeek = startOfWeek(date);
-  const [weekStart, setWeekStart] = useState(thisWeek);
+  const [picked, setPicked] = useState<ISODate | null>(null);
   const input = useLiveQuery(loadStatsInput, []);
   if (!input) return null;
 
+  const starts = input.cycleStarts ?? [];
+  const cycles = periods(starts);
+  // Sem escolha, mostra o ciclo em andamento ou, entre ciclos, o último encerrado.
+  const selected = cycles.find((p) => p.start === picked) ?? periodAround(starts, date) ?? cycles[0];
+  if (!selected) {
+    return (
+      <div className="space-y-4">
+        <PageTitle eyebrow="Progress" title="Seu ciclo">
+          A meta é consistência, não perfeição.
+        </PageTitle>
+        <EmptyState title="Nenhum ciclo ainda.">
+          O histórico é organizado por ciclos de 7 dias. O primeiro começa na sua primeira sessão, ou na data que você escolher em Settings.
+        </EmptyState>
+      </div>
+    );
+  }
+
+  const weekStart = selected.start;
+  const previous = cycles[selected.index - 1];
+  const next = cycles[selected.index + 1];
+  const running = periodOf(starts, date)?.start === weekStart;
   const week = weekStats(input, weekStart);
-  const history = weeklyHistory(input, thisWeek, HISTORY_WEEKS);
+  const history = weeklyHistory(input, cycles.at(-1)?.start ?? weekStart, HISTORY_WEEKS);
   const all = totals(input);
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-2">
-      <PageTitle eyebrow="Progress" title="Sua semana">
-        A meta é consistência, não perfeição.
+      <PageTitle eyebrow="Progress" title="Seu ciclo">
+        A meta é consistência, não perfeição. O histórico é por ciclo de 7 dias; os dias entre um ciclo e outro não entram.
       </PageTitle>
 
       <div className="col-span-full flex items-center justify-between gap-2">
-        <Button small variant="secondary" aria-label="Semana anterior" onClick={() => setWeekStart(addDays(weekStart, -7))}>
-          ←
-        </Button>
-        <p className="text-sm font-medium">
-          {formatDate(weekStart, 'short')} a {formatDate(addDays(weekStart, 6), 'short')}
-          {weekStart === thisWeek && ' · esta semana'}
-        </p>
         <Button
           small
           variant="secondary"
-          aria-label="Próxima semana"
-          disabled={weekStart >= thisWeek}
-          onClick={() => setWeekStart(addDays(weekStart, 7))}
+          aria-label="Ciclo anterior"
+          disabled={!previous}
+          onClick={() => previous && setPicked(previous.start)}
         >
+          ←
+        </Button>
+        <p className="text-sm font-medium">
+          Ciclo {selected.index + 1} de {cycles.length} · {formatDate(weekStart, 'short')} a {formatDate(selected.end, 'short')}
+          {running && ' · em andamento'}
+        </p>
+        <Button small variant="secondary" aria-label="Próximo ciclo" disabled={!next} onClick={() => next && setPicked(next.start)}>
           →
         </Button>
       </div>
@@ -86,17 +108,17 @@ export function ProgressPage() {
 
       <Card>
         <div className="flex items-baseline justify-between">
-          <Eyebrow>Controle da semana</Eyebrow>
+          <Eyebrow>Controle do ciclo</Eyebrow>
           <Link to={`/weekly/${weekStart}`} className="text-sm font-medium text-accent">
             Weekly review →
           </Link>
         </div>
         <ul className="mt-3 divide-y divide-line">
-          {week.days.map((d) => (
+          {week.days.map((d, i) => (
             <li key={d.date} className="py-2.5">
               <div className="flex items-baseline justify-between gap-3">
                 <p className="font-medium capitalize">
-                  {formatDate(d.date, 'weekday').replace('.', '')}{' '}
+                  <span className="font-normal text-muted tabular-nums">{i + 1}.</span> {formatDate(d.date, 'weekday').replace('.', '')}{' '}
                   <span className="font-normal text-muted">{formatDate(d.date, 'short')}</span>
                 </p>
                 <p className="text-sm text-muted">
@@ -112,7 +134,7 @@ export function ProgressPage() {
                         .join(' · ')
                     : d.date > date
                       ? ''
-                      : isWeekend(d.date)
+                      : i >= CYCLE_SESSION_DAYS
                         ? 'só revisões'
                         : 'sem estudo'}
                 </p>
@@ -127,7 +149,7 @@ export function ProgressPage() {
           ))}
         </ul>
         <div className="mt-3 border-t border-line pt-3">
-          <ResetWeek weekStart={weekStart} />
+          <ResetWeek weekStart={weekStart} weekEnd={selected.end} />
         </div>
       </Card>
 
@@ -145,7 +167,7 @@ export function ProgressPage() {
               ['Taxa de recuperação', percent(all.recallRate)],
               ['Tempo de speaking (min:s)', formatDuration(all.speakingSec)],
               ['Dias estudados', all.studyDays],
-              ['Semanas completas', all.completeWeeks],
+              ['Ciclos completos', all.completeWeeks],
             ] as const
           ).map(([label, value]) => (
             <div key={label}>
@@ -157,13 +179,13 @@ export function ProgressPage() {
       </Card>
 
       <section className="col-span-full space-y-3">
-        <Eyebrow>Evolução · últimas {HISTORY_WEEKS} semanas</Eyebrow>
+        <Eyebrow>Evolução · {history.length === 1 ? 'último ciclo' : `últimos ${history.length} ciclos`}</Eyebrow>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <BarChart title="Ideias lidas por semana" data={series(history, (w) => w.ideasRead, '')} />
-          <BarChart title="Chunks novos por semana" data={series(history, (w) => w.chunksCreated, '')} />
-          <BarChart title="Revisões concluídas por semana" data={series(history, (w) => w.reviewsDone, '')} />
-          <BarChart title="Minutos de speaking por semana" data={series(history, (w) => minutes(w.speakingSec), 'min')} />
-          <BarChart title="Dias estudados por semana" data={series(history, (w) => w.studyDays, '')} />
+          <BarChart title="Ideias lidas por ciclo" data={series(history, (w) => w.ideasRead, '')} />
+          <BarChart title="Chunks novos por ciclo" data={series(history, (w) => w.chunksCreated, '')} />
+          <BarChart title="Revisões concluídas por ciclo" data={series(history, (w) => w.reviewsDone, '')} />
+          <BarChart title="Minutos de speaking por ciclo" data={series(history, (w) => minutes(w.speakingSec), 'min')} />
+          <BarChart title="Dias estudados por ciclo" data={series(history, (w) => w.studyDays, '')} />
         </div>
         <details className="rounded-2xl border border-line bg-surface p-4">
           <summary className="min-h-8 cursor-pointer text-sm font-medium">Ver como tabela</summary>
@@ -172,7 +194,7 @@ export function ProgressPage() {
               <thead className="text-xs text-muted">
                 <tr>
                   <th scope="col" className="py-1 text-left font-medium">
-                    Semana
+                    Ciclo
                   </th>
                   <th scope="col" className="px-2 font-medium">
                     Ideias

@@ -40,12 +40,7 @@ export function isDifficult(chunk: Chunk, reviews: readonly ChunkReview[]): bool
   return countRecall(reviews).missed >= 2 || last.rating === 'AGAIN' || last.rating === 'HARD';
 }
 
-export function matchesFilter(
-  chunk: Chunk,
-  reviews: readonly ChunkReview[],
-  filter: ChunkFilter,
-  today: ISODate,
-): boolean {
+export function matchesFilter(chunk: Chunk, reviews: readonly ChunkReview[], filter: ChunkFilter, today: ISODate): boolean {
   switch (filter) {
     case 'all':
       return true;

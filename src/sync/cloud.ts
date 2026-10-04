@@ -90,11 +90,7 @@ function run(task: (e: SyncEngine) => Promise<SyncOutcome>): Promise<SyncOutcome
     update({ status: 'syncing', error: '' });
     try {
       const outcome = await task(current);
-      update(
-        outcome === 'synced'
-          ? { status: 'synced', hydrated: true, lastSyncedAt: new Date().toISOString() }
-          : { status: 'choose' },
-      );
+      update(outcome === 'synced' ? { status: 'synced', hydrated: true, lastSyncedAt: new Date().toISOString() } : { status: 'choose' });
       return outcome;
     } catch (error) {
       // Num navegador que já sincronizou antes, dá para seguir estudando sem rede.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cyclePosition, weekPlan } from './cycle';
+import { weekPlan } from './cycle';
 import { startOfWeek } from './dates';
 import { type StatsInput, totals, weeklyHistory, weekStats } from './stats';
 import type { Chunk, ChunkReview, Idea, SourceCard, SpeakingSession, StudySession } from './types';
@@ -94,17 +94,8 @@ function speaking(id: string, date: string, durationSec: number): SpeakingSessio
 }
 
 const input: StatsInput = {
-  sessions: [
-    session('2026-09-28', 'a1'),
-    session('2026-09-29', 'b1', false),
-    session('2026-10-05', 'c1'),
-  ],
-  ideas: [
-    idea('a1', '2026-09-28'),
-    idea('a2', '2026-09-28'),
-    idea('b1', '2026-09-29'),
-    idea('c1', '2026-10-05'),
-  ],
+  sessions: [session('2026-09-28', 'a1'), session('2026-09-29', 'b1', false), session('2026-10-05', 'c1')],
+  ideas: [idea('a1', '2026-09-28'), idea('a2', '2026-09-28'), idea('b1', '2026-09-29'), idea('c1', '2026-10-05')],
   // Cada ideia tem uma quantidade diferente de cards.
   cards: [
     ...cards('a1', '2026-09-28', 4),
@@ -112,11 +103,7 @@ const input: StatsInput = {
     ...cards('b1', '2026-09-29', 3),
     ...cards('c1', '2026-10-05', 5),
   ],
-  chunks: [
-    chunk('k1', '2026-09-28'),
-    chunk('k2', '2026-09-28', 'learned'),
-    chunk('k3', '2026-10-05'),
-  ],
+  chunks: [chunk('k1', '2026-09-28'), chunk('k2', '2026-09-28', 'learned'), chunk('k3', '2026-10-05')],
   reviews: [
     review('r1', '2026-09-29', 'GOOD'),
     review('r2', '2026-09-30', 'AGAIN'),
@@ -175,12 +162,41 @@ describe('estatísticas semanais', () => {
     });
   });
 
-  it('histórico vem da semana mais antiga para a mais recente', () => {
+  it('histórico vem do ciclo mais antigo para o mais recente e só tem ciclos que existem', () => {
     const history = weeklyHistory(input, '2026-10-05', 3);
+    expect(history.map((w) => [w.weekStart, w.weekEnd, w.ideasRead])).toEqual([
+      ['2026-09-28', '2026-10-04', 3],
+      ['2026-10-05', '2026-10-11', 1],
+    ]);
+    expect(weeklyHistory(input, '2026-10-05', 1).map((w) => w.weekStart)).toEqual(['2026-10-05']);
+  });
+
+  it('ciclo iniciado na terça: o histórico vai até a segunda, e os dias entre ciclos ficam fora', () => {
+    const cycles: StatsInput = {
+      sessions: [session('2026-10-06', 'i1'), session('2026-10-13', 'i2'), session('2026-10-15', 'i3')],
+      ideas: [idea('i1', '2026-10-06'), idea('i2', '2026-10-13'), idea('i3', '2026-10-15')],
+      cards: [],
+      chunks: [],
+      reviews: [{ id: 'r1', chunkId: 'c', stage: 1, completedDate: '2026-10-12', rating: 'GOOD', userSentence: '' } as ChunkReview],
+      speaking: [],
+      cycleStarts: ['2026-10-06', '2026-10-15'],
+    };
+    const first = weekStats(cycles, '2026-10-06');
+    expect(first.days.map((d) => d.date)).toEqual([
+      '2026-10-06',
+      '2026-10-07',
+      '2026-10-08',
+      '2026-10-09',
+      '2026-10-10',
+      '2026-10-11',
+      '2026-10-12',
+    ]);
+    // A revisão de segunda (dia 7) conta; a sessão de terça 13/10 não pertence a ciclo nenhum.
+    expect(first).toMatchObject({ weekEnd: '2026-10-12', ideasRead: 1, reviewsDone: 1 });
+    const history = weeklyHistory(cycles, '2026-10-15', 8);
     expect(history.map((w) => [w.weekStart, w.ideasRead])).toEqual([
-      ['2026-09-21', 0],
-      ['2026-09-28', 3],
-      ['2026-10-05', 1],
+      ['2026-10-06', 1],
+      ['2026-10-15', 1],
     ]);
   });
 
@@ -204,12 +220,6 @@ describe('semana e ciclo', () => {
     expect(startOfWeek('2026-10-03')).toBe('2026-09-28'); // sábado
     expect(startOfWeek('2026-10-04')).toBe('2026-09-28'); // domingo
     expect(startOfWeek('2026-10-05')).toBe('2026-10-05'); // segunda
-  });
-
-  it('ciclos de 4 semanas se repetem mantendo a contagem', () => {
-    expect(cyclePosition(WEEK, '2026-10-04')).toEqual({ cycle: 1, week: 1 });
-    expect(cyclePosition(WEEK, '2026-10-25')).toEqual({ cycle: 1, week: 4 });
-    expect(cyclePosition(WEEK, '2026-10-26')).toEqual({ cycle: 2, week: 1 });
   });
 
   it('a meta de speaking cresce a cada semana', () => {

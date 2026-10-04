@@ -1,5 +1,6 @@
 import { DATA_TABLES, type DataTableName, db } from './db';
 import { DEFAULT_SETTINGS } from '../domain/defaults';
+import { normalizeStarts } from '../domain/periods';
 import type { AISettings, UserSettings } from '../domain/types';
 import { migrateV1toV2, type Tables } from './migrations';
 
@@ -8,7 +9,7 @@ export const BACKUP_VERSION = 2;
 
 type Row = Record<string, unknown>;
 
-export interface BackupSettings extends Pick<UserSettings, 'theme' | 'cycleStartDate'> {
+export interface BackupSettings extends Pick<UserSettings, 'theme' | 'cycleStartDate' | 'cycleStarts'> {
   /**
    * Provedor, modelos e chave de API. Só vai na cópia da nuvem, que fica na conta do
    * usuário; o arquivo de backup exportado nunca leva a chave.
@@ -46,6 +47,7 @@ export async function exportBackup(options: { includeAI?: boolean } = {}): Promi
       ? {
           theme: settings.theme,
           cycleStartDate: settings.cycleStartDate,
+          ...(settings.cycleStarts ? { cycleStarts: settings.cycleStarts } : {}),
           ...(options.includeAI ? { ai: settings.ai } : {}),
         }
       : null,
@@ -119,6 +121,7 @@ export function parseBackup(json: string): BackupFile {
   const rawSettings = raw['settings'];
   const theme = isRecord(rawSettings) ? rawSettings['theme'] : null;
   const cycleStartDate = isRecord(rawSettings) ? rawSettings['cycleStartDate'] : null;
+  const cycleStarts: unknown = isRecord(rawSettings) ? rawSettings['cycleStarts'] : null;
   const ai = isRecord(rawSettings) ? parseAI(rawSettings['ai']) : null;
   return {
     app: BACKUP_APP,
@@ -129,6 +132,7 @@ export function parseBackup(json: string): BackupFile {
         ? {
             theme,
             cycleStartDate: typeof cycleStartDate === 'string' ? cycleStartDate : null,
+            ...(Array.isArray(cycleStarts) ? { cycleStarts: normalizeStarts(cycleStarts) } : {}),
             ...(ai ? { ai } : {}),
           }
         : null,
@@ -156,7 +160,10 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
     if (backup.settings) {
       // Num navegador novo ainda não há ajustes salvos; parte dos padrões.
       const current = (await db.settings.get('settings')) ?? DEFAULT_SETTINGS;
-      await db.settings.put({ ...current, ...backup.settings });
+      const next = { ...current, ...backup.settings };
+      // Cópia sem ciclos definidos: os deste navegador não valem para os dados que chegaram.
+      if (!backup.settings.cycleStarts) delete next.cycleStarts;
+      await db.settings.put(next);
     }
   });
 }

@@ -1,6 +1,6 @@
 import { db } from '../data/db';
-import { cyclePosition } from '../domain/cycle';
-import { nowISO, startOfWeek, today } from '../domain/dates';
+import { periodOf, phaseOf } from '../domain/periods';
+import { nowISO, today } from '../domain/dates';
 import { newId } from '../domain/ids';
 import { canAddChunk } from '../domain/session';
 import { scheduler } from '../domain/srs';
@@ -16,6 +16,7 @@ import type {
   StudySession,
 } from '../domain/types';
 import { ChunkLimitError, DomainError } from './errors';
+import { ensureCycle } from './cycles';
 import { getSettings } from './settings';
 
 export interface IdeaWithCards {
@@ -34,8 +35,7 @@ export interface SessionBundle {
   reflection: Reflection | null;
 }
 
-const byCreatedAt = <T extends { createdAt: string }>(a: T, b: T): number =>
-  a.createdAt.localeCompare(b.createdAt);
+const byCreatedAt = <T extends { createdAt: string }>(a: T, b: T): number => a.createdAt.localeCompare(b.createdAt);
 
 function required(value: string, field: string): string {
   const trimmed = value.trim();
@@ -55,11 +55,11 @@ export function startSession(date: ISODate = today()): Promise<StudySession> {
     const existing = await db.sessions.where('date').equals(date).first();
     if (existing) return existing;
 
+    // Um dia fora de qualquer ciclo começa um ciclo novo de 7 dias.
+    const starts = await ensureCycle(date);
+    const period = periodOf(starts, date);
     const settings = await getSettings();
-    const cycleStart = settings.cycleStartDate ?? startOfWeek(date);
-    if (!settings.cycleStartDate) await db.settings.put({ ...settings, cycleStartDate: cycleStart });
-
-    const { cycle, week } = cyclePosition(cycleStart, date);
+    const { cycle, week } = period ? phaseOf(starts, period, settings.cycleStartDate) : { cycle: 1, week: 1 };
     const session: StudySession = {
       id: newId(),
       date,
@@ -88,16 +88,12 @@ export async function loadSessionBundle(date: ISODate): Promise<SessionBundle | 
     db.chunks.where('sessionId').equals(session.id).toArray(),
     db.speaking.where('sessionId').equals(session.id).toArray(),
   ]);
-  const withCards = ideas.sort(byCreatedAt).map(
-    (idea): IdeaWithCards => ({
-      idea,
-      cards: cards.filter((c) => c.ideaId === idea.id).sort((a, b) => a.position - b.position),
-    }),
-  );
+  const withCards = ideas.sort(byCreatedAt).map((idea): IdeaWithCards => ({
+    idea,
+    cards: cards.filter((c) => c.ideaId === idea.id).sort((a, b) => a.position - b.position),
+  }));
   const ideaOfDay = withCards.find((i) => i.idea.id === session.ideaOfDayId) ?? null;
-  const reflection = ideaOfDay
-    ? ((await db.reflections.where('ideaId').equals(ideaOfDay.idea.id).first()) ?? null)
-    : null;
+  const reflection = ideaOfDay ? ((await db.reflections.where('ideaId').equals(ideaOfDay.idea.id).first()) ?? null) : null;
   return {
     session,
     ideas: withCards,
@@ -254,12 +250,7 @@ export function deleteCard(cardId: string): Promise<void> {
 
 // ---------- Vocabulário de compreensão ----------
 
-export async function addVocab(
-  sessionId: string,
-  ideaId: string,
-  term: string,
-  meaning: string,
-): Promise<void> {
+export async function addVocab(sessionId: string, ideaId: string, term: string, meaning: string): Promise<void> {
   await db.vocab.add({
     id: newId(),
     sessionId,

@@ -1,6 +1,7 @@
 import { DATA_TABLES, db } from '../data/db';
-import { addDays, nowISO } from '../domain/dates';
+import { nowISO } from '../domain/dates';
 import type { Idea, ISODate, PracticeStat, SpeakingSession } from '../domain/types';
+import { getCycle } from './cycles';
 
 // ---------- Recomeçar ----------
 
@@ -12,7 +13,7 @@ export interface WeekContents {
 }
 
 async function weekScope(weekStart: ISODate) {
-  const weekEnd = addDays(weekStart, 6);
+  const weekEnd = (await getCycle(weekStart)).end;
   const sessions = await db.sessions.where('date').between(weekStart, weekEnd, true, true).toArray();
   const sessionIds = sessions.map((s) => s.id);
   const [ideas, chunks, speaking, writings] = await Promise.all([
@@ -38,7 +39,7 @@ export async function weekContents(weekStart: ISODate): Promise<WeekContents> {
  * mantidas: apagá-las deixaria o calendário daqueles chunks incoerente.
  */
 export async function resetWeek(weekStart: ISODate): Promise<void> {
-  const tables = [db.recordings, ...DATA_TABLES.map((name) => db.table(name))];
+  const tables = [db.settings, db.recordings, ...DATA_TABLES.map((name) => db.table(name))];
   await db.transaction('rw', tables, async () => {
     const { sessionIds, ideas, chunks, speaking, writings } = await weekScope(weekStart);
     const chunkIds = chunks.map((c) => c.id);
@@ -63,8 +64,14 @@ export async function resetWeek(weekStart: ISODate): Promise<void> {
     await db.vocab.bulkDelete(vocab.map((v) => v.id));
     await db.reflections.bulkDelete(reflections.map((r) => r.id));
     await db.cards.where('sessionId').anyOf(sessionIds).delete();
-    await db.ideaChats.where('ideaId').anyOf(ideas.map((i) => i.id)).delete();
-    const verbs = await db.verbs.where('ideaId').anyOf(ideas.map((i) => i.id)).toArray();
+    await db.ideaChats
+      .where('ideaId')
+      .anyOf(ideas.map((i) => i.id))
+      .delete();
+    const verbs = await db.verbs
+      .where('ideaId')
+      .anyOf(ideas.map((i) => i.id))
+      .toArray();
     await db.practiceStats.bulkDelete(verbs.flatMap((v) => v.drills.map((_, i) => `verb:${v.id}:${i}`)));
     await db.verbs.bulkDelete(verbs.map((v) => v.id));
     await db.ideas.bulkDelete(ideas.map((i) => i.id));
@@ -82,9 +89,9 @@ export async function resetAll(): Promise<void> {
   await db.transaction('rw', tables, async () => {
     await db.recordings.clear();
     await Promise.all(DATA_TABLES.map((name) => db.table(name).clear()));
-    // O ciclo de 4 semanas recomeça na próxima sessão.
+    // Sem ciclos: o primeiro começa na próxima sessão, na fase 1.
     const settings = await db.settings.get('settings');
-    if (settings) await db.settings.put({ ...settings, cycleStartDate: null });
+    if (settings) await db.settings.put({ ...settings, cycleStartDate: null, cycleStarts: [] });
   });
 }
 
@@ -122,10 +129,8 @@ export interface SpokenItem {
 
 /** As falas de uma semana, da mais antiga para a mais recente, com o áudio quando há. */
 export async function listWeekSpeaking(weekStart: ISODate): Promise<SpokenItem[]> {
-  const speaking = await db.speaking
-    .where('date')
-    .between(weekStart, addDays(weekStart, 6), true, true)
-    .sortBy('createdAt');
+  const weekEnd = (await getCycle(weekStart)).end;
+  const speaking = await db.speaking.where('date').between(weekStart, weekEnd, true, true).sortBy('createdAt');
   return Promise.all(
     speaking.map(async (s): Promise<SpokenItem> => ({
       speaking: s,

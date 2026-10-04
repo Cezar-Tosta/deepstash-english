@@ -1,10 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { addDays, formatDate, formatDuration, isISODate, startOfWeek } from '../../domain/dates';
+import { formatDate, formatDuration, isISODate } from '../../domain/dates';
 import { countWords } from '../../domain/session';
 import { weekStats } from '../../domain/stats';
 import type { Chunk } from '../../domain/types';
+import { getCycleInfo } from '../../services/cycles';
 import { loadStatsInput } from '../../services/library';
 import { saveRecording } from '../../services/maintenance';
 import { reactivateChunk, retireChunk } from '../../services/reviews';
@@ -105,7 +106,7 @@ function TopIdeas({ bundle }: { bundle: WeekBundle }) {
   return (
     <fieldset className="space-y-2">
       <legend className="mb-3">
-        <Prompt>Escolha as 3 melhores ideias da semana.</Prompt>
+        <Prompt>Escolha as 3 melhores ideias do ciclo.</Prompt>
         <Hint>Depois, explique cada uma em voz alta, em inglês.</Hint>
       </legend>
       {ideas.map(({ idea }) => {
@@ -130,7 +131,7 @@ function TopIdeas({ bundle }: { bundle: WeekBundle }) {
 // ---------- 3. Vocabulário que ficou ----------
 
 function VocabularyCheck({ chunks, date }: { chunks: Chunk[]; date: string }) {
-  if (chunks.length === 0) return <Hint>Nenhum chunk novo nesta semana.</Hint>;
+  if (chunks.length === 0) return <Hint>Nenhum chunk novo neste ciclo.</Hint>;
   return (
     <ul className="space-y-2">
       {chunks.map((chunk) => {
@@ -207,8 +208,8 @@ function WeeklySpeaking({ bundle, date }: { bundle: WeekBundle; date: string }) 
                 kind: 'weekly',
                 sessionId: null,
                 ideaId: review.speakingIdeaId,
-                // Dentro da semana revisada, para a fala contar no balanço dela.
-                date: date >= weekStart && date <= addDays(weekStart, 6) ? date : addDays(weekStart, 6),
+                // Dentro do ciclo revisado, para a fala contar no balanço dele.
+                date: date >= weekStart && date <= bundle.weekEnd ? date : bundle.weekEnd,
                 durationSec,
                 targetSec: 180,
               }).then((id) => (id && audio ? saveRecording(id, audio) : undefined)),
@@ -216,7 +217,7 @@ function WeeklySpeaking({ bundle, date }: { bundle: WeekBundle; date: string }) 
           }
         />
       </Card>
-      {total > 0 && <p className="text-sm text-muted">Tempo sem roteiro nesta semana: {formatDuration(total)}.</p>}
+      {total > 0 && <p className="text-sm text-muted">Tempo sem roteiro neste ciclo: {formatDuration(total)}.</p>}
       <AutoTextArea
         label="O que consegui fazer bem"
         value={review.wentWell}
@@ -369,9 +370,11 @@ function Part({ number, title, wide, children }: { number: number; title: string
 export function WeeklyPage() {
   const date = useToday();
   const params = useParams();
-  const weekStart = isISODate(params['weekStart']) ? startOfWeek(params['weekStart']) : startOfWeek(date);
-  const bundle = useLiveQuery(() => loadWeekBundle(weekStart), [weekStart]);
-  if (!bundle) return null;
+  // A data pedida (ou hoje) aponta para o ciclo que a contém ou, entre ciclos, para o último encerrado.
+  const requested = isISODate(params['weekStart']) ? params['weekStart'] : date;
+  const weekStart = useLiveQuery(async () => (await getCycleInfo(requested)).reference?.start ?? requested, [requested]);
+  const bundle = useLiveQuery(async () => (weekStart ? loadWeekBundle(weekStart) : null), [weekStart]);
+  if (!bundle || !weekStart) return null;
 
   const done = Boolean(bundle.review.completedAt);
 
@@ -381,14 +384,14 @@ export function WeeklyPage() {
         <Link to="/progress" className="mb-2 flex min-h-10 items-center text-sm font-medium text-accent">
           ← Progress
         </Link>
-        <PageTitle eyebrow="Weekly review" title="Fechamento da semana">
-          {formatDate(weekStart, 'short')} a {formatDate(addDays(weekStart, 6), 'short')}
+        <PageTitle eyebrow="Weekly review" title="Fechamento do ciclo">
+          Ciclo de {formatDate(weekStart, 'short')} a {formatDate(bundle.weekEnd, 'short')}
         </PageTitle>
       </div>
 
       {bundle.ideas.length === 0 ? (
         <div className="col-span-full">
-          <EmptyState title="Nenhuma Idea of the Day nesta semana.">
+          <EmptyState title="Nenhuma Idea of the Day neste ciclo.">
             O fechamento usa as ideias que você aprofundou nas sessões diárias.
           </EmptyState>
         </div>
@@ -409,7 +412,7 @@ export function WeeklyPage() {
             <Hint>Não mantenha um item em revisão só para completar o calendário.</Hint>
             <VocabularyCheck chunks={bundle.chunks} date={date} />
           </Part>
-          <Part number={4} title="Minhas falas da semana" wide>
+          <Part number={4} title="Minhas falas do ciclo" wide>
             <SpokenWeek weekStart={weekStart} />
           </Part>
           <Part number={5} title="Speaking semanal">
@@ -429,11 +432,11 @@ export function WeeklyPage() {
               attempt(
                 saveWeeklyReview(weekStart, {
                   completedAt: done ? null : new Date().toISOString(),
-                }).then(() => showToast(done ? 'Fechamento reaberto.' : 'Semana fechada.')),
+                }).then(() => showToast(done ? 'Fechamento reaberto.' : 'Ciclo fechado.')),
               )
             }
           >
-            {done ? 'Semana fechada · reabrir' : 'CONCLUIR FECHAMENTO'}
+            {done ? 'Ciclo fechado · reabrir' : 'CONCLUIR FECHAMENTO'}
           </Button>
         </>
       )}

@@ -1,15 +1,8 @@
 import { db } from '../data/db';
-import { addDays, nowISO } from '../domain/dates';
+import { nowISO } from '../domain/dates';
 import { newId } from '../domain/ids';
-import type {
-  Chunk,
-  ISODate,
-  Reflection,
-  Idea,
-  SpeakingSession,
-  WeeklyReview,
-  WritingExercise,
-} from '../domain/types';
+import type { Chunk, ISODate, Reflection, Idea, SpeakingSession, WeeklyReview, WritingExercise } from '../domain/types';
+import { getCycle } from './cycles';
 import { DomainError } from './errors';
 
 export const TOP_IDEAS = 3;
@@ -21,6 +14,8 @@ export interface WeekIdea {
 
 export interface WeekBundle {
   weekStart: ISODate;
+  /** Último dia do ciclo, inclusive. */
+  weekEnd: ISODate;
   /** As Ideas of the Day da semana, em ordem de data. */
   ideas: WeekIdea[];
   chunks: Chunk[];
@@ -45,7 +40,7 @@ function emptyReview(weekStart: ISODate): WeeklyReview {
 }
 
 export async function loadWeekBundle(weekStart: ISODate): Promise<WeekBundle> {
-  const weekEnd = addDays(weekStart, 6);
+  const weekEnd = (await getCycle(weekStart)).end;
   const [sessions, chunks, review, writing, speaking] = await Promise.all([
     db.sessions.where('date').between(weekStart, weekEnd, true, true).sortBy('date'),
     db.chunks.where('createdDate').between(weekStart, weekEnd, true, true).sortBy('createdAt'),
@@ -65,6 +60,7 @@ export async function loadWeekBundle(weekStart: ISODate): Promise<WeekBundle> {
 
   return {
     weekStart,
+    weekEnd,
     ideas,
     chunks,
     review: review ?? emptyReview(weekStart),
@@ -73,10 +69,7 @@ export async function loadWeekBundle(weekStart: ISODate): Promise<WeekBundle> {
   };
 }
 
-export function saveWeeklyReview(
-  weekStart: ISODate,
-  patch: Partial<Omit<WeeklyReview, 'id' | 'weekStart' | 'updatedAt'>>,
-): Promise<void> {
+export function saveWeeklyReview(weekStart: ISODate, patch: Partial<Omit<WeeklyReview, 'id' | 'weekStart' | 'updatedAt'>>): Promise<void> {
   return db.transaction('rw', db.weeklyReviews, async () => {
     const current = (await db.weeklyReviews.get(weekStart)) ?? emptyReview(weekStart);
     if (patch.topIdeaIds && patch.topIdeaIds.length > TOP_IDEAS) {
@@ -98,10 +91,7 @@ export function saveRecall(weekStart: ISODate, ideaId: string, text: string): Pr
 }
 
 /** Rascunho da primeira versão. Depois de finalizado o texto original não muda mais. */
-export function saveWritingDraft(
-  weekStart: ISODate,
-  patch: { text?: string; ideaId?: string | null },
-): Promise<void> {
+export function saveWritingDraft(weekStart: ISODate, patch: { text?: string; ideaId?: string | null }): Promise<void> {
   return db.transaction('rw', db.writings, async () => {
     const existing = await db.writings.where('weekStart').equals(weekStart).first();
     const now = nowISO();

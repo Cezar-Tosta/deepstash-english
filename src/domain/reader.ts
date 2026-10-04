@@ -100,10 +100,7 @@ export function termWords(term: string): string[] {
  * expressões de várias palavras. Quando dois termos disputam o mesmo trecho, vence
  * o mais longo: "out of your head" tem prioridade sobre "head".
  */
-export function annotate<T extends { term: string }>(
-  tokens: readonly Token[],
-  entries: readonly T[],
-): Annotation<T>[] {
+export function annotate<T extends { term: string }>(tokens: readonly Token[], entries: readonly T[]): Annotation<T>[] {
   const wordAt: number[] = [];
   tokens.forEach((t, i) => {
     if (t.isWord) wordAt.push(i);

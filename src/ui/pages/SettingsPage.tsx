@@ -2,13 +2,12 @@ import { type ChangeEvent, useEffect, useRef, useState } from 'react';
 import { ANTHROPIC_DEFAULT_MODEL, GROQ_DEFAULT_MODEL, GROQ_VISION_MODEL } from '../../ai/AIProvider';
 import { isAIConfigured } from '../../ai/feedback';
 import { backupCounts, BackupError, type BackupFile, exportBackup, parseBackup, restoreBackup } from '../../data/backup';
-import { cyclePosition, weekPlan } from '../../domain/cycle';
-import { formatDate, startOfWeek } from '../../domain/dates';
 import type { AIProviderKind, AISettings, ThemePref } from '../../domain/types';
 import { errorMessage } from '../../services/errors';
 import { useCloud } from '../../sync/cloud';
-import { markBackupDone, restartCycle, setAISettings, setTheme } from '../../services/settings';
+import { markBackupDone, setAISettings, setTheme } from '../../services/settings';
 import { AccountSection } from '../components/AccountSection';
+import { CycleSection } from '../components/CycleSection';
 import { DataSection } from '../components/Maintenance';
 import { Button, Card, Eyebrow, Hint, Notice, PageTitle, Segmented, TextInput } from '../components/ui';
 import { useSettings, useToday } from '../hooks';
@@ -324,13 +323,8 @@ function StorageSection() {
 export function SettingsPage() {
   const settings = useSettings();
   const date = useToday();
-  const [confirmCycle, setConfirmCycle] = useState(false);
   const cloud = useCloud();
   if (!settings) return null;
-
-  const cycleStart = settings.cycleStartDate ?? startOfWeek(date);
-  const { cycle, week } = cyclePosition(cycleStart, date);
-  const plan = weekPlan(week);
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-2">
@@ -343,42 +337,7 @@ export function SettingsPage() {
         </div>
       </Card>
 
-      <Card>
-        <Eyebrow>Ciclo de 4 semanas</Eyebrow>
-        <p className="mt-2">
-          Ciclo {cycle}, semana {week} · iniciado em {formatDate(cycleStart, 'medium')}
-        </p>
-        <p className="mt-1 text-sm text-muted">
-          {plan.focus} Speaking {plan.speakingLabel}. {plan.translation}
-        </p>
-        <div className="mt-3">
-          {confirmCycle ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm">Voltar para a semana 1 a partir desta semana? O histórico é mantido.</span>
-              <Button
-                small
-                onClick={() =>
-                  attempt(
-                    restartCycle(date).then(() => {
-                      setConfirmCycle(false);
-                      showToast('Ciclo reiniciado. Vale para as próximas sessões.');
-                    }),
-                  )
-                }
-              >
-                Reiniciar
-              </Button>
-              <Button small variant="ghost" onClick={() => setConfirmCycle(false)}>
-                Cancelar
-              </Button>
-            </div>
-          ) : (
-            <Button small variant="secondary" onClick={() => setConfirmCycle(true)}>
-              Reiniciar ciclo nesta semana
-            </Button>
-          )}
-        </div>
-      </Card>
+      <CycleSection date={date} />
 
       <AccountSection />
       <BackupSection lastBackupAt={settings.lastBackupAt} />

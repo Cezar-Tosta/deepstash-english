@@ -36,8 +36,6 @@ describe('retorno da IA', () => {
     expect(isAIConfigured({ provider: 'anthropic', baseUrl: '', model: '', apiKey: '' })).toBe(false);
     expect(isAIConfigured({ provider: 'groq', baseUrl: '', model: '', apiKey: '' })).toBe(false);
     expect(isAIConfigured({ provider: 'groq', baseUrl: '', model: '', apiKey: 'gsk_x' })).toBe(true);
-    expect(
-      isAIConfigured({ provider: 'openai-compatible', baseUrl: 'http://localhost:11434/v1', model: 'llama3', apiKey: '' }),
-    ).toBe(true);
+    expect(isAIConfigured({ provider: 'openai-compatible', baseUrl: 'http://localhost:11434/v1', model: 'llama3', apiKey: '' })).toBe(true);
   });
 });

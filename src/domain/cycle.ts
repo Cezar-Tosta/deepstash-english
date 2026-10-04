@@ -1,21 +1,5 @@
-import { diffDays } from './dates';
-import type { ISODate } from './types';
-
+/** Quantas fases há: uma por ciclo de 7 dias, depois recomeça. */
 export const WEEKS_PER_CYCLE = 4;
-
-export interface CyclePosition {
-  cycle: number;
-  week: number;
-}
-
-/** Posição de `date` nos ciclos de 4 semanas que começam em `cycleStart` (uma segunda-feira). */
-export function cyclePosition(cycleStart: ISODate, date: ISODate): CyclePosition {
-  const weeks = Math.max(0, Math.floor(diffDays(cycleStart, date) / 7));
-  return {
-    cycle: Math.floor(weeks / WEEKS_PER_CYCLE) + 1,
-    week: (weeks % WEEKS_PER_CYCLE) + 1,
-  };
-}
 
 export interface WeekPlan {
   week: number;

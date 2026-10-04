@@ -3,7 +3,7 @@ import { type SuggestionInput, suggestToday } from './suggestion';
 
 const quiet: SuggestionInput = {
   date: '2026-10-07',
-  weekday: 3,
+  cycleDay: 3,
   dueReviews: 0,
   overdueReviews: 0,
   session: 'completed',
@@ -61,11 +61,11 @@ describe('sugestão de estudo para o dia', () => {
   });
 
   it('fechamento da semana: na sexta, depois da sessão, se houve estudo e ainda não foi feito', () => {
-    expect(ids({ weekday: 5, weekIdeas: 5 })).toEqual(['weekly']);
-    expect(ids({ weekday: 4, weekIdeas: 5 })).toEqual([]);
-    expect(ids({ weekday: 5, weekIdeas: 0 })).toEqual([]);
-    expect(ids({ weekday: 5, weekIdeas: 5, weeklyDone: true })).toEqual([]);
-    expect(ids({ weekday: 5, weekIdeas: 4, session: 'none' })).toEqual(['session']);
+    expect(ids({ cycleDay: 5, weekIdeas: 5 })).toEqual(['weekly']);
+    expect(ids({ cycleDay: 4, weekIdeas: 5 })).toEqual([]);
+    expect(ids({ cycleDay: 5, weekIdeas: 0 })).toEqual([]);
+    expect(ids({ cycleDay: 5, weekIdeas: 5, weeklyDone: true })).toEqual([]);
+    expect(ids({ cycleDay: 5, weekIdeas: 4, session: 'none' })).toEqual(['session']);
   });
 
   it('sábado e domingo: só revisões, mesmo com sessão, ações e treino pendentes', () => {
@@ -77,15 +77,15 @@ describe('sugestão de estudo para o dia', () => {
       daysSincePractice: 5,
       weekIdeas: 4,
     };
-    expect(ids({ ...busy, weekday: 6 })).toEqual(['reviews']);
-    expect(ids({ ...busy, weekday: 0 })).toEqual(['reviews']);
-    expect(ids({ ...busy, weekday: 0, dueReviews: 0 })).toEqual([]);
+    expect(ids({ ...busy, cycleDay: 6 })).toEqual(['reviews']);
+    expect(ids({ ...busy, cycleDay: 7 })).toEqual(['reviews']);
+    expect(ids({ ...busy, cycleDay: 7, dueReviews: 0 })).toEqual([]);
   });
 
   it('dia cheio numa sexta: a ordem é revisar, sessão, ações, treino', () => {
     expect(
       ids({
-        weekday: 5,
+        cycleDay: 5,
         session: 'in_progress',
         currentStepLabel: 'MINE',
         remainingMinutes: 12,

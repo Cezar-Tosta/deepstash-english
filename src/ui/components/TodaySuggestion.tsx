@@ -1,14 +1,15 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router-dom';
-import { isWeekend } from '../../domain/dates';
 import type { ISODate } from '../../domain/types';
+import { getCycleInfo } from '../../services/cycles';
 import { loadSuggestion } from '../../services/study';
 import { Card, Eyebrow } from './ui';
 
 /** O plano do dia: o que fazer agora, em ordem, com o tempo de cada coisa. */
 export function TodaySuggestion({ date }: { date: ISODate }) {
   const plan = useLiveQuery(() => loadSuggestion(date), [date]);
-  if (!plan) return null;
+  const info = useLiveQuery(() => getCycleInfo(date), [date]);
+  if (!plan || !info) return null;
   const total = plan.reduce((sum, s) => sum + s.minutes, 0);
 
   return (
@@ -19,8 +20,8 @@ export function TodaySuggestion({ date }: { date: ISODate }) {
       </div>
       {plan.length === 0 ? (
         <p className="mt-2 text-sm">
-          {isWeekend(date)
-            ? 'Fim de semana sem revisões agendadas. Descanse; a próxima sessão é na segunda-feira.'
+          {info.rest
+            ? 'Dia de revisão sem revisões agendadas. Descanse; o próximo ciclo começa quando você fizer a próxima sessão.'
             : 'Tudo em dia. Se quiser ir além, abra uma ideia em Knowledge e releia os cards clicando nas palavras.'}
         </p>
       ) : (

@@ -41,12 +41,12 @@ export interface RoutineItem {
 export const ROUTINE: readonly RoutineItem[] = [
   {
     activity: 'Sessão de estudo',
-    frequency: 'Segunda a sexta',
+    frequency: 'Dias 1 a 5 do ciclo',
     detail: `${STEPS.reduce((sum, s) => sum + s.minutes, 0)} min: as 10 etapas, do REVIEW ao SCHEDULE REVIEW.`,
   },
   {
-    activity: 'Fim de semana',
-    frequency: 'Sábado e domingo',
+    activity: 'Dias de revisão',
+    frequency: 'Dias 6 e 7 do ciclo',
     detail: 'Sem sessão nova: só as revisões que caírem nesses dias.',
   },
   {
@@ -62,8 +62,8 @@ export const ROUTINE: readonly RoutineItem[] = [
   { activity: 'Exercícios', frequency: '2 a 3 vezes por semana', detail: 'Treino curto com os termos em que você mais erra.' },
   {
     activity: 'Weekly review',
-    frequency: 'Sexta-feira',
-    detail: 'Depois da última sessão da semana: relembrar as ideias, Top 3, ouvir suas falas, fala livre e texto de 80 a 120 palavras.',
+    frequency: 'Dia 5 do ciclo',
+    detail: 'Depois da última sessão do ciclo: relembrar as ideias, Top 3, ouvir suas falas, fala livre e texto de 80 a 120 palavras.',
   },
   {
     activity: 'Fechamento do livro',
@@ -71,9 +71,10 @@ export const ROUTINE: readonly RoutineItem[] = [
     detail: 'Explicar o livro em 2 minutos e escrever o que fica dele.',
   },
   {
-    activity: 'Ciclo de progressão',
-    frequency: 'A cada 4 semanas',
-    detail: 'A meta de fala sobe de 1 para 2 a 3 minutos e a tradução vai sendo reduzida.',
+    activity: 'Fases',
+    frequency: 'Uma por ciclo, de 1 a 4',
+    detail:
+      'O ciclo tem 7 dias e começa na data que você escolher em Settings. A cada ciclo, a meta de fala sobe de 1 para 2 a 3 minutos e a tradução vai sendo reduzida.',
   },
 ];
 

@@ -39,11 +39,7 @@ const EXAMPLE = JSON.stringify({
   ],
 });
 
-export function buildVerbPrompt(
-  ideaTitle: string,
-  cardsText: string,
-  only?: string,
-): { system: string; user: string } {
+export function buildVerbPrompt(ideaTitle: string, cardsText: string, only?: string): { system: string; user: string } {
   return {
     system: [
       'Você prepara material de estudo de tempos verbais para um brasileiro que aprende inglês lendo ideias de livros.',
@@ -86,7 +82,9 @@ export function parseVerbs(raw: string): ParsedVerb[] {
   const seen = new Set<string>();
   const verbs: ParsedVerb[] = [];
   for (const v of objects) {
-    const base = pickText(v, 'base', 'verb', 'infinitive').replace(/^to\s+/i, '').toLowerCase();
+    const base = pickText(v, 'base', 'verb', 'infinitive')
+      .replace(/^to\s+/i, '')
+      .toLowerCase();
     if (!base || seen.has(base)) continue;
     seen.add(base);
 
@@ -126,9 +124,7 @@ export async function saveVerbs(ideaId: string, parsed: readonly ParsedVerb[]): 
   return db.transaction('rw', db.verbs, db.translations, async () => {
     const existing = new Set((await db.verbs.where('ideaId').equals(ideaId).toArray()).map((v) => v.base));
     const fresh = parsed.filter((v) => !existing.has(v.base));
-    await db.verbs.bulkAdd(
-      fresh.map((v): VerbEntry => ({ ...v, id: newId(), ideaId, selected: true, createdAt: nowISO() })),
-    );
+    await db.verbs.bulkAdd(fresh.map((v): VerbEntry => ({ ...v, id: newId(), ideaId, selected: true, createdAt: nowISO() })));
     // A tradução de cada frase de exercício fica guardada pela frase completa, já com a resposta.
     for (const drill of fresh.flatMap((v) => v.drills)) {
       if (drill.translation) await saveTranslation(drill.sentence.replace(/_{3,}/, drill.answer), drill.translation);
@@ -158,12 +154,7 @@ export async function findVerbs(ideaId: string): Promise<number> {
  * resposta longa, então uma resposta ilegível ganha uma segunda tentativa antes de
  * virar erro para o usuário.
  */
-export async function askForVerbs(
-  provider: AIProvider,
-  ideaTitle: string,
-  cardsText: string,
-  only?: string,
-): Promise<ParsedVerb[]> {
+export async function askForVerbs(provider: AIProvider, ideaTitle: string, cardsText: string, only?: string): Promise<ParsedVerb[]> {
   const request = { ...buildVerbPrompt(ideaTitle, cardsText, only), json: true };
   try {
     return parseVerbs(await provider.complete(request));
@@ -184,7 +175,11 @@ export async function askForVerbs(
 
 /** A forma base como o app a guarda: sem "to", em minúsculas. */
 export function normalizeBase(input: string): string {
-  return input.trim().replace(/^to\s+/i, '').replace(/\s+/g, ' ').toLowerCase();
+  return input
+    .trim()
+    .replace(/^to\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
 }
 
 async function ideaText(ideaId: string): Promise<{ title: string; cardsText: string }> {

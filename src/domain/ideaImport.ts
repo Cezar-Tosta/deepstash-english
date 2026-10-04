@@ -38,8 +38,6 @@ export function parseIdeaJSON(raw: string): ImportedIdea {
   const cards = obj['cards'];
   return {
     title: typeof title === 'string' ? title.trim() : '',
-    cards: Array.isArray(cards)
-      ? cards.flatMap((c) => (typeof c === 'string' && c.trim() ? [c.trim()] : []))
-      : [],
+    cards: Array.isArray(cards) ? cards.flatMap((c) => (typeof c === 'string' && c.trim() ? [c.trim()] : [])) : [],
   };
 }

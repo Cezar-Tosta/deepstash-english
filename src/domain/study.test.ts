@@ -103,10 +103,7 @@ describe('leitura com clique nas palavras', () => {
   });
 
   it('divide um card em frases', () => {
-    expect(splitSentences(text)).toEqual([
-      'Your mind is for having ideas, not holding them.',
-      "Don't keep it in your head!",
-    ]);
+    expect(splitSentences(text)).toEqual(['Your mind is for having ideas, not holding them.', "Don't keep it in your head!"]);
   });
 });
 
@@ -173,7 +170,15 @@ describe('achar o termo dentro da frase', () => {
   it('no exercício, a lacuna cobre o trecho real e a resposta é o inglês correto da frase', () => {
     const [item] = studyItems({
       vocab: [],
-      chunks: [{ id: 'k', text: 'one thing at time', meaning: 'uma coisa de cada vez', userSentence: 'So far, I have studied one thing at a time.', originalSentence: '' }] as Chunk[],
+      chunks: [
+        {
+          id: 'k',
+          text: 'one thing at time',
+          meaning: 'uma coisa de cada vez',
+          userSentence: 'So far, I have studied one thing at a time.',
+          originalSentence: '',
+        },
+      ] as Chunk[],
       stats: [],
       reviews: [],
       verbs: [],
@@ -186,17 +191,33 @@ describe('achar o termo dentro da frase', () => {
 });
 describe('treino: nenhuma palavra solta', () => {
   const vocab: ComprehensionVocab[] = [
-    { id: 'v1', ideaId: 'a', sessionId: 's', term: 'rut', meaning: 'rotina sem saída', context: 'Stuck in a rut.', wordClass: 'substantivo', explanation: 'Aqui é uma rotina da qual não se sai.', createdAt: '' },
+    {
+      id: 'v1',
+      ideaId: 'a',
+      sessionId: 's',
+      term: 'rut',
+      meaning: 'rotina sem saída',
+      context: 'Stuck in a rut.',
+      wordClass: 'substantivo',
+      explanation: 'Aqui é uma rotina da qual não se sai.',
+      createdAt: '',
+    },
     { id: 'v2', ideaId: 'a', sessionId: 's', term: 'grit', meaning: 'garra', createdAt: '' },
   ];
   const chunks = [
     { id: 'k1', text: 'in your head', meaning: 'na sua cabeça', userSentence: 'It lives in your head.', originalSentence: '' },
     { id: 'k2', text: 'it turns out that', meaning: '', userSentence: '', originalSentence: 'It turns out that focus wins.' },
-    { id: 'k3', text: 'on purpose', meaning: 'de propósito', userSentence: '', originalSentence: '', extraSentences: ['I did it on purpose.'] },
+    {
+      id: 'k3',
+      text: 'on purpose',
+      meaning: 'de propósito',
+      userSentence: '',
+      originalSentence: '',
+      extraSentences: ['I did it on purpose.'],
+    },
     { id: 'k4', text: 'by heart', meaning: 'de cor', userSentence: '', originalSentence: '' },
   ] as Chunk[];
-  const review = (chunkId: string, rating: 'AGAIN' | 'HARD' | 'GOOD') =>
-    ({ id: chunkId + rating, chunkId, rating }) as ChunkReview;
+  const review = (chunkId: string, rating: 'AGAIN' | 'HARD' | 'GOOD') => ({ id: chunkId + rating, chunkId, rating }) as ChunkReview;
   const stat = (id: string, right: number, wrong: number): PracticeStat => ({ id, right, wrong, lastAt: '' });
 
   const material = {
@@ -245,10 +266,13 @@ describe('treino: nenhuma palavra solta', () => {
   });
 
   it('o treino escolhe os termos mais difíceis e gira a forma da pergunta', () => {
-    expect(buildTraining(items, 2).map((q) => q.itemKey).sort()).toEqual(['chunk:k2', 'vocab:v1']);
+    expect(
+      buildTraining(items, 2)
+        .map((q) => q.itemKey)
+        .sort(),
+    ).toEqual(['chunk:k2', 'vocab:v1']);
     expect(buildTraining(items, 99)).toHaveLength(4);
-    const kindAfter = (right: number) =>
-      buildTraining(studyItems({ ...material, stats: [stat('vocab:v1', right, 9)] }), 1)[0]?.kind;
+    const kindAfter = (right: number) => buildTraining(studyItems({ ...material, stats: [stat('vocab:v1', right, 9)] }), 1)[0]?.kind;
     expect([kindAfter(0), kindAfter(1), kindAfter(2)]).toEqual(['gap', 'listen', 'dictation']);
   });
 
@@ -416,8 +440,7 @@ describe('importar uma ideia colada', () => {
 
 describe('termos conhecidos sublinhados no texto', () => {
   const tokens = tokenize('Keep it out of your head. Use your Head, not your heart.');
-  const cover = (entries: { term: string }[]) =>
-    annotate(tokens, entries).map((a) => [a.entry.term, selectionText(tokens, a)]);
+  const cover = (entries: { term: string }[]) => annotate(tokens, entries).map((a) => [a.entry.term, selectionText(tokens, a)]);
 
   it('acha palavras soltas em qualquer caixa, em todas as ocorrências', () => {
     expect(cover([{ term: 'head' }])).toEqual([

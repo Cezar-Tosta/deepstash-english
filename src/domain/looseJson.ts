@@ -28,9 +28,7 @@ export function parseLooseJSON(raw: string): unknown {
   const firstBracket = raw.indexOf('[');
   // Tenta primeiro a estrutura que abre antes: uma lista de objetos começa por "[".
   const listFirst = firstBracket >= 0 && (firstBrace < 0 || firstBracket < firstBrace);
-  const candidates = listFirst
-    ? [between(raw, '[', ']'), between(raw, '{', '}')]
-    : [between(raw, '{', '}'), between(raw, '[', ']')];
+  const candidates = listFirst ? [between(raw, '[', ']'), between(raw, '{', '}')] : [between(raw, '{', '}'), between(raw, '[', ']')];
   for (const candidate of candidates) {
     if (!candidate) continue;
     const parsed = tryParse(candidate) ?? tryParse(withoutTrailingCommas(candidate));

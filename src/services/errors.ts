@@ -6,9 +6,7 @@ export class DomainError extends Error {
 export class ChunkLimitError extends DomainError {
   override readonly name = 'ChunkLimitError';
   constructor() {
-    super(
-      'Você já selecionou três expressões hoje. Escolha quais realmente merecem entrar na revisão.',
-    );
+    super('Você já selecionou três expressões hoje. Escolha quais realmente merecem entrar na revisão.');
   }
 }
 

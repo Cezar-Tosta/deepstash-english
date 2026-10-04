@@ -153,7 +153,7 @@ export function SessionPage() {
           ← Hoje
         </Link>
         <span className="text-muted">
-          {formatDate(session.date, 'short')} · semana {session.cycleWeek} do ciclo
+          {formatDate(session.date, 'short')} · fase {session.cycleWeek} de 4
         </span>
       </div>
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { db } from '../data/db';
 import { sessionProgress } from '../domain/session';
+import { getCycleStarts } from './cycles';
 import { ChunkLimitError, DomainError } from './errors';
 import {
   addCards,
@@ -25,7 +26,7 @@ import {
 const DAY = '2026-10-03'; // sábado
 
 describe('criação de sessão', () => {
-  it('cria a sessão do dia na semana 1 do ciclo 1 e fixa o início do ciclo na segunda', async () => {
+  it('cria a sessão do dia na fase 1 e começa um ciclo de 7 dias nessa data', async () => {
     const session = await startSession(DAY);
     expect(session).toMatchObject({
       date: DAY,
@@ -35,7 +36,7 @@ describe('criação de sessão', () => {
       currentStep: 'review',
       ideaOfDayId: null,
     });
-    expect((await db.settings.get('settings'))?.cycleStartDate).toBe('2026-09-28');
+    expect((await db.settings.get('settings'))?.cycleStarts).toEqual([DAY]);
   });
 
   it('é idempotente: abrir de novo devolve a mesma sessão', async () => {
@@ -45,11 +46,36 @@ describe('criação de sessão', () => {
     expect(await db.sessions.count()).toBe(1);
   });
 
-  it('avança a semana do ciclo e recomeça depois da quarta', async () => {
+  it('sessões dentro dos 7 dias ficam no mesmo ciclo; fora deles, começa outro', async () => {
     await startSession(DAY);
-    expect((await startSession('2026-10-05')).cycleWeek).toBe(2);
-    expect((await startSession('2026-10-19')).cycleWeek).toBe(4);
-    expect(await startSession('2026-10-26')).toMatchObject({ cycleNumber: 2, cycleWeek: 1 });
+    // 09/10 é o dia 7 do ciclo iniciado em 03/10: mesma fase, nenhum ciclo novo.
+    expect((await startSession('2026-10-09')).cycleWeek).toBe(1);
+    expect((await db.settings.get('settings'))?.cycleStarts).toEqual([DAY]);
+    // 12/10 já está fora (o ciclo acabou em 09/10): começa o segundo ciclo, na fase 2.
+    expect((await startSession('2026-10-12')).cycleWeek).toBe(2);
+    expect((await db.settings.get('settings'))?.cycleStarts).toEqual([DAY, '2026-10-12']);
+  });
+
+  it('a fase sobe a cada ciclo e recomeça depois da quarta', async () => {
+    await startSession(DAY);
+    await startSession('2026-10-12');
+    expect((await startSession('2026-10-22')).cycleWeek).toBe(3);
+    expect((await startSession('2026-11-02')).cycleWeek).toBe(4);
+    expect(await startSession('2026-11-10')).toMatchObject({ cycleNumber: 2, cycleWeek: 1 });
+  });
+
+  it('dados antigos, sem ciclos definidos: valem as semanas de segunda a domingo e nada se perde', async () => {
+    // Sessões gravadas antes de existirem ciclos com data escolhida.
+    await db.sessions.bulkAdd([{ ...(await startSession('2026-09-29')), id: 'old-1', date: '2026-09-30' }]);
+    const settings = await db.settings.get('settings');
+    if (settings) {
+      delete settings.cycleStarts;
+      await db.settings.put(settings);
+    }
+    expect(await getCycleStarts()).toEqual(['2026-09-28']);
+    // Uma sessão na semana seguinte começa um ciclo novo e preserva o antigo.
+    await startSession('2026-10-07');
+    expect(await getCycleStarts()).toEqual(['2026-09-28', '2026-10-07']);
   });
 });
 
@@ -167,9 +193,7 @@ describe('limite de 3 chunks por dia', () => {
     await addChunk(session.id, { text: 'before you...' });
     await addChunk(session.id, { text: 'in your head' });
 
-    await expect(addChunk(session.id, { text: 'it turns out that' })).rejects.toBeInstanceOf(
-      ChunkLimitError,
-    );
+    await expect(addChunk(session.id, { text: 'it turns out that' })).rejects.toBeInstanceOf(ChunkLimitError);
     expect(await db.chunks.count()).toBe(3);
   });
 

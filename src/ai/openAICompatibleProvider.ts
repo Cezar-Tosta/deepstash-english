@@ -1,11 +1,4 @@
-import {
-  AIError,
-  type AIProvider,
-  type AIRequest,
-  type ChatTurn,
-  type ImageInput,
-  OPENAI_TRANSCRIPTION_MODEL,
-} from './AIProvider';
+import { AIError, type AIProvider, type AIRequest, type ChatTurn, type ImageInput, OPENAI_TRANSCRIPTION_MODEL } from './AIProvider';
 
 interface ChatResponse {
   choices?: { message?: { content?: string | null } }[];
@@ -51,11 +44,7 @@ export function createOpenAICompatibleProvider(options: OpenAICompatibleOptions)
     }
   }
 
-  async function chat(
-    chatModel: string,
-    messages: { role: string; content: ChatContent }[],
-    json = false,
-  ): Promise<string> {
+  async function chat(chatModel: string, messages: { role: string; content: ChatContent }[], json = false): Promise<string> {
     const request = { model: chatModel, messages };
     let response = await post(json ? { ...request, response_format: { type: 'json_object' } } : request);
     // Nem todo servidor compatível aceita o modo JSON; nesse caso o pedido segue sem ele.
@@ -126,9 +115,7 @@ export function createOpenAICompatibleProvider(options: OpenAICompatibleOptions)
       const body = (await response.json().catch(() => null)) as TranscriptionResponse | null;
       if (!response.ok) {
         if (response.status === 401) throw new AIError('Chave de API inválida. Confira em Ajustes.');
-        throw new AIError(
-          `A transcrição falhou (${response.status}): ${body?.error?.message ?? 'sem detalhes'}`,
-        );
+        throw new AIError(`A transcrição falhou (${response.status}): ${body?.error?.message ?? 'sem detalhes'}`);
       }
       return body?.text?.trim() ?? '';
     },

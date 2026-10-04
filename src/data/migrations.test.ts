@@ -56,9 +56,7 @@ describe('migração 1 → 2: do card para a ideia', () => {
   });
 
   it('o texto do card antigo vira o primeiro card da ideia; sem texto, nenhum card', () => {
-    expect(v2['cards']).toEqual([
-      expect.objectContaining({ ideaId: 'c1', position: 0, content: 'Do one thing at a time.' }),
-    ]);
+    expect(v2['cards']).toEqual([expect.objectContaining({ ideaId: 'c1', position: 0, content: 'Do one thing at a time.' })]);
   });
 
   it('todas as referências passam a apontar para a ideia', () => {
@@ -81,9 +79,7 @@ describe('migração 1 → 2: do card para a ideia', () => {
   });
 
   it('um backup antigo é convertido ao ser importado', () => {
-    const backup = parseBackup(
-      JSON.stringify({ app: 'deepstash-english', version: 1, exportedAt: '', settings: null, data: v1 }),
-    );
+    const backup = parseBackup(JSON.stringify({ app: 'deepstash-english', version: 1, exportedAt: '', settings: null, data: v1 }));
     expect(backup.version).toBe(BACKUP_VERSION);
     expect(backup.data.ideas).toHaveLength(2);
     expect(backup.data.cards).toHaveLength(1);
@@ -114,9 +110,7 @@ describe('migração no banco real (IndexedDB)', () => {
     const upgraded = new AppDB(name);
     try {
       expect(await upgraded.ideas.count()).toBe(2);
-      expect((await upgraded.cards.where('ideaId').equals('c1').toArray()).map((c) => c.content)).toEqual([
-        'Do one thing at a time.',
-      ]);
+      expect((await upgraded.cards.where('ideaId').equals('c1').toArray()).map((c) => c.content)).toEqual(['Do one thing at a time.']);
       expect((await upgraded.sessions.get('s1'))?.ideaOfDayId).toBe('c1');
       expect(await upgraded.chunks.where('sourceIdeaId').equals('c1').count()).toBe(1);
       expect(await upgraded.reflections.where('ideaId').equals('c1').count()).toBe(1);

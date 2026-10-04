@@ -14,12 +14,9 @@ export const DEFAULT_OFFSETS: readonly number[] = [1, 3, 7, 14, 30];
  * - HARD: repete o mesmo estágio com metade do intervalo.
  * - EASY: pula um estágio.
  */
-export function createFixedIntervalScheduler(
-  offsets: readonly number[] = DEFAULT_OFFSETS,
-): ReviewScheduler {
+export function createFixedIntervalScheduler(offsets: readonly number[] = DEFAULT_OFFSETS): ReviewScheduler {
   const count = offsets.length;
-  const offsetAt = (stage: number): number =>
-    stage < 0 ? 0 : (offsets[Math.min(stage, count - 1)] ?? 0);
+  const offsetAt = (stage: number): number => (stage < 0 ? 0 : (offsets[Math.min(stage, count - 1)] ?? 0));
   const gapInto = (stage: number): number => offsetAt(stage) - offsetAt(stage - 1);
 
   const learned: ScheduleState = { stage: count, nextReviewDate: null, status: 'learned' };

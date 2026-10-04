@@ -60,7 +60,7 @@ export function IdeaDetailPage() {
         <p className="text-sm text-muted">
           {formatDate(idea.date, 'long')}
           {idea.category && ` · ${idea.category}`}
-          {session && ` · semana ${session.cycleWeek} do ciclo ${session.cycleNumber}`}
+          {session && ` · fase ${session.cycleWeek} de 4`}
         </p>
         <h1 className="mt-1 font-serif text-3xl leading-tight">{idea.title}</h1>
         {idea.bookTitle && (

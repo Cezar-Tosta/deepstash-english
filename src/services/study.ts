@@ -1,21 +1,14 @@
 import { db } from '../data/db';
 import { type BookSummary, bookKey, groupByBook } from '../domain/books';
 import { isDue, overdueDays } from '../domain/chunks';
-import { cyclePosition, weekPlan } from '../domain/cycle';
-import { addDays, diffDays, nowISO, startOfWeek, today } from '../domain/dates';
+import { weekPlan } from '../domain/cycle';
+import { addDays, diffDays, nowISO, today } from '../domain/dates';
 import { coreTerm, hardest, type PracticeMaterial, questionsFor, studyItems } from '../domain/exercises';
 import { stepIndex, STEPS } from '../domain/session';
 import { type Suggestion, suggestToday } from '../domain/suggestion';
 import { newId } from '../domain/ids';
-import type {
-  BookNote,
-  Chunk,
-  ComprehensionVocab,
-  FollowUpStatus,
-  Idea,
-  ISODate,
-  Reflection,
-} from '../domain/types';
+import type { BookNote, Chunk, ComprehensionVocab, FollowUpStatus, Idea, ISODate, Reflection } from '../domain/types';
+import { getCycleInfo } from './cycles';
 import { DomainError } from './errors';
 
 // ---------- Livros ----------
@@ -43,11 +36,7 @@ export async function getBook(key: string): Promise<BookDetail | null> {
   };
 }
 
-export function saveBookNote(
-  key: string,
-  title: string,
-  patch: Partial<Pick<BookNote, 'takeaway' | 'finishedAt'>>,
-): Promise<void> {
+export function saveBookNote(key: string, title: string, patch: Partial<Pick<BookNote, 'takeaway' | 'finishedAt'>>): Promise<void> {
   return db.transaction('rw', db.bookNotes, async () => {
     const current = (await db.bookNotes.get(key)) ?? { id: key, title, takeaway: '', finishedAt: null };
     await db.bookNotes.put({ ...current, ...patch, title, updatedAt: nowISO() });
@@ -86,10 +75,7 @@ export async function getPendingActions(date: ISODate = today()): Promise<Pendin
   return pending.sort((a, b) => a.idea.date.localeCompare(b.idea.date));
 }
 
-export async function saveFollowUp(
-  reflectionId: string,
-  patch: { status?: FollowUpStatus; text?: string },
-): Promise<void> {
+export async function saveFollowUp(reflectionId: string, patch: { status?: FollowUpStatus; text?: string }): Promise<void> {
   await db.reflections.update(reflectionId, {
     ...(patch.status ? { followUpStatus: patch.status, followUpAt: nowISO() } : {}),
     ...(patch.text !== undefined ? { followUp: patch.text } : {}),
@@ -113,8 +99,7 @@ const sameText = (a: string | undefined, b: string | undefined): boolean =>
   (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
 
 /** Ordem alfabética ignorando maiúsculas e acentos. */
-export const byTerm = (a: { term: string }, b: { term: string }): number =>
-  a.term.localeCompare(b.term, 'en', { sensitivity: 'base' });
+export const byTerm = (a: { term: string }, b: { term: string }): number => a.term.localeCompare(b.term, 'en', { sensitivity: 'base' });
 
 /**
  * O dicionário é o vocabulário de compreensão: guarda o que foi consultado, com o
@@ -184,10 +169,7 @@ export function deleteTerm(term: string): Promise<number> {
   });
 }
 
-export async function updateDictionaryEntry(
-  id: string,
-  patch: { meaning: string; explanation?: string | undefined },
-): Promise<void> {
+export async function updateDictionaryEntry(id: string, patch: { meaning: string; explanation?: string | undefined }): Promise<void> {
   const meaning = patch.meaning.trim();
   if (!meaning) throw new DomainError('Informe a tradução.');
   await db.vocab.update(id, { meaning, explanation: patch.explanation?.trim() ?? '' });
@@ -278,33 +260,32 @@ export async function loadPracticeMaterial(): Promise<PracticeMaterial> {
 
 /** Junta o estado atual (revisões, sessão, ações, treino, semana) e monta o plano de hoje. */
 export async function loadSuggestion(date: ISODate = today()): Promise<Suggestion[]> {
-  const weekStart = startOfWeek(date);
-  const [session, dueCandidates, actions, material, weekSessions, weekly, settings] = await Promise.all([
+  const info = await getCycleInfo(date);
+  const period = info.period;
+  const [session, dueCandidates, actions, material, weekSessions, weekly] = await Promise.all([
     db.sessions.where('date').equals(date).first(),
     db.chunks.where('nextReviewDate').belowOrEqual(date).toArray(),
     getPendingActions(date),
     loadPracticeMaterial(),
-    db.sessions.where('date').between(weekStart, addDays(weekStart, 6), true, true).toArray(),
-    db.weeklyReviews.get(weekStart),
-    db.settings.get('settings'),
+    period ? db.sessions.where('date').between(period.start, period.end, true, true).toArray() : [],
+    period ? db.weeklyReviews.get(period.start) : undefined,
   ]);
 
   const due = dueCandidates.filter((c) => isDue(c, date));
   const items = studyItems(material);
   const lastPractice = material.stats.reduce((latest, s) => (s.lastAt > latest ? s.lastAt : latest), '');
   const index = session ? stepIndex(session.currentStep) : 0;
-  const cycleStart = settings?.cycleStartDate ?? weekStart;
 
   return suggestToday({
     date,
-    weekday: new Date(`${date}T00:00:00Z`).getUTCDay(),
+    cycleDay: info.day,
     dueReviews: due.length,
     overdueReviews: due.filter((c) => overdueDays(c, date) > 0).length,
     session: !session ? 'none' : session.status === 'completed' ? 'completed' : 'in_progress',
     currentStepLabel: STEPS[index]?.label ?? '',
     remainingMinutes: STEPS.slice(index).reduce((sum, s) => sum + s.minutes, 0),
     sessionMinutes: STEPS.reduce((sum, s) => sum + s.minutes, 0),
-    speakingLabel: weekPlan(session?.cycleWeek ?? cyclePosition(cycleStart, date).week).speakingLabel,
+    speakingLabel: weekPlan(session?.cycleWeek ?? info.week).speakingLabel,
     pendingActions: actions.length,
     trainableItems: items.filter((i) => questionsFor(i).length > 0).length,
     hardItems: hardest(items, 99).length,
