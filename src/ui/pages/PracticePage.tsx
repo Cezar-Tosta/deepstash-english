@@ -16,6 +16,7 @@ import {
   requeue,
   studyItems,
   tenseQuestions,
+  tidySentence,
   withoutContext,
 } from '../../domain/exercises';
 import { recordPractice } from '../../services/maintenance';
@@ -130,6 +131,8 @@ function QuestionCard({ question, retry, onNext }: { question: Question; retry: 
                   <strong>{revealed.match}</strong>
                   {revealed.after}
                 </>
+              ) : kind === 'dictation' ? (
+                tidySentence(question.full)
               ) : (
                 question.full
               )}

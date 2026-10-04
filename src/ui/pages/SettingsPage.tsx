@@ -1,4 +1,5 @@
 import { type ChangeEvent, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ANTHROPIC_DEFAULT_MODEL, GROQ_DEFAULT_MODEL, GROQ_VISION_MODEL } from '../../ai/AIProvider';
 import { isAIConfigured } from '../../ai/feedback';
 import { backupCounts, BackupError, type BackupFile, exportBackup, parseBackup, restoreBackup } from '../../data/backup';
@@ -320,30 +321,73 @@ function StorageSection() {
   );
 }
 
+type SettingsTab = 'cycles' | 'ai' | 'account' | 'data' | 'look';
+
+/** O menu no topo da tela: uma seção dos ajustes de cada vez. */
+const SECTIONS: readonly { value: SettingsTab; label: string }[] = [
+  { value: 'cycles', label: 'Ciclos' },
+  { value: 'ai', label: 'IA' },
+  { value: 'account', label: 'Conta e backup' },
+  { value: 'data', label: 'Dados' },
+  { value: 'look', label: 'Aparência' },
+];
+
 export function SettingsPage() {
   const settings = useSettings();
   const date = useToday();
   const cloud = useCloud();
+  const [params, setParams] = useSearchParams();
   if (!settings) return null;
+  const requested = params.get('tab');
+  const tab: SettingsTab = SECTIONS.some((s) => s.value === requested) ? (requested as SettingsTab) : 'cycles';
 
   return (
     <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <PageTitle eyebrow="Settings" title="Ajustes" />
 
-      <Card>
-        <Eyebrow>Aparência</Eyebrow>
-        <div className="mt-3">
-          <Segmented label="Tema" value={settings.theme} options={THEMES} onChange={(theme) => attempt(setTheme(theme))} />
+      <nav aria-label="Seções dos ajustes" className="col-span-full">
+        <Segmented
+          label="Seções dos ajustes"
+          value={tab}
+          options={SECTIONS}
+          onChange={(next) => setParams(next === 'cycles' ? {} : { tab: next }, { replace: true })}
+        />
+      </nav>
+
+      {tab === 'cycles' && (
+        <div className="col-span-full lg:col-span-1">
+          <CycleSection date={date} />
         </div>
-      </Card>
+      )}
 
-      <CycleSection date={date} />
+      {tab === 'ai' && (
+        <div className="col-span-full lg:col-span-1">
+          <AISection saved={settings.ai} />
+        </div>
+      )}
 
-      <AccountSection />
-      <BackupSection lastBackupAt={settings.lastBackupAt} />
-      <AISection saved={settings.ai} />
-      <DataSection />
-      {!cloud.enabled && <StorageSection />}
+      {tab === 'account' && (
+        <>
+          <AccountSection />
+          <BackupSection lastBackupAt={settings.lastBackupAt} />
+        </>
+      )}
+
+      {tab === 'data' && (
+        <>
+          <DataSection />
+          {!cloud.enabled && <StorageSection />}
+        </>
+      )}
+
+      {tab === 'look' && (
+        <Card>
+          <Eyebrow>Aparência</Eyebrow>
+          <div className="mt-3">
+            <Segmented label="Tema" value={settings.theme} options={THEMES} onChange={(theme) => attempt(setTheme(theme))} />
+          </div>
+        </Card>
+      )}
 
       <p className="col-span-full text-center text-xs text-muted">Deepstash English Study System · v{__APP_VERSION__}</p>
     </div>

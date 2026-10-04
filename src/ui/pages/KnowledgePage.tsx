@@ -6,7 +6,7 @@ import { formatDate } from '../../domain/dates';
 import { searchChunks, searchIdeas } from '../../services/library';
 import { listBooks, searchDictionary } from '../../services/study';
 import { ChunkItem } from '../components/ChunkItem';
-import { DictionaryRow } from '../components/DictionaryItems';
+import { DictionaryRow, useClassFilter } from '../components/DictionaryItems';
 import { ListenSettings } from '../components/Listen';
 import { Collapsible, EmptyState, PageTitle, Segmented, TextInput, useShowMore } from '../components/ui';
 import { useToday } from '../hooks';
@@ -173,7 +173,9 @@ function ChunkList({ query }: { query: string }) {
 
 function DictionaryList({ query }: { query: string }) {
   const items = useLiveQuery(() => searchDictionary(query), [query]);
-  const [shown, more] = useShowMore(items ?? [], PAGE);
+  const [matches, filter] = useClassFilter((items ?? []).map((i) => i.entry));
+  const filtered = (items ?? []).filter((i) => matches(i.entry));
+  const [shown, more] = useShowMore(filtered, PAGE);
   return (
     <div className="space-y-3">
       {items?.length === 0 && (
@@ -189,6 +191,7 @@ function DictionaryList({ query }: { query: string }) {
           <ListenSettings />
         </div>
       )}
+      {filter}
       <ul className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
         {shown.map(({ entry, idea }) => (
           <DictionaryRow

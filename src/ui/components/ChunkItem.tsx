@@ -7,7 +7,9 @@ import type { ISODate, Rating } from '../../domain/types';
 import type { ChunkWithHistory } from '../../services/library';
 import { reactivateChunk, retireChunk } from '../../services/reviews';
 import { deleteChunk } from '../../services/sessions';
+import { sentenceTarget } from '../../domain/feedback';
 import { attempt, showToast } from '../toast';
+import { Correction } from './Correction';
 import { Badge, Button } from './ui';
 
 const RATING_LABEL: Record<Rating, string> = {
@@ -32,6 +34,9 @@ export function ChunkItem({ item, date, linkToIdea = true }: { item: ChunkWithHi
   const [confirming, setConfirming] = useState(false);
   const { chunk, reviews, recall, sourceIdea } = item;
   const active = chunk.status === 'new' || chunk.status === 'learning';
+  // As frases extras escritas no PERSONALIZE, sem repetir a principal.
+  const extra = [...new Set((chunk.extraSentences ?? []).map((s) => s.trim()))].filter((s) => s && s !== chunk.userSentence.trim());
+  const context = `O aluno está praticando a expressão "${chunk.text}".`;
 
   return (
     <li className="rounded-xl border border-line bg-surface">
@@ -66,7 +71,31 @@ export function ChunkItem({ item, date, linkToIdea = true }: { item: ChunkWithHi
               <dd className={chunk.userSentence ? 'font-serif text-base' : 'text-muted'} lang="en">
                 {chunk.userSentence || 'Ainda sem frase.'}
               </dd>
+              <dd>
+                <Correction targetType="chunkSentence" targetId={chunk.id} text={chunk.userSentence} context={context} withComment />
+              </dd>
             </div>
+            {extra.length > 0 && (
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-muted">
+                  {extra.length === 1 ? 'Outra frase minha' : `Outras ${extra.length} frases minhas`}
+                </dt>
+                {extra.map((sentence) => (
+                  <dd key={sentence} className="mt-1">
+                    <p className="font-serif text-base break-words" lang="en">
+                      {sentence}
+                    </p>
+                    <Correction
+                      targetType="chunkSentence"
+                      targetId={sentenceTarget(chunk.id, sentence, chunk.userSentence)}
+                      text={sentence}
+                      context={context}
+                      withComment
+                    />
+                  </dd>
+                ))}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Criado em</dt>
@@ -112,8 +141,16 @@ export function ChunkItem({ item, date, linkToIdea = true }: { item: ChunkWithHi
                     <span className="tabular-nums">{formatDate(r.completedDate, 'short')}</span> · {scheduler.stageLabel(r.stage)} ·{' '}
                     {RATING_LABEL[r.rating]}
                     {r.userSentence && (
-                      <span className="block pl-3 font-serif text-muted" lang="en">
-                        “{r.userSentence}”
+                      <span className="block pl-3">
+                        <span className="font-serif text-muted" lang="en">
+                          “{r.userSentence}”
+                        </span>
+                        <Correction
+                          targetType="chunkSentence"
+                          targetId={sentenceTarget(chunk.id, r.userSentence, chunk.userSentence)}
+                          text={r.userSentence}
+                          context={context}
+                        />
                       </span>
                     )}
                   </li>

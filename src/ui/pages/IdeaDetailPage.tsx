@@ -6,6 +6,7 @@ import { bookKey } from '../../domain/books';
 import { getIdeaDetail } from '../../services/library';
 import { getNeighbors } from '../../services/study';
 import { FOLLOW_UP_LABEL } from '../components/ActionFollowUp';
+import { Correction } from '../components/Correction';
 import { IdeaDictionary } from '../components/DictionaryItems';
 import { IdeaChat } from '../components/IdeaChat';
 import { IdeaVerbs } from '../components/IdeaVerbs';
@@ -89,9 +90,12 @@ export function IdeaDetailPage() {
         <div className="space-y-5">
           <Section title="Main idea">
             {idea.mainIdea ? (
-              <p className="font-serif text-lg" lang="en">
-                {idea.mainIdea}
-              </p>
+              <>
+                <p className="font-serif text-lg" lang="en">
+                  {idea.mainIdea}
+                </p>
+                <Correction targetType="mainIdea" targetId={idea.id} text={idea.mainIdea} context={`Ideia: ${idea.title}`} withComment />
+              </>
             ) : (
               none
             )}
@@ -130,9 +134,18 @@ export function IdeaDetailPage() {
               >
                 {transcripts.length === 0 && !session?.retellNotes && <p className="text-sm text-muted">Sem transcrição nem anotações.</p>}
                 {transcripts.map((s) => (
-                  <p key={s.id} className="mb-2 whitespace-pre-wrap border-l-2 border-line pl-3 font-serif" lang="en">
-                    {s.transcript}
-                  </p>
+                  <div key={s.id} className="mb-3">
+                    <p className="whitespace-pre-wrap border-l-2 border-line pl-3 font-serif" lang="en">
+                      {s.transcript}
+                    </p>
+                    <Correction
+                      targetType="retell"
+                      targetId={s.id}
+                      text={s.transcript ?? ''}
+                      context={`Ideia recontada: "${idea.title}".`}
+                      withComment
+                    />
+                  </div>
                 ))}
                 {session?.retellNotes && (
                   <p className="whitespace-pre-wrap font-serif text-muted" lang="en">
@@ -143,9 +156,18 @@ export function IdeaDetailPage() {
 
               <Section title="My view">
                 {reflection?.userOpinion ? (
-                  <p className="whitespace-pre-wrap font-serif text-lg" lang="en">
-                    {reflection.userOpinion}
-                  </p>
+                  <>
+                    <p className="whitespace-pre-wrap font-serif text-lg" lang="en">
+                      {reflection.userOpinion}
+                    </p>
+                    <Correction
+                      targetType="opinion"
+                      targetId={idea.id}
+                      text={reflection.userOpinion}
+                      context={`Opinião sobre a ideia "${idea.title}".`}
+                      withComment
+                    />
+                  </>
                 ) : (
                   none
                 )}
@@ -153,9 +175,18 @@ export function IdeaDetailPage() {
 
               <Section title="So what?">
                 {reflection?.soWhat ? (
-                  <p className="whitespace-pre-wrap font-serif text-lg" lang="en">
-                    {reflection.soWhat}
-                  </p>
+                  <>
+                    <p className="whitespace-pre-wrap font-serif text-lg" lang="en">
+                      {reflection.soWhat}
+                    </p>
+                    <Correction
+                      targetType="soWhat"
+                      targetId={idea.id}
+                      text={reflection.soWhat}
+                      context={`Ação a partir da ideia "${idea.title}".`}
+                      withComment
+                    />
+                  </>
                 ) : (
                   none
                 )}

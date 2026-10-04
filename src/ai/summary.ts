@@ -3,7 +3,7 @@ import { nowISO } from '../domain/dates';
 import { type DayDigest, isDigestEmpty, loadDayDigest } from '../services/digest';
 import { getSettings } from '../services/settings';
 import { AIError, type AIProvider } from './AIProvider';
-import { createProvider, FEEDBACK_LABELS } from './feedback';
+import { createProvider } from './feedback';
 
 const WHERE: Record<string, string> = {
   mainIdea: 'ideia principal (CHECK)',
@@ -24,8 +24,7 @@ export function describeDigest(digest: DayDigest): string {
     parts.push(
       'CORREÇÕES DE HOJE (o que ele escreveu → como ficou corrigido; comentário do professor):',
       ...digest.corrections.map(
-        (c, i) =>
-          `${i + 1}. [${WHERE[c.target] ?? c.target} · ${FEEDBACK_LABELS[c.kind]}] "${c.original}" → "${c.corrected}"${c.why ? ` | ${c.why}` : ''}`,
+        (c, i) => `${i + 1}. [${WHERE[c.target] ?? c.target}] "${c.original}" → "${c.corrected}"${c.comment ? ` | ${c.comment}` : ''}`,
       ),
     );
   }

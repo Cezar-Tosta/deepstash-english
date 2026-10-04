@@ -20,6 +20,13 @@ export interface AISettings {
   visionModel?: string;
 }
 
+export interface StudyFocus {
+  text: string;
+  at: ISODateTime;
+  /** Quantas correções havia quando o plano foi gerado, para avisar que há novas. */
+  corrections: number;
+}
+
 export interface UserSettings {
   id: 'settings';
   theme: ThemePref;
@@ -30,6 +37,8 @@ export interface UserSettings {
    * semana de calendário (segunda a domingo) de cada sessão.
    */
   cycleStarts?: ISODate[];
+  /** Plano de estudo dos assuntos mais críticos, escrito pela IA a partir de todos os ciclos. */
+  studyFocus?: StudyFocus;
   ai: AISettings;
   lastBackupAt: ISODateTime | null;
 }

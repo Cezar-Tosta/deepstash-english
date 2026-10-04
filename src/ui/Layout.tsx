@@ -67,6 +67,17 @@ const NAV = [
     ),
   },
   {
+    to: '/focus',
+    label: 'FOCUS',
+    icon: icon(
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <circle cx="12" cy="12" r="4.5" />
+        <circle cx="12" cy="12" r="0.8" />
+      </>,
+    ),
+  },
+  {
     to: '/progress',
     label: 'PROGRESS',
     icon: icon(
@@ -179,7 +190,7 @@ export function Layout() {
                 to={item.to}
                 end={item.to === '/'}
                 className={({ isActive }) =>
-                  `relative flex min-h-16 flex-col items-center justify-center gap-1 text-[8px] font-semibold tracking-normal min-[400px]:text-[9px] transition-colors md:min-h-12 md:flex-row md:justify-start md:gap-3 md:rounded-xl md:px-3 md:text-xs ${
+                  `relative flex min-h-16 flex-col items-center justify-center gap-1 text-[7px] font-semibold tracking-normal min-[400px]:text-[8px] transition-colors md:min-h-12 md:flex-row md:justify-start md:gap-3 md:rounded-xl md:px-3 md:text-xs ${
                     isActive ? 'text-accent md:bg-accent-soft' : 'text-muted hover:text-ink'
                   }`
                 }

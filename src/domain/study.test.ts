@@ -5,13 +5,14 @@ import {
   buildFlashcards,
   buildTenseTraining,
   buildTraining,
-  dictationScore,
   hardest,
   hardestVerbs,
   buildDictations,
   checkDictation,
   DICTATION_PASS,
   dictationItems,
+  dictationScore,
+  tidySentence,
   isCorrect,
   locateTerm,
   pickFlashcards,
@@ -534,5 +535,49 @@ describe('ditado com uma, duas ou três palavras ou chunks por áudio', () => {
     expect(partial.score).toBeLessThan(DICTATION_PASS);
 
     expect(checkDictation('', 'Do it.')).toMatchObject({ score: 0, missed: 2 });
+  });
+});
+
+describe('ditado: só as palavras contam; a resposta mostra a frase bem escrita', () => {
+  it('pontuação, maiúsculas e apóstrofos não tiram ponto', () => {
+    const expected = "Don't keep it in your head — write it down, one thing at a time.";
+    const typed = 'dont keep it in your head write it down one thing at a time';
+    expect(checkDictation(typed, expected)).toMatchObject({ score: 1, missed: 0 });
+    expect(dictationScore(typed, expected)).toBe(1);
+    expect(checkDictation('Dont, keep it! in your head; write it down: one thing at a time?', expected).score).toBe(1);
+  });
+
+  it('palavra com hífen vale pelas palavras que contém', () => {
+    expect(checkDictation('a well known idea', 'A well-known idea.').score).toBe(1);
+    const half = checkDictation('a well idea', 'A well-known idea.');
+    expect(half.words.filter((w) => !w.hit).map((w) => w.text)).toEqual(['well-known']);
+    expect(half.score).toBeCloseTo(3 / 4);
+  });
+
+  it('palavra errada continua contando como erro', () => {
+    const result = checkDictation('Do one think at a time', 'Do one thing at a time.');
+    expect(result.words.filter((w) => !w.hit).map((w) => w.text)).toEqual(['thing']);
+    expect(result.score).toBeCloseTo(5 / 6);
+  });
+
+  it('a resposta mostra a frase com maiúscula no começo e pontuação no fim', () => {
+    expect(tidySentence('do one thing at a time')).toBe('Do one thing at a time.');
+    expect(tidySentence('  keep it   out of your head!  ')).toBe('Keep it out of your head!');
+    expect(tidySentence('Is it true?')).toBe('Is it true?');
+    expect(tidySentence('“focus on one task”')).toBe('“Focus on one task”.');
+    expect(tidySentence('')).toBe('');
+
+    const [item] = studyItems({
+      vocab: [],
+      chunks: [
+        { id: 'k', text: 'one thing at a time', meaning: '', originalSentence: 'do one thing at a time', userSentence: '' },
+      ] as Chunk[],
+      stats: [],
+      reviews: [],
+      verbs: [],
+    });
+    const [dictation] = buildDictations([item!], { source: 'both', perAudio: 1, count: 1 });
+    expect(dictation!.full).toBe('Do one thing at a time.');
+    expect(dictation!.parts[0]).toMatchObject({ sentence: 'do one thing at a time', shown: 'Do one thing at a time.' });
   });
 });

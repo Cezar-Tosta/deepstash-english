@@ -5,10 +5,9 @@ import { AIError } from '../../ai/AIProvider';
 import { isAIConfigured } from '../../ai/feedback';
 import { generateStudySummary } from '../../ai/summary';
 import { db } from '../../data/db';
-import { diffText } from '../../domain/diff';
 import { isDigestEmpty, loadDayDigest } from '../../services/digest';
 import { useOnline, useSettings } from '../hooks';
-import { Marked } from './AIFeedbackPanel';
+import { CorrectionLine } from './Correction';
 import { RichText } from './RichText';
 import { Button, Collapsible, Eyebrow, Hint, Spinner } from './ui';
 
@@ -93,21 +92,10 @@ export function DaySummary({ sessionId }: { sessionId: string }) {
           <div className="mt-3 grid grid-cols-1 items-start gap-2 lg:grid-cols-2">
             {digest.corrections.length > 0 && (
               <Collapsible title="Correções de hoje" count={digest.corrections.length} defaultOpen={!summary} className="lg:col-span-2">
-                <ul className="space-y-2 text-sm">
-                  {digest.corrections.map((c) => {
-                    const diff = diffText(c.original, c.corrected);
-                    return (
-                      <li key={c.id} className="border-l-2 border-line pl-3">
-                        <p className="font-serif break-words" lang="en">
-                          <Marked segments={diff.before} side="before" />
-                        </p>
-                        <p className="font-serif break-words" lang="en">
-                          <Marked segments={diff.after} side="after" />
-                        </p>
-                        {c.why && <RichText text={c.why} className="text-xs text-muted" />}
-                      </li>
-                    );
-                  })}
+                <ul className="divide-y divide-line text-sm">
+                  {digest.corrections.map((c) => (
+                    <CorrectionLine key={c.key} correction={c} />
+                  ))}
                 </ul>
               </Collapsible>
             )}

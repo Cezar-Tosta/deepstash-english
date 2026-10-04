@@ -9,7 +9,7 @@ export const BACKUP_VERSION = 2;
 
 type Row = Record<string, unknown>;
 
-export interface BackupSettings extends Pick<UserSettings, 'theme' | 'cycleStartDate' | 'cycleStarts'> {
+export interface BackupSettings extends Pick<UserSettings, 'theme' | 'cycleStartDate' | 'cycleStarts' | 'studyFocus'> {
   /**
    * Provedor, modelos e chave de API. Só vai na cópia da nuvem, que fica na conta do
    * usuário; o arquivo de backup exportado nunca leva a chave.
@@ -48,6 +48,7 @@ export async function exportBackup(options: { includeAI?: boolean } = {}): Promi
           theme: settings.theme,
           cycleStartDate: settings.cycleStartDate,
           ...(settings.cycleStarts ? { cycleStarts: settings.cycleStarts } : {}),
+          ...(settings.studyFocus ? { studyFocus: settings.studyFocus } : {}),
           ...(options.includeAI ? { ai: settings.ai } : {}),
         }
       : null,
@@ -122,6 +123,7 @@ export function parseBackup(json: string): BackupFile {
   const theme = isRecord(rawSettings) ? rawSettings['theme'] : null;
   const cycleStartDate = isRecord(rawSettings) ? rawSettings['cycleStartDate'] : null;
   const cycleStarts: unknown = isRecord(rawSettings) ? rawSettings['cycleStarts'] : null;
+  const studyFocus: unknown = isRecord(rawSettings) ? rawSettings['studyFocus'] : null;
   const ai = isRecord(rawSettings) ? parseAI(rawSettings['ai']) : null;
   return {
     app: BACKUP_APP,
@@ -133,6 +135,15 @@ export function parseBackup(json: string): BackupFile {
             theme,
             cycleStartDate: typeof cycleStartDate === 'string' ? cycleStartDate : null,
             ...(Array.isArray(cycleStarts) ? { cycleStarts: normalizeStarts(cycleStarts) } : {}),
+            ...(isRecord(studyFocus) && typeof studyFocus['text'] === 'string'
+              ? {
+                  studyFocus: {
+                    text: studyFocus['text'],
+                    at: typeof studyFocus['at'] === 'string' ? studyFocus['at'] : '',
+                    corrections: typeof studyFocus['corrections'] === 'number' ? studyFocus['corrections'] : 0,
+                  },
+                }
+              : {}),
             ...(ai ? { ai } : {}),
           }
         : null,
@@ -163,6 +174,7 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
       const next = { ...current, ...backup.settings };
       // Cópia sem ciclos definidos: os deste navegador não valem para os dados que chegaram.
       if (!backup.settings.cycleStarts) delete next.cycleStarts;
+      if (!backup.settings.studyFocus) delete next.studyFocus;
       await db.settings.put(next);
     }
   });

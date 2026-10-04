@@ -124,9 +124,31 @@ export function blankOut(sentence: string, term: string): string | null {
 }
 
 /** Fração (0 a 1) das palavras da frase original que o usuário acertou, na ordem. */
+/**
+ * Só as palavras, para conferir ditado: sem maiúsculas, sem pontuação e sem apóstrofo
+ * ("don't" e "dont" valem o mesmo); hífen e travessão separam palavras.
+ */
+export function spokenWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/['’`]/gu, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean);
+}
+
+/** A frase como deve ser escrita: sem espaços sobrando, com maiúscula no começo e pontuação no fim. */
+export function tidySentence(sentence: string): string {
+  const clean = sentence.replace(/\s+/gu, ' ').trim();
+  if (!clean) return '';
+  const capitalized = clean.replace(/^(["“'(]*)(\p{Ll})/u, (_, open: string, letter: string) => open + letter.toUpperCase());
+  return /[.!?…]["”')]*$/u.test(capitalized) ? capitalized : `${capitalized}.`;
+}
+
 export function dictationScore(answer: string, expected: string): number {
-  const want = normalizeAnswer(expected).split(' ').filter(Boolean);
-  const got = normalizeAnswer(answer).split(' ').filter(Boolean);
+  const want = spokenWords(expected);
+  const got = spokenWords(answer);
   if (want.length === 0) return 0;
   // Maior subsequência comum: tolera uma palavra faltando sem zerar o resto.
   const row = Array.from({ length: got.length + 1 }, () => 0);
@@ -523,8 +545,10 @@ export interface DictationPart {
   itemKey: string;
   term: string;
   meaning: string;
-  /** A frase em que o termo aparece: é ela que é dita. */
+  /** A frase em que o termo aparece, como foi registrada (é a chave da tradução guardada). */
   sentence: string;
+  /** A mesma frase bem escrita, com maiúscula e pontuação: é ela que é dita e mostrada na resposta. */
+  shown: string;
 }
 
 /** Um áudio para escrever: as frases de um, dois ou três termos, ditas em sequência. */
@@ -575,14 +599,14 @@ export function buildDictations(items: readonly StudyItem[], options: DictationO
         i += 1;
         continue;
       }
-      parts.push({ itemKey: item.key, term: item.term, meaning: item.meaning, sentence });
+      parts.push({ itemKey: item.key, term: item.term, meaning: item.meaning, sentence, shown: tidySentence(sentence) });
       rest.splice(i, 1);
     }
     out.push({
       id: `dictation-${parts.map((p) => p.itemKey).join('+')}`,
       parts,
       // Cada frase termina com pontuação, para a voz fazer a pausa entre elas.
-      full: parts.map((p) => (/[.!?…]$/u.test(p.sentence.trim()) ? p.sentence.trim() : `${p.sentence.trim()}.`)).join(' '),
+      full: parts.map((p) => p.shown).join(' '),
     });
   }
   return out;
@@ -596,11 +620,16 @@ export interface DictationResult {
   missed: number;
 }
 
-/** Confere o ditado palavra por palavra, ignorando maiúsculas e pontuação. */
+/**
+ * Confere o ditado só pelas palavras: maiúsculas, pontuação e apóstrofos não contam.
+ * O que se devolve para mostrar é o texto esperado como está escrito, com a pontuação dele.
+ */
 export function checkDictation(answer: string, expected: string): DictationResult {
   const shown = expected.split(/\s+/u).filter(Boolean);
-  const want = shown.map(normalizeAnswer);
-  const got = normalizeAnswer(answer).split(' ').filter(Boolean);
+  // Cada palavra escrita vira as palavras faladas que contém: "well-known" são duas, "—" não é nenhuma.
+  const spoken = shown.map(spokenWords);
+  const want = spoken.flat();
+  const got = spokenWords(answer);
   // Maior subsequência comum, de trás para frente, para depois marcar quais palavras entraram nela.
   const cols = got.length + 1;
   const table = new Uint32Array((want.length + 1) * cols);
@@ -626,8 +655,14 @@ export function checkDictation(answer: string, expected: string): DictationResul
       j += 1;
     }
   }
-  // Um sinal solto ("—") não é palavra: não conta nem como acerto nem como falta.
-  const real = want.filter((w) => w !== '').length;
-  const words = shown.map((text, index) => ({ text, hit: hits.has(index) || want[index] === '' }));
-  return { score: real === 0 ? 0 : hits.size / real, words, missed: words.filter((w) => !w.hit).length };
+  // Uma palavra escrita conta como certa quando todas as palavras faladas dela foram acertadas.
+  let offset = 0;
+  const words = shown.map((text, index) => {
+    const size = spoken[index]?.length ?? 0;
+    let hit = true;
+    for (let k = 0; k < size; k += 1) hit = hit && hits.has(offset + k);
+    offset += size;
+    return { text, hit };
+  });
+  return { score: want.length === 0 ? 0 : hits.size / want.length, words, missed: words.filter((w) => !w.hit).length };
 }

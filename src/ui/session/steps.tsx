@@ -34,6 +34,7 @@ import {
   updateSessionNotes,
 } from '../../services/sessions';
 import { locateTerm } from '../../domain/exercises';
+import { sentenceTarget } from '../../domain/feedback';
 import { AIFeedbackPanel } from '../components/AIFeedbackPanel';
 import { DaySummary } from '../components/DaySummary';
 import { RecordingPlayer } from '../components/Listen';
@@ -789,7 +790,7 @@ function ExtraChunk({ chunk }: { chunk: Chunk }) {
             <p className="text-sm text-good">Frase guardada.</p>
             <AIFeedbackPanel
               targetType="chunkSentence"
-              targetId={chunk.id}
+              targetId={sentenceTarget(chunk.id, saved, chunk.userSentence)}
               text={saved}
               context={`O aluno está praticando a expressão "${chunk.text}".`}
             />

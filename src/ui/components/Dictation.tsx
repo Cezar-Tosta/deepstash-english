@@ -45,8 +45,8 @@ export function DictationSetup({ items, onStart }: { items: readonly StudyItem[]
     <Card>
       <Prompt>Ditado</Prompt>
       <p className="mt-1 text-sm text-muted">
-        Você ouve a frase em que a palavra ou o chunk aparece e escreve o que ouviu. Escolha quantos termos entram em cada áudio: com dois
-        ou três, as frases são ditas em sequência.
+        Você ouve a frase em que a palavra ou o chunk aparece e escreve o que ouviu. Só as palavras contam: maiúsculas e pontuação não
+        entram na correção. Escolha quantos termos entram em cada áudio: com dois ou três, as frases são ditas em sequência.
       </p>
       <div className="mt-3 space-y-3">
         <Segmented label="O que entra no ditado" value={source} options={SOURCES} onChange={setSource} />
@@ -178,7 +178,7 @@ function DictationCard({ dictation, onNext }: { dictation: Dictation; onNext: (c
             {dictation.parts.map((part) => (
               <li key={part.itemKey} className="border-l-2 border-line pl-3">
                 <p className="font-serif text-lg break-words" lang="en">
-                  <WithTerm sentence={part.sentence} term={part.term} />
+                  <WithTerm sentence={part.shown} term={part.term} />
                 </p>
                 <SentenceTranslation sentence={part.sentence} />
                 <p className="text-sm text-muted break-words">

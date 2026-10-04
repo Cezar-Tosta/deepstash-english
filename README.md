@@ -57,17 +57,27 @@ Nenhum exercício mostra palavra solta: o termo sempre aparece dentro de uma fra
 
 **Ciclos de 7 dias com início escolhido.** Em Settings você define em que data cada ciclo começa (ou ele começa sozinho na primeira sessão feita fora de um ciclo). Os dias 1 a 5 são de sessão e os dias 6 e 7, só de revisão: um ciclo iniciado na terça tem revisão no domingo e na segunda. Progress, fechamento, sugestão do dia e reset são contados por ciclo, não por semana de calendário; os dias entre o fim de um ciclo e o começo do próximo não entram no histórico. A fase (1 a 4, que define a meta de fala) sobe a cada ciclo. Dados anteriores a essa mudança continuam valendo como ciclos de segunda a domingo.
 
+**Focus: pontos críticos.** Novo item do menu. Junta as correções da IA de todos os ciclos (uma por texto, agrupadas por ciclo), os termos e verbos em que você mais erra nos exercícios e os chunks mais esquecidos nas revisões. Com a IA configurada, gera um plano com os assuntos mais críticos, do que mais se repete para o que menos se repete, com regra, exemplos tirados dos seus erros e um mini-exercício. O plano fica guardado e sincronizado.
+
+**Correção junto do texto.** Na página da ideia (Main idea, Retell, My view, So what?) e em My English (minha frase, frases extras e frases das revisões), a correção gerada aparece logo abaixo do texto, em uma linha: o que saiu riscado e o que entrou em negrito. Se ainda não há correção, "Gerar correção" pede uma.
+
+**Correções sucintas.** "Correções de hoje" mostra cada texto corrigido uma única vez, em uma linha, com um comentário curto, mesmo que ele tenha recebido vários pedidos de retorno.
+
+**Menus superiores.** Today tem a visão do ciclo sempre no topo e um menu com Hoje, O que estudar, Did you do it? e Fechamento do ciclo. Settings tem um menu com Ciclos, IA, Conta e backup, Dados e Aparência. A rotina (frequência de cada etapa) fica só no Manual.
+
+**Filtro por tipo no dicionário.** O dicionário de cada ideia e o dicionário geral têm botões para filtrar por tipo: Substantivo, Verbo, Phrasal verb, Adjetivo, Advérbio, Expressão e os demais que existirem, cada um com a contagem. O tipo vem da classe gramatical registrada pela IA; termos de mais de uma palavra sem classe contam como Expressão, e palavras sem classe ficam em "Sem classe".
+
 **Menu de exercícios.** A tela Practice tem um menu no topo com os tipos de exercício (Treino, Tempos verbais, Ditado e Flashcards) e mostra um de cada vez; "Onde você mais erra" fica ao lado.
 
 **Estrutura do texto de cada card.** Em Knowledge, depois de cada card há o botão "Comentar a estrutura do texto": a IA comenta gramática, ortografia, sintaxe e semântica daquele card, citando os trechos. O comentário fica guardado no card e uma setinha recolhe ou expande o texto.
 
-**Ditado.** Em Practice, o ditado fala a frase em que a palavra ou o chunk aparece e você escreve o que ouviu. Dá para escolher só palavras, só chunks ou os dois, e uma, duas ou três palavras ou chunks por áudio (com mais de um, as frases são ditas em sequência). A conferência é palavra por palavra, sem ligar para maiúsculas e pontuação; o que faltou aparece em destaque, e cada frase vem com o termo em negrito e a tradução.
+**Ditado.** Em Practice, o ditado fala a frase em que a palavra ou o chunk aparece e você escreve o que ouviu. Dá para escolher só palavras, só chunks ou os dois, e uma, duas ou três palavras ou chunks por áudio (com mais de um, as frases são ditas em sequência). A conferência é só pelas palavras: maiúsculas, pontuação e apóstrofos não contam ("dont" vale como "don't"), e a resposta mostra a frase bem escrita, com maiúscula e pontuação; o que faltou aparece em destaque, e cada frase vem com o termo em negrito e a tradução.
 
 **Áudio em loop nos exercícios.** Velocidade (1×, 0,75×, 0,5×) e "Repetir em loop" ficam no topo de toda rodada de treino, tempos verbais, ditado e flashcards, e valem para qualquer áudio dela.
 
 **O que estudar (resumo do dia).** Na etapa SCHEDULE e na tela Today, depois de concluir a sessão, aparece o resumo do que estudar. Ele parte de dados do dia: retornos da IA em que houve correção, termos e verbos em que você mais erra nos exercícios, chunks não lembrados na revisão e chunks não usados no retelling. Com a IA configurada, ela escreve um resumo em tópicos ao finalizar a sessão (ou pelo botão); sem IA, as listas continuam disponíveis. O resumo fica guardado na sessão.
 
-**Vários retornos da IA.** Cada pedido de retorno gera uma resposta própria, numerada, com a versão corrigida e os comentários daquele pedido. As respostas anteriores continuam na tela.
+**Retorno da IA em um bloco só.** O retorno sobre um texto aparece uma vez, em ordem fixa: MY VERSION e, conforme os botões acionados, CORRECTED (Check grammar), IMPROVED (Improve this sentence) e MORE NATURAL (Suggest a natural expression), cada um uma única vez, seguidos de COMMENTS com um comentário curto por pedido. Clicar de novo em um botão refaz só aquela parte; "Excluir retorno" apaga tudo para pedir um novo. Se o texto mudar, o próximo pedido substitui o retorno antigo.
 
 **Chunks no RETELL.** A etapa lista os chunks do dia para usar na fala e, depois da transcrição, marca quais foram usados.
 

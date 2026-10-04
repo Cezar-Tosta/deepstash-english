@@ -1,21 +1,12 @@
 import { db } from '../data/db';
 import { toISODate } from '../domain/dates';
-import { diffText } from '../domain/diff';
+import { type Correction, collectCorrections } from '../domain/feedback';
 import { hardest, hardestVerbs, locateTerm, studyItems } from '../domain/exercises';
-import type { AIFeedback, FeedbackKind, FeedbackTarget, ISODate } from '../domain/types';
+import type { AIFeedback, ISODate } from '../domain/types';
 
 /** Quantos itens de cada tipo entram no resumo: o bastante para orientar, sem virar lista. */
 const MAX_CORRECTIONS = 12;
 const MAX_TERMS = 6;
-
-export interface DigestCorrection {
-  id: string;
-  kind: FeedbackKind;
-  target: FeedbackTarget;
-  original: string;
-  corrected: string;
-  why: string;
-}
 
 export interface DigestTerm {
   term: string;
@@ -28,7 +19,7 @@ export interface DigestTerm {
 export interface DayDigest {
   date: ISODate;
   /** Retornos da IA de hoje em que houve correção de fato. */
-  corrections: DigestCorrection[];
+  corrections: Correction[];
   /** Retornos de hoje em que o texto já estava certo. */
   cleanFeedback: number;
   /** Termos do dicionário e chunks em que o usuário mais erra nos exercícios. */
@@ -72,17 +63,7 @@ export async function loadDayDigest(sessionId: string): Promise<DayDigest | null
   const targets = new Set<string>([...ideas, ...chunks, ...speaking, ...reflections].map((x) => x.id));
   targets.add(sessionId);
   const today = feedback.filter((f) => fromSession(f, session.date, targets)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const corrections = today
-    .filter((f) => diffText(f.original, f.corrected).changed)
-    .slice(-MAX_CORRECTIONS)
-    .map((f): DigestCorrection => ({
-      id: f.id,
-      kind: f.kind,
-      target: f.targetType,
-      original: f.original,
-      corrected: f.corrected,
-      why: f.explanation,
-    }));
+  const corrections = collectCorrections(today).slice(-MAX_CORRECTIONS);
 
   const chunkById = new Map(allChunks.map((c) => [c.id, c]));
   const forgottenIds = new Set(reviews.filter((r) => r.rating === 'AGAIN' || r.rating === 'HARD').map((r) => r.chunkId));
@@ -91,7 +72,7 @@ export async function loadDayDigest(sessionId: string): Promise<DayDigest | null
   return {
     date: session.date,
     corrections,
-    cleanFeedback: today.length - today.filter((f) => diffText(f.original, f.corrected).changed).length,
+    cleanFeedback: new Set(today.map((f) => `${f.targetType}:${f.targetId}`)).size - corrections.length,
     hardTerms: hardest(studyItems({ vocab, chunks: allChunks, stats, reviews: allReviews, verbs }), MAX_TERMS).map((i) => ({
       term: i.term,
       meaning: i.meaning,

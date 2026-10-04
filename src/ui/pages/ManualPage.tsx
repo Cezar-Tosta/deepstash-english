@@ -34,6 +34,7 @@ const AFTER: { when: string; what: string; to: string }[] = [
   { when: 'Dia 5 do ciclo', what: 'Fechamento do ciclo', to: '/weekly' },
   { when: 'Fim do livro', what: 'Explicar o livro', to: '/knowledge' },
   { when: 'A cada ciclo de 7 dias', what: 'Sobe a fase (meta de fala)', to: '/settings' },
+  { when: 'Quando quiser', what: 'Rever os pontos críticos', to: '/focus' },
 ];
 
 function Arrow({ down }: { down?: boolean }) {

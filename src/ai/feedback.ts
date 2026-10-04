@@ -55,9 +55,12 @@ export const FEEDBACK_LABELS: Record<FeedbackKind, string> = {
 };
 
 const FOCUS: Record<FeedbackKind, string> = {
-  grammar: 'Corrija apenas erros de gramática e ortografia, mudando o mínimo possível.',
-  improve: 'Corrija os erros e melhore a clareza, preservando a ideia e o nível do aluno.',
-  natural: 'Corrija os erros e, em "moreNatural", mostre como um falante nativo diria a mesma coisa.',
+  grammar:
+    'Corrija apenas erros de gramática e ortografia, mudando o mínimo possível. Em "why", diga em até 2 frases quais erros corrigiu. Em "moreNatural" responda null.',
+  improve:
+    'Corrija os erros e melhore a clareza e a fluidez da frase, preservando a ideia e o nível do aluno. Em "why", diga em até 2 frases o que melhorou além da gramática. Em "moreNatural" responda null.',
+  natural:
+    'Em "moreNatural", mostre como um falante nativo diria a mesma coisa; em "corrected", o texto do aluno só com os erros corrigidos. Em "why", diga em até 2 frases que escolhas de palavras ou de construção deixam a versão mais natural.',
   retell:
     'O texto é a transcrição de uma fala improvisada do aluno recontando uma ideia. Ignore hesitações e falhas da transcrição. Em "corrected", reescreva a fala corrigida, mantendo o conteúdo e o nível dele. Em "why", comente em português, em até 4 frases: se ele transmitiu a ideia principal, os 2 ou 3 erros de inglês mais importantes, e se usou as expressões que está aprendendo. Em "moreNatural" responda null.',
 };
@@ -119,11 +122,11 @@ export interface FeedbackRequest {
   context: string;
 }
 
-export async function requestFeedback(request: FeedbackRequest): Promise<AIFeedback> {
+export async function requestFeedback(request: FeedbackRequest, injected?: AIProvider): Promise<AIFeedback> {
   const original = request.text.trim();
   if (!original) throw new AIError('Escreva a sua versão primeiro. A IA só comenta o que você tentou.');
 
-  const provider = await createProvider((await getSettings()).ai);
+  const provider = injected ?? (await createProvider((await getSettings()).ai));
   if (!provider) throw new AIError('A IA não está configurada. Veja em Ajustes.');
 
   const parsed = parseFeedback(await provider.complete({ ...buildFeedbackPrompt(request.kind, original, request.context), json: true }));
@@ -138,9 +141,21 @@ export async function requestFeedback(request: FeedbackRequest): Promise<AIFeedb
     model: provider.model,
     createdAt: nowISO(),
   };
-  await db.aiFeedback.add(feedback);
+  await db.transaction('rw', db.aiFeedback, async () => {
+    // Cada pedido vale uma vez: refazer substitui o anterior do mesmo tipo, e o que era sobre outra versão do texto sai.
+    const previous = await db.aiFeedback.where('[targetType+targetId]').equals([request.targetType, request.targetId]).toArray();
+    await db.aiFeedback.bulkDelete(previous.filter((f) => f.kind === request.kind || f.original !== original).map((f) => f.id));
+    await db.aiFeedback.add(feedback);
+  });
   return feedback;
 }
+
+/** Apaga o retorno da IA sobre um texto, para o usuário pedir um novo do zero. */
+export async function deleteFeedbackFor(targetType: FeedbackTarget, targetId: string): Promise<void> {
+  await db.aiFeedback.where('[targetType+targetId]').equals([targetType, targetId]).delete();
+}
+
+export { type ConsolidatedFeedback, consolidateFeedback, type FeedbackComment } from '../domain/feedback';
 
 export async function getFeedbackFor(targetType: FeedbackTarget, targetId: string): Promise<AIFeedback[]> {
   const items = await db.aiFeedback.where('[targetType+targetId]').equals([targetType, targetId]).toArray();

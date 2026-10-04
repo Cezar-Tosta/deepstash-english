@@ -99,3 +99,46 @@ export function diffText(original: string, corrected: string): TextDiff {
     changed: keptA.size !== wordsA.length || keptB.size !== wordsB.length,
   };
 }
+
+export interface InlinePart {
+  text: string;
+  kind: 'same' | 'removed' | 'added';
+}
+
+/**
+ * Original e correção numa sequência só: o que saiu e o que entrou aparecem no ponto
+ * em que a mudança aconteceu, sem repetir o resto da frase.
+ */
+export function inlineDiff(original: string, corrected: string): InlinePart[] {
+  const a = pieces(original).filter((piece) => !isSpace(piece));
+  const b = pieces(corrected).filter((piece) => !isSpace(piece));
+  const [keptA, keptB] = commonWords(a, b);
+  const out: InlinePart[] = [];
+  const push = (text: string, kind: InlinePart['kind']) => {
+    const last = out.at(-1);
+    if (last?.kind === kind) last.text += ` ${text}`;
+    else {
+      if (last) out.push({ text: ' ', kind: 'same' });
+      out.push({ text, kind });
+    }
+  };
+  let i = 0;
+  let j = 0;
+  while (i < a.length || j < b.length) {
+    while (i < a.length && !keptA.has(i)) push(a[i++] ?? '', 'removed');
+    while (j < b.length && !keptB.has(j)) push(b[j++] ?? '', 'added');
+    if (i < a.length && j < b.length) {
+      push(b[j] ?? '', 'same');
+      i += 1;
+      j += 1;
+    }
+  }
+  // Junta "igual + espaço + igual" que o separador acima deixou em pedaços.
+  const merged: InlinePart[] = [];
+  for (const part of out) {
+    const last = merged.at(-1);
+    if (last && last.kind === 'same' && part.kind === 'same') last.text += part.text;
+    else merged.push({ ...part });
+  }
+  return merged;
+}

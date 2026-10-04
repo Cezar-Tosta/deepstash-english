@@ -11,6 +11,7 @@ import { BookPage } from './ui/pages/BookPage';
 import { KnowledgePage } from './ui/pages/KnowledgePage';
 import { ManualPage } from './ui/pages/ManualPage';
 import { PracticePage } from './ui/pages/PracticePage';
+import { FocusPage } from './ui/pages/FocusPage';
 import { ProgressPage } from './ui/pages/ProgressPage';
 import { ReviewPage } from './ui/pages/ReviewPage';
 import { SettingsPage } from './ui/pages/SettingsPage';
@@ -63,6 +64,7 @@ function App() {
             <Route path="knowledge/idea/:ideaId" element={<IdeaDetailPage />} />
             <Route path="knowledge/book/:key" element={<BookPage />} />
             <Route path="practice" element={<PracticePage />} />
+            <Route path="focus" element={<FocusPage />} />
             <Route path="progress" element={<ProgressPage />} />
             <Route path="weekly/:weekStart?" element={<WeeklyPage />} />
             <Route path="settings" element={<SettingsPage />} />
