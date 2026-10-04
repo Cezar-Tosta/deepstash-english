@@ -77,7 +77,7 @@ export function IdeaDetailPage() {
         {isIdeaOfDay && <p className="mt-2 text-xs font-semibold tracking-wide text-accent">⭐ IDEA OF THE DAY</p>}
       </header>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Section title={`Cards da ideia (${cards.length})`}>
           {withText.length === 0 ? (
             <p className="text-muted">{cards.length === 0 ? 'Nenhum card registrado.' : 'O texto dos cards não foi registrado.'}</p>
@@ -178,7 +178,7 @@ export function IdeaDetailPage() {
         </div>
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         <IdeaVerbs key={`verbs-${idea.id}`} ideaId={idea.id} hasText={withText.length > 0} />
         <IdeaChat key={idea.id} ideaId={idea.id} />
       </div>

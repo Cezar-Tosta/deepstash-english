@@ -310,7 +310,12 @@ function WeeklyWriting({ bundle }: { bundle: WeekBundle }) {
             </Button>
           )}
           {writing && (
-            <AIFeedbackPanel targetType="writing" targetId={writing.id} text={text} context="Texto curto semanal de 80 a 120 palavras." />
+            <AIFeedbackPanel
+              targetType="writing"
+              targetId={writing.id}
+              text={text}
+              context="Texto curto do fechamento do ciclo, de 80 a 120 palavras."
+            />
           )}
         </>
       )}
@@ -379,12 +384,12 @@ export function WeeklyPage() {
   const done = Boolean(bundle.review.completedAt);
 
   return (
-    <div className="grid items-start gap-x-8 gap-y-8 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-x-8 gap-y-8 lg:grid-cols-2">
       <div className="col-span-full">
         <Link to="/progress" className="mb-2 flex min-h-10 items-center text-sm font-medium text-accent">
           ← Progress
         </Link>
-        <PageTitle eyebrow="Weekly review" title="Fechamento do ciclo">
+        <PageTitle eyebrow="Cycle review" title="Fechamento do ciclo">
           Ciclo de {formatDate(weekStart, 'short')} a {formatDate(bundle.weekEnd, 'short')}
         </PageTitle>
       </div>
@@ -399,7 +404,7 @@ export function WeeklyPage() {
         <>
           <Part number={1} title="As Ideas of the Day" wide>
             <Hint>Sem reler primeiro, tente lembrar o ponto central de cada ideia. Depois confira.</Hint>
-            <div className="grid items-start gap-3 lg:grid-cols-2">
+            <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
               {bundle.ideas.map((item) => (
                 <RecallCard key={item.idea.id} item={item} weekStart={weekStart} saved={bundle.review.recalls[item.idea.id] ?? ''} />
               ))}
@@ -415,7 +420,7 @@ export function WeeklyPage() {
           <Part number={4} title="Minhas falas do ciclo" wide>
             <SpokenWeek weekStart={weekStart} />
           </Part>
-          <Part number={5} title="Speaking semanal">
+          <Part number={5} title="Speaking do ciclo">
             <WeeklySpeaking bundle={bundle} date={date} />
           </Part>
           <Part number={6} title="Weekly writing (opcional)">

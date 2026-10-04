@@ -54,7 +54,7 @@ function BookList({ query }: { query: string }) {
           {!q && 'Os livros aparecem aqui conforme você registra as ideias lidas em cada sessão.'}
         </EmptyState>
       )}
-      <ul className="grid items-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="grid grid-cols-1 items-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {shown?.map((book) => (
           <li key={book.key}>
             <Link
@@ -106,7 +106,7 @@ function IdeaList({ query }: { query: string }) {
           {query ? 'Tente outra palavra, livro, tema ou data.' : 'As ideias registradas nas sessões aparecem aqui.'}
         </EmptyState>
       )}
-      <div className="grid items-start gap-2 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-2 lg:grid-cols-2">
         {[...groups].map(([book, ideas], i) => (
           // Na busca, tudo abre; fora dela, só o livro mais recente.
           <Collapsible key={`${book}-${searching}`} title={book} count={ideas.length} defaultOpen={searching || i === 0}>
@@ -161,7 +161,7 @@ function ChunkList({ query }: { query: string }) {
           {count(items.length, 'expressão', 'expressões')}. Clique em uma para ver frases, revisões e ações.
         </p>
       )}
-      <ul className="grid items-start gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
         {shown.map((item) => (
           <ChunkItem key={item.chunk.id} item={item} date={date} />
         ))}
@@ -189,7 +189,7 @@ function DictionaryList({ query }: { query: string }) {
           <ListenSettings />
         </div>
       )}
-      <ul className="grid items-start gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
         {shown.map(({ entry, idea }) => (
           <DictionaryRow
             key={entry.id}

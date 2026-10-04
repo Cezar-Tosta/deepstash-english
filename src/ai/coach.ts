@@ -48,7 +48,7 @@ export function buildCoachPrompt(ctx: CoachContext): { system: string; user: str
       'Você é o orientador de um brasileiro que estuda inglês lendo ideias de livros (Deepstash).',
       'Método: o aluno tenta primeiro; a IA orienta e sugere caminhos, mas não entrega a resposta pronta para copiar.',
       `Etapa atual e o tipo de ajuda esperada: ${STEP_GUIDE[ctx.step]}`,
-      `Semana ${ctx.cycleWeek} do ciclo de 4 semanas: ajuste a exigência (semana 1 é mais guiada, semana 4 pede mais autonomia).`,
+      `Fase ${ctx.cycleWeek} de 4 (o aluno sobe uma fase a cada ciclo de 7 dias): ajuste a exigência (a fase 1 é mais guiada, a fase 4 pede mais autonomia).`,
       'Baseie as sugestões no conteúdo abaixo, citando trechos ou palavras dele quando ajudar.',
       ...(ctx.draftPt
         ? [

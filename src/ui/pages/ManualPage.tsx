@@ -29,9 +29,9 @@ const PHASES: { name: string; steps: StepId[] }[] = [
 const AFTER: { when: string; what: string; to: string }[] = [
   { when: 'D1 · D3 · D7 · D14 · D30', what: 'Revisar cada chunk', to: '/review' },
   { when: '3 dias depois', what: 'Did you do it?', to: '/' },
-  { when: '2 a 3× por semana', what: 'Treino e flashcards', to: '/practice' },
+  { when: '2 a 3× por ciclo', what: 'Treino e flashcards', to: '/practice' },
   { when: 'Dias 6 e 7 do ciclo', what: 'Só revisões', to: '/review' },
-  { when: 'Dia 5 do ciclo', what: 'Weekly review', to: '/weekly' },
+  { when: 'Dia 5 do ciclo', what: 'Fechamento do ciclo', to: '/weekly' },
   { when: 'Fim do livro', what: 'Explicar o livro', to: '/knowledge' },
   { when: 'A cada ciclo de 7 dias', what: 'Sobe a fase (meta de fala)', to: '/settings' },
 ];
@@ -107,7 +107,7 @@ export function ManualPage() {
 
       <Card>
         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <Eyebrow>Segunda a sexta · a sessão</Eyebrow>
+          <Eyebrow>Dias 1 a 5 do ciclo · a sessão</Eyebrow>
           <span className="text-xs font-semibold text-accent">~{total} min</span>
         </div>
         <ol className="mt-3 space-y-2">

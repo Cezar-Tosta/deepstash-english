@@ -33,7 +33,9 @@ import {
   updateIdea,
   updateSessionNotes,
 } from '../../services/sessions';
+import { locateTerm } from '../../domain/exercises';
 import { AIFeedbackPanel } from '../components/AIFeedbackPanel';
+import { DaySummary } from '../components/DaySummary';
 import { RecordingPlayer } from '../components/Listen';
 import { GlossedParagraph } from '../components/Reader';
 import { CardSequence } from '../components/CardSequence';
@@ -593,6 +595,8 @@ export function RetellStep({ bundle, goTo }: StepProps) {
   const total = speaking.reduce((sum, s) => sum + s.durationSec, 0);
   const transcription = Boolean(settings && canTranscribe(settings.ai));
   const { idea } = ideaOfDay;
+  const transcripts = speaking.map((s) => s.transcript ?? '').filter((t) => t.trim());
+  const usedCount = chunks.filter((c) => transcripts.some((t) => locateTerm(t, c.text))).length;
 
   const finish = async (durationSec: number, audio: Blob | null) => {
     const id = await recordSpeaking({
@@ -622,7 +626,8 @@ export function RetellStep({ bundle, goTo }: StepProps) {
   const feedbackContext = [
     `Ideia recontada: "${idea.title}".`,
     idea.mainIdea && `Ideia principal segundo o aluno: ${idea.mainIdea}`,
-    chunks.length > 0 && `Expressões que ele está aprendendo: ${chunks.map((c) => c.text).join('; ')}.`,
+    chunks.length > 0 &&
+      `Expressões que ele está aprendendo e deveria usar na fala: ${chunks.map((c) => c.text).join('; ')}. No comentário, diga quais ele usou e mostre, com uma frase de exemplo, como encaixar as que faltaram.`,
   ]
     .filter(Boolean)
     .join(' ');
@@ -633,12 +638,42 @@ export function RetellStep({ bundle, goTo }: StepProps) {
       <div>
         <Prompt>Feche o Deepstash e reconte a ideia em voz alta.</Prompt>
         <Hint>
-          Conte a história dos cards do começo ao fim, com as suas palavras. Semana {session.cycleWeek}: {plan.focus} Não reinicie por causa
-          de erros.
+          Conte a história dos cards do começo ao fim, com as suas palavras. Fase {session.cycleWeek} de 4: {plan.focus} Não reinicie por
+          causa de erros.
         </Hint>
       </div>
 
       <StarterChips starters={RETELL_PROMPTS} />
+
+      {chunks.length > 0 && (
+        <Card>
+          <Eyebrow>Use os seus chunks na fala</Eyebrow>
+          <ul className="mt-2 space-y-1">
+            {chunks.map((chunk) => {
+              const used = transcripts.some((t) => locateTerm(t, chunk.text));
+              return (
+                <li key={chunk.id} className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="font-serif text-lg break-words" lang="en">
+                    {chunk.text}
+                  </span>
+                  {chunk.meaning && <span className="text-sm text-muted">— {chunk.meaning}</span>}
+                  {transcripts.length > 0 && (
+                    <span className={`text-xs font-semibold ${used ? 'text-good' : 'text-muted'}`}>
+                      {used ? '✓ usado na fala' : 'ainda não usado'}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-2">
+            <Hint>
+              Tente encaixar cada expressão ao recontar a ideia.
+              {transcripts.length > 0 && ` Você usou ${usedCount} de ${chunks.length} até agora.`}
+            </Hint>
+          </div>
+        </Card>
+      )}
 
       <AutoTextArea
         label="Palavras de apoio (só palavras-chave, não um roteiro)"
@@ -658,7 +693,7 @@ export function RetellStep({ bundle, goTo }: StepProps) {
         />
         <p className="mt-2 text-center text-xs text-muted">
           {transcription
-            ? 'A fala é gravada e transcrita ao terminar. O áudio fica neste navegador, para o fechamento da semana.'
+            ? 'A fala é gravada e transcrita ao terminar. O áudio fica neste navegador, para o fechamento do ciclo.'
             : 'A fala é gravada e fica neste navegador, para você se ouvir. Com Groq em Ajustes, ela também é transcrita.'}
         </p>
       </Card>
@@ -994,6 +1029,8 @@ export function ScheduleStep({ bundle }: StepProps) {
           ))}
         </ul>
       </Card>
+
+      <DaySummary sessionId={session.id} />
 
       {chunks.length > 0 && (
         <div className="space-y-3">

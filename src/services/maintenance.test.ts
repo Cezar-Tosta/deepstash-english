@@ -159,7 +159,7 @@ describe('frequência das etapas', () => {
       'Dias 6 e 7 do ciclo',
       '5 vezes',
       '3 dias depois',
-      '2 a 3 vezes por semana',
+      '2 a 3 vezes por ciclo',
       'Dia 5 do ciclo',
       'Ao terminar cada livro',
       'Uma por ciclo, de 1 a 4',

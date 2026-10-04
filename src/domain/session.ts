@@ -1,4 +1,5 @@
-import type { StepId } from './types';
+import { formatDate } from './dates';
+import type { StepId, ISODate } from './types';
 
 /** Limite rígido do método: no máximo 3 chunks novos por dia. */
 export const MAX_CHUNKS_PER_DAY = 3;
@@ -13,9 +14,9 @@ export interface StepDef {
   minutes: number;
 }
 
-const DAILY = 'Segunda a sexta';
+const DAILY = 'Dias 1 a 5 do ciclo';
 
-/** A sessão acontece nos dias úteis; sábado e domingo são só de revisões. */
+/** A sessão acontece nos 5 primeiros dias do ciclo de 7; os dias 6 e 7 são só de revisões. */
 export const SESSION_DAYS_PER_WEEK = 5;
 
 export const STEPS: readonly StepDef[] = [
@@ -59,9 +60,9 @@ export const ROUTINE: readonly RoutineItem[] = [
     frequency: '3 dias depois',
     detail: 'Cada ação do "So what?" é cobrada uma vez, na tela Today.',
   },
-  { activity: 'Exercícios', frequency: '2 a 3 vezes por semana', detail: 'Treino curto com os termos em que você mais erra.' },
+  { activity: 'Exercícios', frequency: '2 a 3 vezes por ciclo', detail: 'Treino curto com os termos em que você mais erra.' },
   {
-    activity: 'Weekly review',
+    activity: 'Fechamento do ciclo',
     frequency: 'Dia 5 do ciclo',
     detail: 'Depois da última sessão do ciclo: relembrar as ideias, Top 3, ouvir suas falas, fala livre e texto de 80 a 120 palavras.',
   },
@@ -77,6 +78,42 @@ export const ROUTINE: readonly RoutineItem[] = [
       'O ciclo tem 7 dias e começa na data que você escolher em Settings. A cada ciclo, a meta de fala sobe de 1 para 2 a 3 minutos e a tradução vai sendo reduzida.',
   },
 ];
+
+export interface CycleDayNames {
+  /** Dias de sessão, por exemplo "ter a sáb". */
+  session: string;
+  /** Dias de revisão, por exemplo "dom e seg". Vazio se o ciclo foi encurtado antes deles. */
+  rest: string;
+  /** Dia do fechamento, por exemplo "sáb". */
+  closing: string;
+}
+
+/** Os dias da semana em que cai cada parte do ciclo, a partir das datas dele. */
+export function cycleDayNames(days: readonly ISODate[]): CycleDayNames {
+  const name = (date: ISODate | undefined): string => (date ? formatDate(date, 'weekday').replace('.', '') : '');
+  const session = days.slice(0, SESSION_DAYS_PER_WEEK);
+  const rest = days.slice(SESSION_DAYS_PER_WEEK);
+  return {
+    session: session.length > 1 ? `${name(session[0])} a ${name(session.at(-1))}` : name(session[0]),
+    rest: rest.map(name).join(' e '),
+    closing: days.length >= SESSION_DAYS_PER_WEEK ? name(days[SESSION_DAYS_PER_WEEK - 1]) : '',
+  };
+}
+
+/**
+ * A rotina com os dias da semana do ciclo em andamento: "Dias 1 a 5 (ter a sáb)".
+ * Sem ciclo em andamento, fica a descrição genérica, por dia do ciclo.
+ */
+export function routineFor(days: readonly ISODate[] | null): readonly RoutineItem[] {
+  if (!days || days.length === 0) return ROUTINE;
+  const names = cycleDayNames(days);
+  const labels: Record<string, string> = {
+    'Sessão de estudo': `Dias 1 a 5 (${names.session})`,
+    'Dias de revisão': names.rest ? `Dias 6 e 7 (${names.rest})` : 'Dias 6 e 7 do ciclo',
+    'Fechamento do ciclo': names.closing ? `Dia 5 (${names.closing})` : 'Dia 5 do ciclo',
+  };
+  return ROUTINE.map((item) => ({ ...item, frequency: labels[item.activity] ?? item.frequency }));
+}
 
 export function stepIndex(id: StepId): number {
   const index = STEPS.findIndex((s) => s.id === id);

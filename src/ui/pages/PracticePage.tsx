@@ -4,6 +4,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import {
   buildTenseTraining,
   buildTraining,
+  type Dictation,
+  DICTATION_PASS,
   dictationScore,
   type Flashcard,
   hardest,
@@ -18,16 +20,16 @@ import {
 } from '../../domain/exercises';
 import { recordPractice } from '../../services/maintenance';
 import { loadPracticeMaterial } from '../../services/study';
+import { DictationRound, DictationSetup } from '../components/Dictation';
 import { FlashcardRound, FlashcardSetup } from '../components/Flashcards';
 import { ListenButton, ListenSettings } from '../components/Listen';
 import { SentenceTranslation } from '../components/SentenceTranslation';
 import { TenseSetup } from '../components/TenseSetup';
-import { Button, Card, EmptyState, Eyebrow, Hint, PageTitle, Prompt, TextArea, TextInput } from '../components/ui';
+import { Button, Card, EmptyState, Eyebrow, Hint, PageTitle, Prompt, Segmented, TextArea, TextInput } from '../components/ui';
 import { speak, stopSpeaking } from '../speech';
 import { attempt } from '../toast';
 
 const SIZES = [5, 10, 15] as const;
-const DICTATION_PASS = 0.9;
 /** Quantas vezes a mesma pergunta pode voltar numa rodada depois de errada. */
 const MAX_RETRIES = 2;
 
@@ -77,7 +79,6 @@ function QuestionCard({ question, retry, onNext }: { question: Question; retry: 
       {heard && (
         <div className="mt-3 space-y-3">
           <ListenButton big text={question.full} label="Ouvir de novo" />
-          <ListenSettings />
         </div>
       )}
       {kind === 'gap' &&
@@ -214,6 +215,8 @@ function Training({ title, questions, onExit }: { title: string; questions: Ques
       <div className="h-1.5 overflow-hidden rounded-full bg-sunken" aria-hidden="true">
         <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${(index / queue.length) * 100}%` }} />
       </div>
+      {/* Velocidade e loop valem para todo áudio da rodada: o da pergunta e o "ouvir a frase" depois de conferir. */}
+      <ListenSettings />
       {/* A key reinicia o campo de resposta a cada pergunta, inclusive quando ela volta. */}
       <QuestionCard key={`${current.id}-${index}`} question={current} retry={(retries[current.id] ?? 0) > 0} onNext={next} />
     </div>
@@ -238,27 +241,41 @@ function Sizes({ available, unit, onPick }: { available: number; unit: [string, 
   );
 }
 
-/** Três exercícios, todos com o termo dentro de uma frase: treino, tempos verbais e flashcards. */
+type ExerciseTab = 'training' | 'tenses' | 'dictation' | 'flashcards';
+
+/** O menu no topo da tela: um tipo de exercício de cada vez. */
+const EXERCISES: readonly { value: ExerciseTab; label: string }[] = [
+  { value: 'training', label: 'Treino' },
+  { value: 'tenses', label: 'Tempos verbais' },
+  { value: 'dictation', label: 'Ditado' },
+  { value: 'flashcards', label: 'Flashcards' },
+];
+
+/** Os exercícios, todos com o termo dentro de uma frase. O menu superior escolhe o tipo; ao lado fica onde o usuário mais erra. */
 export function PracticePage() {
   const material = useLiveQuery(loadPracticeMaterial, []);
   const [params, setParams] = useSearchParams();
   const [round, setRound] = useState<{ title: string; questions: Question[] } | null>(null);
   const [flashcards, setFlashcards] = useState<Flashcard[] | null>(null);
+  const [dictations, setDictations] = useState<Dictation[] | null>(null);
   const items = useMemo(() => (material ? studyItems(material) : []), [material]);
   const verbsOfIdea = params.get('verbs');
+  const requested = params.get('tab');
+  const tab: ExerciseTab = EXERCISES.some((e) => e.value === requested) ? (requested as ExerciseTab) : 'training';
 
   // Vindo da página de uma ideia ("Treinar estes verbos"), a rodada começa direto com os verbos dela.
   useEffect(() => {
     if (!material || !verbsOfIdea) return;
     const verbs = material.verbs.filter((v) => v.ideaId === verbsOfIdea);
     const questions = buildTenseTraining(verbs, material.stats, tenseQuestions(verbs).length);
-    setParams({}, { replace: true });
+    setParams({ tab: 'tenses' }, { replace: true });
     if (questions.length > 0) setRound({ title: 'Tempos verbais', questions });
   }, [material, verbsOfIdea, setParams]);
 
   if (!material) return null;
   if (round) return <Training title={round.title} questions={round.questions} onExit={() => setRound(null)} />;
   if (flashcards) return <FlashcardRound cards={flashcards} onExit={() => setFlashcards(null)} />;
+  if (dictations) return <DictationRound round={dictations} onExit={() => setDictations(null)} />;
 
   const trainable = items.filter((i) => questionsFor(i).length > 0).length;
   const tenses = tenseQuestions(material.verbs).length;
@@ -266,77 +283,90 @@ export function PracticePage() {
   const difficult = hardest(items, 6);
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <PageTitle eyebrow="Practice" title="Exercícios">
         Nenhuma palavra solta: tudo aparece dentro de uma frase, para completar ou para ouvir e escrever.
       </PageTitle>
 
-      <Card>
-        <Prompt>Treino</Prompt>
-        <p className="mt-1 text-sm text-muted">
-          Começa pelos termos em que você mais erra e alterna três formas: completar a frase, ouvir a frase e escrever a palavra que falta,
-          e ouvir uma frase curta e escrevê-la. O que você errar volta na mesma rodada.
-        </p>
-        {trainable === 0 ? (
-          <div className="mt-3">
-            <EmptyState title="Ainda sem material.">
-              Adicione palavras ao dicionário clicando nelas nos cards, ou escolha chunks com a frase original.
-            </EmptyState>
-          </div>
-        ) : (
-          <Sizes
-            available={trainable}
-            unit={['termo', 'termos']}
-            onPick={(n) => setRound({ title: 'Treino', questions: buildTraining(items, n) })}
-          />
-        )}
-        {loose > 0 && (
-          <div className="mt-3">
-            <Hint>
-              {loose} {loose === 1 ? 'termo está' : 'termos estão'} fora dos exercícios por não {loose === 1 ? 'ter' : 'terem'} frase.
-              Escreva uma frase com o chunk (PERSONALIZE ou My English) para {loose === 1 ? 'ele' : 'eles'} entrar
-              {loose === 1 ? '' : 'em'}.
-            </Hint>
-          </div>
-        )}
-      </Card>
+      <nav aria-label="Tipos de exercício" className="col-span-full">
+        <Segmented
+          label="Tipos de exercício"
+          value={tab}
+          options={EXERCISES}
+          onChange={(next) => setParams(next === 'training' ? {} : { tab: next }, { replace: true })}
+        />
+      </nav>
+
+      {tab === 'training' && (
+        <Card>
+          <Prompt>Treino</Prompt>
+          <p className="mt-1 text-sm text-muted">
+            Começa pelos termos em que você mais erra e alterna três formas: completar a frase, ouvir a frase e escrever a palavra que
+            falta, e ouvir uma frase curta e escrevê-la. O que você errar volta na mesma rodada.
+          </p>
+          {trainable === 0 ? (
+            <div className="mt-3">
+              <EmptyState title="Ainda sem material.">
+                Adicione palavras ao dicionário clicando nelas nos cards, ou escolha chunks com a frase original.
+              </EmptyState>
+            </div>
+          ) : (
+            <Sizes
+              available={trainable}
+              unit={['termo', 'termos']}
+              onPick={(n) => setRound({ title: 'Treino', questions: buildTraining(items, n) })}
+            />
+          )}
+          {loose > 0 && (
+            <div className="mt-3">
+              <Hint>
+                {loose} {loose === 1 ? 'termo está' : 'termos estão'} fora dos exercícios por não {loose === 1 ? 'ter' : 'terem'} frase.
+                Escreva uma frase com o chunk (PERSONALIZE ou My English) para {loose === 1 ? 'ele' : 'eles'} entrar
+                {loose === 1 ? '' : 'em'}.
+              </Hint>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {tab === 'tenses' && (
+        <Card>
+          <Prompt>Tempos verbais</Prompt>
+          <p className="mt-1 text-sm text-muted">
+            Frases com lacuna para conjugar os verbos das suas ideias. Escolha os verbos, os tempos e quantas frases.
+          </p>
+          {tenses === 0 ? (
+            <div className="mt-3">
+              <EmptyState title="Nenhum verbo selecionado ainda.">
+                Abra uma ideia em{' '}
+                <Link to="/knowledge?tab=ideas" className="text-accent underline underline-offset-2">
+                  Knowledge
+                </Link>{' '}
+                e use “Encontrar os verbos desta ideia”.
+              </EmptyState>
+            </div>
+          ) : (
+            <TenseSetup
+              verbs={material.verbs}
+              stats={material.stats}
+              onStart={(questions) => setRound({ title: 'Tempos verbais', questions })}
+            />
+          )}
+        </Card>
+      )}
+
+      {tab === 'dictation' && <DictationSetup items={items} onStart={setDictations} />}
+
+      {tab === 'flashcards' && <FlashcardSetup items={items} onStart={setFlashcards} />}
 
       <Card>
-        <Prompt>Tempos verbais</Prompt>
-        <p className="mt-1 text-sm text-muted">
-          Frases com lacuna para conjugar os verbos das suas ideias. Escolha os verbos, os tempos e quantas frases.
-        </p>
-        {tenses === 0 ? (
-          <div className="mt-3">
-            <EmptyState title="Nenhum verbo selecionado ainda.">
-              Abra uma ideia em{' '}
-              <Link to="/knowledge?tab=ideas" className="text-accent underline underline-offset-2">
-                Knowledge
-              </Link>{' '}
-              e use “Encontrar os verbos desta ideia”.
-            </EmptyState>
-          </div>
-        ) : (
-          <TenseSetup
-            verbs={material.verbs}
-            stats={material.stats}
-            onStart={(questions) => setRound({ title: 'Tempos verbais', questions })}
-          />
-        )}
-      </Card>
-
-      <div className="col-span-full">
-        <FlashcardSetup items={items} onStart={setFlashcards} />
-      </div>
-
-      <Card className="col-span-full">
         <Eyebrow>Onde você mais erra</Eyebrow>
         {difficult.length === 0 ? (
           <p className="mt-2 text-sm text-muted">
             Aparece aqui depois dos primeiros treinos. Contam os erros nos exercícios e, para os chunks, os “não lembrei” das revisões.
           </p>
         ) : (
-          <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
+          <ul className="mt-2">
             {difficult.map((item) => (
               <li key={item.key} className="flex items-baseline justify-between gap-3 border-b border-line py-1.5">
                 <span className="min-w-0">

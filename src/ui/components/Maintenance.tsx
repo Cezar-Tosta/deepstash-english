@@ -1,7 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useState } from 'react';
 import { addDays, formatDate, formatDuration, today } from '../../domain/dates';
-import { ROUTINE, STEPS } from '../../domain/session';
+import { periodDates } from '../../domain/periods';
+import { routineFor, STEPS } from '../../domain/session';
 import type { ISODate } from '../../domain/types';
 import {
   deleteRecordingsBefore,
@@ -13,6 +14,7 @@ import {
   type SpokenItem,
   weekContents,
 } from '../../services/maintenance';
+import { getCycleInfo } from '../../services/cycles';
 import { attempt, showToast } from '../toast';
 import { ListenSettings, RecordingPlayer } from './Listen';
 import { Button, Card, Eyebrow, Hint } from './ui';
@@ -235,7 +237,7 @@ export function SpokenWeek({ weekStart }: { weekStart: ISODate }) {
         </p>
         <ListenSettings />
       </div>
-      <ul className="grid items-start gap-2 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 items-start gap-2 sm:grid-cols-2">
         {items.map((item) => (
           <SpokenRow key={item.speaking.id} item={item} />
         ))}
@@ -246,7 +248,9 @@ export function SpokenWeek({ weekStart }: { weekStart: ISODate }) {
 
 // ---------- Frequência de cada etapa ----------
 
-export function Routine() {
+export function Routine({ date }: { date: ISODate }) {
+  const info = useLiveQuery(() => getCycleInfo(date), [date]);
+  const routine = routineFor(info?.period ? periodDates(info.period) : null);
   return (
     <Card>
       <details>
@@ -254,7 +258,7 @@ export function Routine() {
           Rotina: frequência de cada etapa
         </summary>
         <ul className="mt-3 divide-y divide-line text-sm">
-          {ROUTINE.map((r) => (
+          {routine.map((r) => (
             <li key={r.activity} className="py-2">
               <p className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <span className="font-medium">{r.activity}</span>

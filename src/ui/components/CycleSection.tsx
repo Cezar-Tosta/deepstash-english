@@ -9,7 +9,10 @@ import { errorMessage } from '../../services/errors';
 import { attempt, showToast } from '../toast';
 import { Button, Card, Collapsible, Eyebrow, Hint, TextInput } from './ui';
 
-const weekday = (date: ISODate): string => formatDate(date, 'weekday').replace('.', '').replace(/^./u, (c) => c.toUpperCase());
+const weekday = (date: ISODate): string =>
+  formatDate(date, 'weekday')
+    .replace('.', '')
+    .replace(/^./u, (c) => c.toUpperCase());
 const range = (p: Period): string =>
   `${weekday(p.start)} ${formatDate(p.start, 'short')} a ${weekday(p.end)} ${formatDate(p.end, 'short')}`;
 

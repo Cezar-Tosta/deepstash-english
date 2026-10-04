@@ -48,6 +48,9 @@ export interface StudySession {
   misunderstood: string;
   /** RETELL: palavras de apoio para a fala. */
   retellNotes: string;
+  /** Resumo "o que estudar", escrito pela IA a partir das correções e dos exercícios do dia. */
+  studySummary?: string;
+  studySummaryAt?: ISODateTime;
 }
 
 /**
@@ -76,6 +79,11 @@ export interface SourceCard {
   position: number;
   content: string;
   createdAt: ISODateTime;
+  /** Comentário da IA sobre a estrutura do texto (gramática, ortografia, sintaxe e semântica). */
+  analysis?: string;
+  analysisAt?: ISODateTime;
+  /** O texto do card quando o comentário foi gerado, para avisar se ele mudou depois. */
+  analysisOf?: string;
 }
 
 /** Vocabulário só para entender o card. Nunca entra na repetição espaçada. */

@@ -73,7 +73,7 @@ export function ProgressPage() {
   const all = totals(input);
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <PageTitle eyebrow="Progress" title="Seu ciclo">
         A meta é consistência, não perfeição. O histórico é por ciclo de 7 dias; os dias entre um ciclo e outro não entram.
       </PageTitle>
@@ -110,7 +110,7 @@ export function ProgressPage() {
         <div className="flex items-baseline justify-between">
           <Eyebrow>Controle do ciclo</Eyebrow>
           <Link to={`/weekly/${weekStart}`} className="text-sm font-medium text-accent">
-            Weekly review →
+            Fechamento do ciclo →
           </Link>
         </div>
         <ul className="mt-3 divide-y divide-line">

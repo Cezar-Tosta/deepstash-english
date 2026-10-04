@@ -11,6 +11,8 @@ import { getCycleInfo } from '../../services/cycles';
 import { getDueChunks } from '../../services/reviews';
 import { getPendingActions } from '../../services/study';
 import { ActionFollowUp } from '../components/ActionFollowUp';
+import { CycleStrip } from '../components/CycleStrip';
+import { DaySummary } from '../components/DaySummary';
 import { Routine } from '../components/Maintenance';
 import { TodaySuggestion } from '../components/TodaySuggestion';
 import { loadSessionBundle, startSession } from '../../services/sessions';
@@ -72,7 +74,7 @@ export function TodayPage() {
   };
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <PageTitle eyebrow="Today" title={formatDate(date, 'long')}>
         {info.period
           ? `Dia ${info.day} de ${CYCLE_DAYS} do ciclo (${formatDate(info.period.start, 'short')} a ${formatDate(info.period.end, 'short')})`
@@ -80,13 +82,16 @@ export function TodayPage() {
         · fase {week} de {PHASES} · {plan.focus}
       </PageTitle>
 
+      {info.period && <CycleStrip period={info.period} date={date} />}
+
       {totalSessions === 0 && (
         <Card className="bg-accent-soft">
           <Eyebrow>Método: ideias → 1 → 3 → 1</Eyebrow>
           <p className="mt-2 leading-relaxed">
             Leia as <strong>ideias</strong> do dia no Deepstash (cada uma é uma sequência de cards), escolha <strong>1 ideia</strong> para
             aprofundar, guarde só <strong>3 expressões</strong> úteis e faça <strong>1 explicação</strong> em voz alta. Cerca de 30 minutos
-            por dia.
+            por dia. O estudo anda em <strong>ciclos de 7 dias</strong>, que começam no dia da sua primeira sessão: 5 dias de sessão e 2 só
+            de revisão.
           </p>
           <Link to="/manual" className="mt-2 inline-flex min-h-10 items-center font-medium text-accent underline underline-offset-2">
             Ler o manual: a sequência completa de estudos →
@@ -126,7 +131,9 @@ export function TodayPage() {
               : `Hoje é dia só de revisão: ${due.length} ${due.length === 1 ? 'expressão' : 'expressões'}.`}
           </p>
           <p className="mt-1 text-sm text-muted">
-            Os dias 6 e 7 do ciclo não têm sessão nova, só revisões. O próximo ciclo começa quando você fizer a próxima sessão.
+            Hoje é o dia {info.day} de {CYCLE_DAYS}: os dois últimos dias do ciclo não têm sessão nova, só revisões.
+            {info.period &&
+              ` Este ciclo termina em ${formatDate(info.period.end, 'long')}; o próximo começa quando você fizer a sessão seguinte.`}
           </p>
           {due.length > 0 && (
             <Button block className="mt-4" onClick={() => void navigate('/review')}>
@@ -184,14 +191,18 @@ export function TodayPage() {
         </Card>
       )}
 
+      {completed && bundle && <DaySummary sessionId={bundle.session.id} />}
       <TodaySuggestion date={date} />
       {!weekend && <ActionFollowUp actions={actions ?? []} />}
-      <Routine />
+      <Routine date={date} />
 
       {totalSessions > 0 && (
         <Link to="/weekly" className="block rounded-2xl border border-line bg-surface p-4 hover:bg-sunken">
-          <Eyebrow>Weekly review</Eyebrow>
-          <p className="mt-1">Fechamento do ciclo: relembrar as Ideas of the Day, Top 3 ideias e escrita curta.</p>
+          <Eyebrow>Fechamento do ciclo</Eyebrow>
+          <p className="mt-1">
+            {info.reference ? `Ciclo de ${formatDate(info.reference.start, 'short')} a ${formatDate(info.reference.end, 'short')}: ` : ''}
+            relembrar as Ideas of the Day, Top 3 ideias e escrita curta.
+          </p>
         </Link>
       )}
     </div>

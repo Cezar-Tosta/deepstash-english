@@ -17,7 +17,7 @@ describe('orientação da IA por etapa', () => {
   it('leva o objetivo da etapa e o conteúdo em estudo', () => {
     const { system, user } = buildCoachPrompt(base);
     expect(system).toContain('MINE');
-    expect(system).toContain('Semana 2');
+    expect(system).toContain('Fase 2 de 4');
     expect(user).toContain('Livro: Getting Things Done');
     expect(user).toContain('Your mind is for having ideas');
     expect(user).toContain('Chunks escolhidos: one thing at a time');

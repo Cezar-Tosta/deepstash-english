@@ -511,3 +511,123 @@ export function pickFlashcards(
 export function splitAround(sentence: string, term: string): Located | null {
   return locateTerm(sentence, term);
 }
+
+// ---------- Ditado ----------
+
+/** Fração mínima de palavras certas para um ditado contar como acerto. */
+export const DICTATION_PASS = 0.9;
+
+export type TermsPerAudio = 1 | 2 | 3;
+
+export interface DictationPart {
+  itemKey: string;
+  term: string;
+  meaning: string;
+  /** A frase em que o termo aparece: é ela que é dita. */
+  sentence: string;
+}
+
+/** Um áudio para escrever: as frases de um, dois ou três termos, ditas em sequência. */
+export interface Dictation {
+  id: string;
+  parts: DictationPart[];
+  /** Tudo o que é dito, na ordem. */
+  full: string;
+}
+
+/** A frase curta em que o termo aparece; null se o termo não tem frase que sirva para ditado. */
+function dictationSentence(item: StudyItem): string | null {
+  return item.sentences.find((s) => isShort(s) && locateTerm(s, item.term) !== null) ?? null;
+}
+
+/** Os termos que podem entrar num ditado: têm uma frase curta em que aparecem. */
+export function dictationItems(items: readonly StudyItem[], source: FlashSource): StudyItem[] {
+  return items.filter((item) => (source === 'both' || item.source === source) && dictationSentence(item) !== null);
+}
+
+export interface DictationOptions {
+  source: FlashSource;
+  /** Quantas palavras ou chunks entram em cada áudio. */
+  perAudio: TermsPerAudio;
+  /** Quantos ditados montar. */
+  count: number;
+  random?: () => number;
+}
+
+/**
+ * Monta os ditados: os termos em que o usuário mais erra vêm primeiro, e cada áudio
+ * junta `perAudio` termos, sem repetir a mesma frase dentro dele.
+ */
+export function buildDictations(items: readonly StudyItem[], options: DictationOptions): Dictation[] {
+  const { perAudio, random } = options;
+  const pool = shuffle(dictationItems(items, options.source), random).sort((a, b) => b.difficulty - a.difficulty);
+  const wanted = Math.max(1, Math.trunc(options.count) || 1);
+  const out: Dictation[] = [];
+  const rest = [...pool];
+
+  while (out.length < wanted && rest.length > 0) {
+    const parts: DictationPart[] = [];
+    for (let i = 0; i < rest.length && parts.length < perAudio;) {
+      const item = rest[i] as StudyItem;
+      const sentence = dictationSentence(item) ?? '';
+      // Dois termos da mesma frase não entram no mesmo áudio: ela seria dita duas vezes.
+      if (parts.some((p) => p.sentence === sentence)) {
+        i += 1;
+        continue;
+      }
+      parts.push({ itemKey: item.key, term: item.term, meaning: item.meaning, sentence });
+      rest.splice(i, 1);
+    }
+    out.push({
+      id: `dictation-${parts.map((p) => p.itemKey).join('+')}`,
+      parts,
+      // Cada frase termina com pontuação, para a voz fazer a pausa entre elas.
+      full: parts.map((p) => (/[.!?…]$/u.test(p.sentence.trim()) ? p.sentence.trim() : `${p.sentence.trim()}.`)).join(' '),
+    });
+  }
+  return out;
+}
+
+export interface DictationResult {
+  /** Fração (0 a 1) das palavras ditas que o usuário escreveu, na ordem. */
+  score: number;
+  /** As palavras do que foi dito, com a marca de quais o usuário acertou. */
+  words: { text: string; hit: boolean }[];
+  missed: number;
+}
+
+/** Confere o ditado palavra por palavra, ignorando maiúsculas e pontuação. */
+export function checkDictation(answer: string, expected: string): DictationResult {
+  const shown = expected.split(/\s+/u).filter(Boolean);
+  const want = shown.map(normalizeAnswer);
+  const got = normalizeAnswer(answer).split(' ').filter(Boolean);
+  // Maior subsequência comum, de trás para frente, para depois marcar quais palavras entraram nela.
+  const cols = got.length + 1;
+  const table = new Uint32Array((want.length + 1) * cols);
+  for (let i = want.length - 1; i >= 0; i -= 1) {
+    for (let j = got.length - 1; j >= 0; j -= 1) {
+      table[i * cols + j] =
+        want[i] === got[j]
+          ? (table[(i + 1) * cols + j + 1] ?? 0) + 1
+          : Math.max(table[(i + 1) * cols + j] ?? 0, table[i * cols + j + 1] ?? 0);
+    }
+  }
+  const hits = new Set<number>();
+  let i = 0;
+  let j = 0;
+  while (i < want.length && j < got.length) {
+    if (want[i] === got[j]) {
+      hits.add(i);
+      i += 1;
+      j += 1;
+    } else if ((table[(i + 1) * cols + j] ?? 0) >= (table[i * cols + j + 1] ?? 0)) {
+      i += 1;
+    } else {
+      j += 1;
+    }
+  }
+  // Um sinal solto ("—") não é palavra: não conta nem como acerto nem como falta.
+  const real = want.filter((w) => w !== '').length;
+  const words = shown.map((text, index) => ({ text, hit: hits.has(index) || want[index] === '' }));
+  return { score: real === 0 ? 0 : hits.size / real, words, missed: words.filter((w) => !w.hit).length };
+}

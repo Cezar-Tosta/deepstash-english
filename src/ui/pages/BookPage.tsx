@@ -37,7 +37,7 @@ export function BookPage() {
   const spokenSec = (spoken ?? []).reduce((sum, s) => sum + s.durationSec, 0);
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
       <header className="col-span-full">
         {back}
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Livro</p>

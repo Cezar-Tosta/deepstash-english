@@ -236,7 +236,7 @@ export function IdeaVerbs({ ideaId, hasText }: { ideaId: string; hasText: boolea
           <p className="mt-2 text-sm text-muted">
             Marque os verbos que quer estudar ({selected.length} de {verbs.length}). Clique no verbo para ver as formas e a frase do texto.
           </p>
-          <ul className="mt-2 grid items-start gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
+          <ul className="mt-2 grid grid-cols-1 items-start gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
             {verbs.map((verb) => (
               <VerbCard key={verb.id} verb={verb} canComplete={aiReady && online} />
             ))}

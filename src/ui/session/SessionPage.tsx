@@ -9,6 +9,7 @@ import { finishSession, loadSessionBundle, type SessionBundle, setStep, startSes
 import { CoachPanel } from '../components/Coach';
 import { Button } from '../components/ui';
 import { isAIConfigured } from '../../ai/feedback';
+import { generateStudySummary } from '../../ai/summary';
 import { useSettings, useToday } from '../hooks';
 import { attempt, showToast } from '../toast';
 import {
@@ -140,7 +141,9 @@ export function SessionPage() {
   const finish = () => {
     finishSession(session.id)
       .then(() => {
-        showToast('Sessão finalizada.');
+        // O resumo do que estudar é escrito em segundo plano; falhar aqui não impede de finalizar.
+        if (withCoach && navigator.onLine) void generateStudySummary(session.id).catch(() => undefined);
+        showToast(withCoach ? 'Sessão finalizada. O resumo do que estudar aparece em Today.' : 'Sessão finalizada.');
         void navigate('/');
       })
       .catch((error: unknown) => attempt(Promise.reject(error)));

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { cycleDayNames, ROUTINE, routineFor, STEPS } from './session';
 import {
   dayOfPeriod,
   isRestDay,
@@ -70,5 +71,28 @@ describe('ciclos de 7 dias com início escolhido', () => {
     expect(phaseOf(starts, all[4]!, null).cycle).toBe(2);
     // Reiniciado durante o terceiro ciclo: ele passa a ser a fase 1.
     expect(all.map((p) => phaseOf(starts, p, '2026-09-18').week)).toEqual([1, 1, 1, 2, 3, 4]);
+  });
+});
+
+describe('descrições da rotina seguem os dias do ciclo', () => {
+  it('ciclo iniciado na terça: sessão de ter a sáb, revisão dom e seg, fechamento no sáb', () => {
+    const days = periodDates(periods(STARTS)[0]!);
+    expect(cycleDayNames(days)).toEqual({ session: 'ter a sáb', rest: 'dom e seg', closing: 'sáb' });
+    const routine = Object.fromEntries(routineFor(days).map((r) => [r.activity, r.frequency]));
+    expect(routine['Sessão de estudo']).toBe('Dias 1 a 5 (ter a sáb)');
+    expect(routine['Dias de revisão']).toBe('Dias 6 e 7 (dom e seg)');
+    expect(routine['Fechamento do ciclo']).toBe('Dia 5 (sáb)');
+    expect(routine['Revisão de cada chunk']).toBe('5 vezes');
+  });
+
+  it('sem ciclo em andamento, a rotina fala em dias do ciclo, sem dia da semana', () => {
+    expect(routineFor(null)).toBe(ROUTINE);
+    expect(ROUTINE.some((r) => /segunda|sexta|sábado|domingo|semana/i.test(`${r.frequency} ${r.detail}`))).toBe(false);
+    expect(STEPS.some((s) => /segunda|sexta/i.test(s.frequency))).toBe(false);
+  });
+
+  it('ciclo encurtado antes dos dias de revisão não inventa dias', () => {
+    const short = periodDates(periods(['2026-10-06', '2026-10-09'])[0]!);
+    expect(cycleDayNames(short)).toEqual({ session: 'ter a qui', rest: '', closing: '' });
   });
 });

@@ -8,6 +8,10 @@ import {
   dictationScore,
   hardest,
   hardestVerbs,
+  buildDictations,
+  checkDictation,
+  DICTATION_PASS,
+  dictationItems,
   isCorrect,
   locateTerm,
   pickFlashcards,
@@ -463,5 +467,72 @@ describe('termos conhecidos sublinhados no texto', () => {
   it('ignora as reticências de chunks abertos e não casa pedaço de palavra', () => {
     expect(termWords('before you...')).toEqual(['before', 'you']);
     expect(cover([{ term: 'hear' }, { term: 'you' }])).toEqual([]);
+  });
+});
+
+describe('ditado com uma, duas ou três palavras ou chunks por áudio', () => {
+  const material = {
+    vocab: [
+      { id: 'v1', term: 'holding', meaning: 'guardando', context: 'Your mind is not for holding ideas.' },
+      { id: 'v2', term: 'mind', meaning: 'mente', context: 'Your mind is not for holding ideas.' },
+      { id: 'v3', term: 'solta', meaning: 'sem frase' },
+    ] as ComprehensionVocab[],
+    chunks: [
+      {
+        id: 'c1',
+        text: 'one thing at a time',
+        meaning: 'uma coisa de cada vez',
+        originalSentence: 'Do one thing at a time',
+        userSentence: '',
+      },
+      { id: 'c2', text: 'out of your head', meaning: 'fora da cabeça', originalSentence: 'Keep it out of your head.', userSentence: '' },
+    ] as Chunk[],
+    stats: [],
+    reviews: [],
+    verbs: [],
+  };
+  const items = studyItems(material);
+  const first = () => 0;
+
+  it('só entram termos com uma frase curta em que aparecem; dá para filtrar palavras ou chunks', () => {
+    expect(
+      dictationItems(items, 'both')
+        .map((i) => i.term)
+        .sort(),
+    ).toEqual(['holding', 'mind', 'one thing at a time', 'out of your head']);
+    expect(dictationItems(items, 'chunks')).toHaveLength(2);
+    expect(dictationItems(items, 'dictionary')).toHaveLength(2);
+  });
+
+  it('um termo por áudio: cada ditado é uma frase', () => {
+    const round = buildDictations(items, { source: 'chunks', perAudio: 1, count: 5, random: first });
+    expect(round).toHaveLength(2);
+    expect(round.every((d) => d.parts.length === 1)).toBe(true);
+  });
+
+  it('dois ou três por áudio: as frases são ditas em sequência, cada uma com sua pontuação', () => {
+    const [two] = buildDictations(items, { source: 'chunks', perAudio: 2, count: 1, random: first });
+    expect(two!.parts).toHaveLength(2);
+    expect(two!.full.split(' ').length).toBeGreaterThan(8);
+    expect(two!.full).toMatch(/Do one thing at a time\./);
+    expect(two!.full).toMatch(/Keep it out of your head\./);
+
+    const [three, rest] = buildDictations(items, { source: 'both', perAudio: 3, count: 4, random: first });
+    expect(three!.parts).toHaveLength(3);
+    // "holding" e "mind" vêm da mesma frase: não entram no mesmo áudio.
+    expect(new Set(three!.parts.map((p) => p.sentence)).size).toBe(3);
+    expect(rest!.parts).toHaveLength(1);
+  });
+
+  it('a conferência é palavra por palavra, sem ligar para maiúsculas e pontuação, e aponta o que faltou', () => {
+    const exact = checkDictation('do one thing at a time. keep it out of your head', 'Do one thing at a time. Keep it out of your head.');
+    expect(exact).toMatchObject({ score: 1, missed: 0 });
+
+    const partial = checkDictation('Do one think at time', 'Do one thing at a time.');
+    expect(partial.words.filter((w) => !w.hit).map((w) => w.text)).toEqual(['thing', 'a']);
+    expect(partial.score).toBeCloseTo(4 / 6);
+    expect(partial.score).toBeLessThan(DICTATION_PASS);
+
+    expect(checkDictation('', 'Do it.')).toMatchObject({ score: 0, missed: 2 });
   });
 });

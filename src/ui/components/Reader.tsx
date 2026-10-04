@@ -16,6 +16,7 @@ import {
 } from '../../services/study';
 import { useOnline, useSettings } from '../hooks';
 import { attempt, showToast } from '../toast';
+import { CardAnalysis } from './CardAnalysis';
 import { ListenButton, ListenSettings } from './Listen';
 import { InlineRich, RichText } from './RichText';
 import { Button, Hint, TextArea, TextInput } from './ui';
@@ -348,6 +349,7 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
                 onPick={(index) => pick(card.id, index)}
               />
             </p>
+            <CardAnalysis card={card} canAsk={aiReady && online} />
           </li>
         ))}
       </ol>
