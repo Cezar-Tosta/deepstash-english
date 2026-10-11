@@ -25,6 +25,7 @@ export function CoachPanel({ context }: { context: CoachContext }) {
     try {
       setAdvice(await askCoach(context));
     } catch (e) {
+      if (!(e instanceof AIError)) console.error('Falha ao pedir orientação à IA', e);
       setError(e instanceof AIError ? e.message : 'Não foi possível obter a orientação.');
     } finally {
       setBusy(false);

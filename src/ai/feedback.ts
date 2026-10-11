@@ -21,14 +21,27 @@ export function isAIConfigured(ai: AISettings): boolean {
   return false;
 }
 
+/**
+ * Baixa o módulo do provedor sob demanda. Depois de uma atualização do app, a página aberta
+ * (ou o cache do PWA) pode pedir um arquivo que já não existe; isso vira um erro legível.
+ */
+async function loadModule<T>(load: () => Promise<T>): Promise<T> {
+  try {
+    return await load();
+  } catch (e) {
+    console.error('Falha ao carregar o módulo da IA', e);
+    throw new AIError('O app foi atualizado e precisa ser recarregado. Recarregue a página (Ctrl+Shift+R) e tente de novo.');
+  }
+}
+
 /** Os SDKs só são baixados quando a IA é usada; sem IA o app nem carrega esse código. */
 export async function createProvider(ai: AISettings): Promise<AIProvider | null> {
   if (!isAIConfigured(ai)) return null;
   if (ai.provider === 'anthropic') {
-    const { createAnthropicProvider } = await import('./anthropicProvider');
+    const { createAnthropicProvider } = await loadModule(() => import('./anthropicProvider'));
     return createAnthropicProvider(ai.apiKey, ai.model);
   }
-  const { createOpenAICompatibleProvider } = await import('./openAICompatibleProvider');
+  const { createOpenAICompatibleProvider } = await loadModule(() => import('./openAICompatibleProvider'));
   if (ai.provider === 'groq') {
     return createOpenAICompatibleProvider({
       baseUrl: GROQ_BASE_URL,
