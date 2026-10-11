@@ -4,6 +4,8 @@ import {
   checkDictation,
   type Dictation,
   DICTATION_PASS,
+  type DictationPart,
+  type DictationResult,
   dictationItems,
   type FlashSource,
   locateTerm,
@@ -15,7 +17,7 @@ import { speak, stopSpeaking } from '../speech';
 import { attempt } from '../toast';
 import { ListenButton, ListenSettings } from './Listen';
 import { SentenceTranslation } from './SentenceTranslation';
-import { Button, Card, EmptyState, Eyebrow, Prompt, Segmented, TextArea, TextInput } from './ui';
+import { Button, Card, EmptyState, Eyebrow, Prompt, Segmented, TextInput } from './ui';
 
 const SOURCES: readonly { value: FlashSource; label: string }[] = [
   { value: 'both', label: 'Palavras e chunks' },
@@ -45,14 +47,16 @@ export function DictationSetup({ items, onStart }: { items: readonly StudyItem[]
     <Card>
       <Prompt>Ditado</Prompt>
       <p className="mt-1 text-sm text-muted">
-        Você ouve a frase em que a palavra ou o chunk aparece e escreve o que ouviu. Só as palavras contam: maiúsculas e pontuação não
-        entram na correção. Escolha quantos termos entram em cada áudio: com dois ou três, as frases são ditas em sequência.
+        Você ouve só a palavra ou o chunk salvo e escreve o que ouviu. Depois da conferência aparecem a frase em que o termo apareceu, a
+        tradução, a pronúncia e a explicação. Maiúsculas e pontuação não contam. Com dois ou três termos por áudio, eles são ditos em
+        sequência, com uma pausa entre eles.
       </p>
       <div className="mt-3 space-y-3">
         <Segmented label="O que entra no ditado" value={source} options={SOURCES} onChange={setSource} />
         {usable === 0 ? (
           <EmptyState title="Ainda sem material.">
-            O ditado usa frases curtas em que o termo aparece. Adicione palavras ao dicionário ou chunks com a frase original.
+            O ditado usa as palavras do dicionário e os chunks que têm uma frase de contexto. Clique nas palavras de um texto para
+            adicioná-las ao dicionário.
           </EmptyState>
         ) : (
           <>
@@ -108,14 +112,69 @@ function WithTerm({ sentence, term }: { sentence: string; term: string }) {
   );
 }
 
+type Word = DictationResult['words'][number];
+
+/** As palavras conferidas, separadas por termo: cada termo tem tantas palavras quanto o que foi dito dele. */
+function wordsByPart(words: readonly Word[], parts: readonly DictationPart[]): Word[][] {
+  let offset = 0;
+  return parts.map((part) => {
+    const size = part.spoken.split(/\s+/u).filter(Boolean).length;
+    const own = words.slice(offset, offset + size);
+    offset += size;
+    return own;
+  });
+}
+
+/** Um termo depois da conferência: o que saiu certo, o contexto e o que está salvo dele. */
+function PartReveal({ part, words }: { part: DictationPart; words: Word[] }) {
+  const hit = words.every((w) => w.hit);
+  return (
+    <li className="space-y-2 rounded-xl border border-line p-3">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span aria-hidden="true" className={hit ? 'text-good' : 'text-danger'}>
+          {hit ? '✓' : '✗'}
+        </span>
+        <span className="font-serif text-xl break-words" lang="en" aria-label={`${part.term}: ${hit ? 'certo' : 'com erro'}`}>
+          {words.map((word, i) => (
+            <span key={i}>
+              {i > 0 && ' '}
+              {word.hit ? word.text : <mark className="rounded bg-sunken px-0.5 text-danger">{word.text}</mark>}
+            </span>
+          ))}
+        </span>
+        {part.phonetic && <span className="text-sm text-muted">{part.phonetic}</span>}
+        <ListenButton text={part.spoken} />
+      </div>
+      <p className="text-sm break-words">
+        {part.meaning ? <span className="font-medium">{part.meaning}</span> : <span className="text-muted">Sem tradução anotada.</span>}
+        <span className="text-muted">
+          {' · '}
+          {part.wordClass || (part.source === 'chunks' ? 'chunk' : 'palavra do dicionário')}
+        </span>
+      </p>
+      {part.explanation && <p className="text-sm text-muted break-words">{part.explanation}</p>}
+      {part.shown && (
+        <div className="border-l-2 border-line pl-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Contexto</p>
+          <p className="font-serif text-lg break-words" lang="en">
+            <WithTerm sentence={part.shown} term={part.term} />
+          </p>
+          <SentenceTranslation sentence={part.sentence} />
+          <ListenButton text={part.shown} label="Ouvir a frase" />
+        </div>
+      )}
+    </li>
+  );
+}
+
 function DictationCard({ dictation, onNext }: { dictation: Dictation; onNext: (correct: boolean) => void }) {
   const [answer, setAnswer] = useState('');
   const [checked, setChecked] = useState(false);
-  const result = checkDictation(answer, dictation.full);
+  const result = checkDictation(answer, dictation.expected);
   const correct = result.score >= DICTATION_PASS;
   const terms = dictation.parts.length;
 
-  // O ditado começa falando o áudio inteiro.
+  // O ditado começa falando os termos.
   useEffect(() => {
     speak(dictation.full);
   }, [dictation.full]);
@@ -130,19 +189,19 @@ function DictationCard({ dictation, onNext }: { dictation: Dictation; onNext: (c
   return (
     <Card>
       <Eyebrow>
-        Ouça e escreva · {terms} {terms === 1 ? 'frase' : 'frases'}
+        Ouça e escreva · {terms} {terms === 1 ? 'termo' : 'termos'}
       </Eyebrow>
       <div className="mt-3">
         <ListenButton big text={dictation.full} label="Ouvir de novo" />
       </div>
 
       <form onSubmit={submit} className="mt-4 space-y-3">
-        <TextArea
-          label={terms === 1 ? 'A frase que você ouviu' : `As ${terms} frases que você ouviu`}
+        <TextInput
+          label={terms === 1 ? 'A palavra ou o chunk que você ouviu' : `Os ${terms} termos que você ouviu, na ordem`}
           value={answer}
           onChange={setAnswer}
-          rows={Math.max(2, terms)}
           lang="en"
+          autoComplete="off"
           readOnly={checked}
         />
         {!checked && (
@@ -154,41 +213,23 @@ function DictationCard({ dictation, onNext }: { dictation: Dictation; onNext: (c
 
       {checked && (
         <div className="mt-4 space-y-3" aria-live="polite">
-          <p className={`font-medium ${correct ? 'text-good' : 'text-danger'}`}>{Math.round(result.score * 100)}% das palavras certas</p>
-          {result.missed > 0 && (
-            <p className="font-serif text-lg break-words" lang="en" aria-label="O que foi dito, com o que faltou em destaque">
-              {result.words.map((word, i) => (
-                <span key={i}>
-                  {i > 0 && ' '}
-                  {word.hit ? word.text : <mark className="rounded bg-sunken px-0.5 text-danger">{word.text}</mark>}
-                </span>
-              ))}
-            </p>
-          )}
-          {result.missed > 0 && (
-            <p className="text-xs text-muted">
-              Em destaque,{' '}
-              {result.missed === 1
-                ? 'a palavra que faltou ou saiu diferente'
-                : `as ${result.missed} palavras que faltaram ou saíram diferentes`}
-              .
-            </p>
-          )}
+          <p className={`font-medium ${correct ? 'text-good' : 'text-danger'}`}>
+            {Math.round(result.score * 100)}% das palavras certas
+            {result.missed > 0 && (
+              <span className="font-normal text-muted">
+                {' '}
+                · em destaque,{' '}
+                {result.missed === 1
+                  ? 'a palavra que faltou ou saiu diferente'
+                  : `as ${result.missed} palavras que faltaram ou saíram diferentes`}
+              </span>
+            )}
+          </p>
           <ul className="space-y-2">
-            {dictation.parts.map((part) => (
-              <li key={part.itemKey} className="border-l-2 border-line pl-3">
-                <p className="font-serif text-lg break-words" lang="en">
-                  <WithTerm sentence={part.shown} term={part.term} />
-                </p>
-                <SentenceTranslation sentence={part.sentence} />
-                <p className="text-sm text-muted break-words">
-                  <span className="font-serif text-ink" lang="en">
-                    {part.term}
-                  </span>
-                  {part.meaning && ` — ${part.meaning}`}
-                </p>
-              </li>
-            ))}
+            {wordsByPart(result.words, dictation.parts).map((words, i) => {
+              const part = dictation.parts[i];
+              return part ? <PartReveal key={part.itemKey} part={part} words={words} /> : null;
+            })}
           </ul>
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <Button onClick={() => onNext(correct)}>Continuar</Button>

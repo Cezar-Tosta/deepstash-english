@@ -543,30 +543,44 @@ export type TermsPerAudio = 1 | 2 | 3;
 
 export interface DictationPart {
   itemKey: string;
+  /** O termo como foi salvo. */
   term: string;
+  /** O que é dito e conferido: o termo sem as reticências de chunk aberto. */
+  spoken: string;
+  source: ItemSource;
   meaning: string;
+  phonetic: string;
+  wordClass: string;
+  explanation: string;
   /** A frase em que o termo aparece, como foi registrada (é a chave da tradução guardada). */
   sentence: string;
-  /** A mesma frase bem escrita, com maiúscula e pontuação: é ela que é dita e mostrada na resposta. */
+  /** A mesma frase bem escrita, com maiúscula e pontuação, mostrada depois da conferência. */
   shown: string;
 }
 
-/** Um áudio para escrever: as frases de um, dois ou três termos, ditas em sequência. */
+/** Um áudio para escrever: um, dois ou três termos salvos, ditos em sequência. */
 export interface Dictation {
   id: string;
   parts: DictationPart[];
-  /** Tudo o que é dito, na ordem. */
+  /** O que é dito: os termos, cada um seguido de ponto para a voz fazer a pausa. */
   full: string;
+  /** O que o usuário deve escrever: os termos, na ordem. */
+  expected: string;
 }
 
-/** A frase curta em que o termo aparece; null se o termo não tem frase que sirva para ditado. */
-function dictationSentence(item: StudyItem): string | null {
-  return item.sentences.find((s) => isShort(s) && locateTerm(s, item.term) !== null) ?? null;
+/** A frase de contexto do termo: de preferência curta e com o termo nela. */
+function contextSentence(item: StudyItem): string {
+  return (
+    item.sentences.find((s) => isShort(s) && locateTerm(s, item.term) !== null) ??
+    item.sentences.find((s) => locateTerm(s, item.term) !== null) ??
+    item.sentences[0] ??
+    ''
+  );
 }
 
-/** Os termos que podem entrar num ditado: têm uma frase curta em que aparecem. */
+/** Os termos que podem entrar num ditado: todos os treináveis da origem escolhida. */
 export function dictationItems(items: readonly StudyItem[], source: FlashSource): StudyItem[] {
-  return items.filter((item) => (source === 'both' || item.source === source) && dictationSentence(item) !== null);
+  return items.filter((item) => source === 'both' || item.source === source);
 }
 
 export interface DictationOptions {
@@ -580,7 +594,7 @@ export interface DictationOptions {
 
 /**
  * Monta os ditados: os termos em que o usuário mais erra vêm primeiro, e cada áudio
- * junta `perAudio` termos, sem repetir a mesma frase dentro dele.
+ * junta `perAudio` termos, sem repetir o mesmo termo dentro dele.
  */
 export function buildDictations(items: readonly StudyItem[], options: DictationOptions): Dictation[] {
   const { perAudio, random } = options;
@@ -593,20 +607,32 @@ export function buildDictations(items: readonly StudyItem[], options: DictationO
     const parts: DictationPart[] = [];
     for (let i = 0; i < rest.length && parts.length < perAudio;) {
       const item = rest[i] as StudyItem;
-      const sentence = dictationSentence(item) ?? '';
-      // Dois termos da mesma frase não entram no mesmo áudio: ela seria dita duas vezes.
-      if (parts.some((p) => p.sentence === sentence)) {
+      const spoken = coreTerm(item.term);
+      // A mesma palavra salva em frases diferentes não é ditada duas vezes no mesmo áudio.
+      if (parts.some((p) => normalizeAnswer(p.spoken) === normalizeAnswer(spoken))) {
         i += 1;
         continue;
       }
-      parts.push({ itemKey: item.key, term: item.term, meaning: item.meaning, sentence, shown: tidySentence(sentence) });
+      const sentence = contextSentence(item);
+      parts.push({
+        itemKey: item.key,
+        term: item.term,
+        spoken,
+        source: item.source,
+        meaning: item.meaning,
+        phonetic: item.phonetic,
+        wordClass: item.wordClass,
+        explanation: item.explanation,
+        sentence,
+        shown: tidySentence(sentence),
+      });
       rest.splice(i, 1);
     }
     out.push({
       id: `dictation-${parts.map((p) => p.itemKey).join('+')}`,
       parts,
-      // Cada frase termina com pontuação, para a voz fazer a pausa entre elas.
-      full: parts.map((p) => p.shown).join(' '),
+      full: parts.map((p) => `${p.spoken}.`).join(' '),
+      expected: parts.map((p) => p.spoken).join(' '),
     });
   }
   return out;

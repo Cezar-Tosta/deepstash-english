@@ -452,10 +452,18 @@ describe('termos conhecidos sublinhados no texto', () => {
   });
 });
 
-describe('ditado com uma, duas ou três palavras ou chunks por áudio', () => {
+describe('ditado só dos termos salvos: uma, duas ou três palavras ou chunks por áudio', () => {
   const material = {
     vocab: [
-      { id: 'v1', term: 'holding', meaning: 'guardando', context: 'Your mind is not for holding ideas.' },
+      {
+        id: 'v1',
+        term: 'holding',
+        meaning: 'guardando',
+        context: 'Your mind is not for holding ideas.',
+        phonetic: '/ˈhoʊldɪŋ/',
+        wordClass: 'verbo',
+        explanation: 'Gerúndio de "hold": manter guardado.',
+      },
       { id: 'v2', term: 'mind', meaning: 'mente', context: 'Your mind is not for holding ideas.' },
       { id: 'v3', term: 'solta', meaning: 'sem frase' },
     ] as ComprehensionVocab[],
@@ -476,7 +484,7 @@ describe('ditado com uma, duas ou três palavras ou chunks por áudio', () => {
   const items = studyItems(material);
   const first = () => 0;
 
-  it('só entram termos com uma frase curta em que aparecem; dá para filtrar palavras ou chunks', () => {
+  it('entram os termos que têm frase de contexto; dá para filtrar palavras ou chunks', () => {
     expect(
       dictationItems(items, 'both')
         .map((i) => i.term)
@@ -486,24 +494,64 @@ describe('ditado com uma, duas ou três palavras ou chunks por áudio', () => {
     expect(dictationItems(items, 'dictionary')).toHaveLength(2);
   });
 
-  it('um termo por áudio: cada ditado é uma frase', () => {
+  it('um termo por áudio: o áudio é só o termo, não a frase', () => {
     const round = buildDictations(items, { source: 'chunks', perAudio: 1, count: 5, random: first });
     expect(round).toHaveLength(2);
     expect(round.every((d) => d.parts.length === 1)).toBe(true);
+    expect(round.map((d) => d.expected).sort()).toEqual(['one thing at a time', 'out of your head']);
   });
 
-  it('dois ou três por áudio: as frases são ditas em sequência, cada uma com sua pontuação', () => {
+  it('dois ou três por áudio: os termos são ditos em sequência, com uma pausa entre eles', () => {
     const [two] = buildDictations(items, { source: 'chunks', perAudio: 2, count: 1, random: first });
     expect(two!.parts).toHaveLength(2);
-    expect(two!.full.split(' ').length).toBeGreaterThan(8);
-    expect(two!.full).toMatch(/Do one thing at a time\./);
-    expect(two!.full).toMatch(/Keep it out of your head\./);
+    expect(two!.full.split('. ').length).toBe(2);
+    expect(two!.full).toContain('one thing at a time.');
+    expect(two!.full).toContain('out of your head.');
+    expect(two!.full).not.toContain('Keep it');
 
     const [three, rest] = buildDictations(items, { source: 'both', perAudio: 3, count: 4, random: first });
     expect(three!.parts).toHaveLength(3);
-    // "holding" e "mind" vêm da mesma frase: não entram no mesmo áudio.
-    expect(new Set(three!.parts.map((p) => p.sentence)).size).toBe(3);
     expect(rest!.parts).toHaveLength(1);
+  });
+
+  it('depois da conferência, cada termo traz o contexto e o que está salvo dele', () => {
+    const round = buildDictations(items, { source: 'dictionary', perAudio: 1, count: 5, random: first });
+    const holding = round.flatMap((d) => d.parts).find((p) => p.term === 'holding');
+    expect(holding).toMatchObject({
+      meaning: 'guardando',
+      phonetic: '/ˈhoʊldɪŋ/',
+      wordClass: 'verbo',
+      explanation: 'Gerúndio de "hold": manter guardado.',
+      sentence: 'Your mind is not for holding ideas.',
+      shown: 'Your mind is not for holding ideas.',
+      source: 'dictionary',
+    });
+  });
+
+  it('o mesmo termo, salvo em frases diferentes, não é ditado duas vezes no mesmo áudio', () => {
+    const twice = studyItems({
+      ...material,
+      vocab: [
+        { id: 'a', term: 'mind', meaning: 'mente', context: 'Your mind is not for holding ideas.' },
+        { id: 'b', term: 'Mind', meaning: 'importar-se', context: 'Do you mind waiting?' },
+      ] as ComprehensionVocab[],
+      chunks: [],
+    });
+    const round = buildDictations(twice, { source: 'both', perAudio: 2, count: 2, random: first });
+    expect(round.map((d) => d.parts.length)).toEqual([1, 1]);
+  });
+
+  it('chunk aberto é ditado sem as reticências', () => {
+    const [open] = studyItems({
+      ...material,
+      vocab: [],
+      chunks: [
+        { id: 'o', text: 'before you...', meaning: 'antes de você', originalSentence: 'Think before you speak.', userSentence: '' },
+      ] as Chunk[],
+    });
+    const [dictation] = buildDictations([open!], { source: 'both', perAudio: 1, count: 1 });
+    expect(dictation).toMatchObject({ full: 'before you.', expected: 'before you' });
+    expect(dictation!.parts[0]).toMatchObject({ term: 'before you...', shown: 'Think before you speak.' });
   });
 
   it('a conferência é palavra por palavra, sem ligar para maiúsculas e pontuação, e aponta o que faltou', () => {
@@ -519,7 +567,7 @@ describe('ditado com uma, duas ou três palavras ou chunks por áudio', () => {
   });
 });
 
-describe('ditado: só as palavras contam; a resposta mostra a frase bem escrita', () => {
+describe('ditado: só as palavras contam; o contexto mostra a frase bem escrita', () => {
   it('pontuação, maiúsculas e apóstrofos não tiram ponto', () => {
     const expected = "Don't keep it in your head — write it down, one thing at a time.";
     const typed = 'dont keep it in your head write it down one thing at a time';
@@ -541,7 +589,7 @@ describe('ditado: só as palavras contam; a resposta mostra a frase bem escrita'
     expect(result.score).toBeCloseTo(5 / 6);
   });
 
-  it('a resposta mostra a frase com maiúscula no começo e pontuação no fim', () => {
+  it('a frase de contexto aparece com maiúscula no começo e pontuação no fim', () => {
     expect(tidySentence('do one thing at a time')).toBe('Do one thing at a time.');
     expect(tidySentence('  keep it   out of your head!  ')).toBe('Keep it out of your head!');
     expect(tidySentence('Is it true?')).toBe('Is it true?');
@@ -558,7 +606,7 @@ describe('ditado: só as palavras contam; a resposta mostra a frase bem escrita'
       verbs: [],
     });
     const [dictation] = buildDictations([item!], { source: 'both', perAudio: 1, count: 1 });
-    expect(dictation!.full).toBe('Do one thing at a time.');
+    expect(dictation!.full).toBe('one thing at a time.');
     expect(dictation!.parts[0]).toMatchObject({ sentence: 'do one thing at a time', shown: 'Do one thing at a time.' });
   });
 });

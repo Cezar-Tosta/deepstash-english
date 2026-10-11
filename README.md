@@ -95,7 +95,7 @@ Nenhum exercício mostra palavra solta: o termo sempre aparece dentro de uma fra
 
 **Estrutura de cada parágrafo.** Na leitura, depois de cada parágrafo há o botão "Comentar a estrutura do texto": a IA comenta gramática, ortografia, sintaxe e semântica daquele card, citando os trechos. O comentário fica guardado no card e uma setinha recolhe ou expande o texto.
 
-**Ditado.** Em Practice, o ditado fala a frase em que a palavra ou o chunk aparece e você escreve o que ouviu. Dá para escolher só palavras, só chunks ou os dois, e uma, duas ou três palavras ou chunks por áudio (com mais de um, as frases são ditas em sequência). A conferência é só pelas palavras: maiúsculas, pontuação e apóstrofos não contam ("dont" vale como "don't"), e a resposta mostra a frase bem escrita, com maiúscula e pontuação; o que faltou aparece em destaque, e cada frase vem com o termo em negrito e a tradução.
+**Ditado.** Em Practice, o ditado fala só a palavra ou o chunk salvo, e você escreve o que ouviu. Dá para escolher só palavras, só chunks ou os dois, e um, dois ou três termos por áudio (com mais de um, eles são ditos em sequência, com uma pausa; o mesmo termo salvo em frases diferentes não se repete no mesmo áudio). A conferência é só pelas palavras: maiúsculas, pontuação e apóstrofos não contam ("dont" vale como "don't"). Depois de conferir, cada termo aparece com o que faltou em destaque, a tradução, a pronúncia (IPA), a classe gramatical, a explicação do uso e o contexto: a frase em que ele apareceu, com o termo em negrito, a tradução da frase e o áudio dela.
 
 **Áudio em loop nos exercícios.** Velocidade (1×, 0,75×, 0,5×) e "Repetir em loop" ficam no topo de toda rodada de treino, tempos verbais, ditado e flashcards, e valem para qualquer áudio dela.
 
