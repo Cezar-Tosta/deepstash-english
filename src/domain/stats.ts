@@ -1,4 +1,5 @@
 import { dictationScore } from './exercises';
+import { fluencyOf } from './fluency';
 import { legacyStarts, periodDates, periodOf, periods, periodStarting } from './periods';
 import { countWords, SESSION_DAYS_PER_WEEK } from './session';
 import type { Chunk, ChunkReview, Idea, ISODate, Reflection, SourceCard, SpeakingSession, StudySession, WritingExercise } from './types';
@@ -113,9 +114,13 @@ export interface SkillStats {
     retellSec: number;
     /** Fração média das palavras reconhecidas na leitura em voz alta transcrita; null sem transcrição. */
     aloudScore: number | null;
+    /** Palavras por minuto, em média, nos retells transcritos; null sem transcrição. */
+    wpm: number | null;
   };
   writing: { words: number };
 }
+
+const roundOrNull = (value: number | null): number | null => (value === null ? null : Math.round(value));
 
 const average = (values: readonly number[]): number | null =>
   values.length === 0 ? null : values.reduce((sum, v) => sum + v, 0) / values.length;
@@ -157,6 +162,13 @@ export function skillStats(input: StatsInput, weekStart: ISODate): SkillStats {
       aloudSec: aloud.reduce((sum, s) => sum + s.durationSec, 0),
       retellSec: speaking.filter((s) => s.kind === 'daily').reduce((sum, s) => sum + s.durationSec, 0),
       aloudScore: average(recognized),
+      wpm: roundOrNull(
+        average(
+          speaking
+            .filter((s) => s.kind === 'daily' && s.transcript)
+            .flatMap((s) => fluencyOf(s.transcript ?? '', s.durationSec, []).wpm ?? []),
+        ),
+      ),
     },
     writing: { words: written.reduce((sum, text) => sum + countWords(text), 0) },
   };

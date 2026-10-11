@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from 'react';
 import type { ComprehensionVocab } from '../../domain/types';
 import { wordCategories, wordCategory } from '../../domain/wordClass';
-import { deleteVocab } from '../../services/sessions';
+import { deleteVocab, promoteToChunk } from '../../services/sessions';
 import { findEntries } from '../../services/study';
 import { attempt, showToast } from '../toast';
 import { ListenButton } from './Listen';
@@ -88,6 +88,16 @@ export function DictionaryRow({ entry, footer }: { entry: ComprehensionVocab; fo
           {entry.explanation && <RichText text={entry.explanation} />}
           <div className="flex flex-wrap items-center gap-3">
             <ListenButton text={entry.context ? `${entry.term}. ${entry.context}` : entry.term} />
+            <Button
+              small
+              variant="secondary"
+              title="Vira um chunk: revisões em D1, D3, D7, D14 e D30. Conta no limite de 3 por dia."
+              onClick={() =>
+                attempt(promoteToChunk(entry.id).then(() => showToast(`"${entry.term}" entrou na revisão espaçada. A primeira é amanhã.`)))
+              }
+            >
+              Revisar com repetição espaçada
+            </Button>
             <DeleteEntry entry={entry} />
           </div>
           {footer}

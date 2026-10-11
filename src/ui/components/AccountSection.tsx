@@ -37,6 +37,13 @@ export function AccountSection() {
           ` Última conferência às ${new Date(cloud.lastSyncedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`}
       </p>
       <Hint>Cada alteração é enviada em poucos segundos. Ao abrir o app em outro navegador e entrar, seus estudos aparecem lá.</Hint>
+      <p className={`mt-2 text-sm ${cloud.audio === 'unavailable' ? 'text-warn' : 'text-muted'}`}>
+        {cloud.audio === 'unavailable'
+          ? `Áudios das falas: não foi possível guardá-los na nuvem (${cloud.audioError}). Se ainda não rodou a parte de áudios do supabase/schema.sql no seu projeto, rode-a; enquanto isso, eles ficam neste navegador.`
+          : cloud.audio === 'syncing'
+            ? 'Áudios das falas: sincronizando…'
+            : 'Áudios das falas: guardados na nuvem. Cada aparelho baixa os das últimas 4 semanas.'}
+      </p>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button small variant="secondary" disabled={cloud.status === 'syncing'} onClick={() => void syncNow()}>
           Sincronizar agora

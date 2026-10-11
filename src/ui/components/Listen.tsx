@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { RATES, setLoop, setRate, toggleSpeak, useSpeech } from '../speech';
+import { RATES, setLoop, setRate, setVoice, speak, toggleSpeak, useSpeech, useVoices } from '../speech';
 
 /** Botão que lê o texto em voz alta; clicar de novo para. */
 export function ListenButton({ text, label = 'Ouvir', big }: { text: string; label?: string; big?: boolean }) {
@@ -46,6 +46,60 @@ export function ListenSettings() {
         <input type="checkbox" className="size-4 accent-(--accent)" checked={loop} onChange={(e) => setLoop(e.target.checked)} />
         Repetir em loop
       </label>
+    </div>
+  );
+}
+
+/** Nome legível do sotaque de uma voz, pelo código de idioma. */
+const ACCENTS: Record<string, string> = {
+  'en-us': 'americano',
+  'en-gb': 'britânico',
+  'en-au': 'australiano',
+  'en-ca': 'canadense',
+  'en-in': 'indiano',
+  'en-ie': 'irlandês',
+  'en-nz': 'neozelandês',
+  'en-za': 'sul-africano',
+};
+
+const accentOf = (lang: string): string => ACCENTS[lang.toLowerCase().replace('_', '-')] ?? lang;
+
+const SAMPLE = 'Most adults need between seven and nine hours of sleep every night.';
+
+/** Escolha da voz da leitura em voz alta, com prévia. A lista depende do navegador e do aparelho. */
+export function VoicePicker() {
+  const voices = useVoices();
+  const { voice } = useSpeech();
+  if (!('speechSynthesis' in window)) return <p className="text-sm text-muted">Este navegador não lê texto em voz alta.</p>;
+  return (
+    <div className="space-y-2">
+      <label htmlFor="voice" className="block text-sm font-medium">
+        Voz da leitura em voz alta
+      </label>
+      <select
+        id="voice"
+        value={voices.some((v) => v.voiceURI === voice) ? voice : ''}
+        onChange={(e) => {
+          setVoice(e.target.value);
+          speak(SAMPLE);
+        }}
+        className="min-h-12 w-full rounded-xl border border-line bg-paper px-3"
+      >
+        <option value="">Padrão do navegador (inglês americano)</option>
+        {voices.map((v) => (
+          <option key={v.voiceURI} value={v.voiceURI}>
+            {v.name} · {accentOf(v.lang)}
+            {v.localService ? '' : ' · online'}
+          </option>
+        ))}
+      </select>
+      <div className="flex flex-wrap items-center gap-3">
+        <ListenButton big text={SAMPLE} label="Ouvir uma prévia" />
+      </div>
+      <p className="text-xs text-muted">
+        Vale para o LISTEN, o modelo do READ ALOUD, os parágrafos, o dicionário e os exercícios. A escolha fica só neste aparelho, porque
+        cada aparelho tem as próprias vozes. Vozes marcadas como online costumam soar mais naturais, mas precisam de internet.
+      </p>
     </div>
   );
 }

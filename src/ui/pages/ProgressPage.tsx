@@ -59,6 +59,7 @@ function SkillsCard({ stats }: { stats: SkillStats }) {
         `${formatDuration(speaking.aloudSec)} em voz alta`,
         `${formatDuration(speaking.retellSec)} recontando`,
         speaking.aloudScore !== null && `${percent(speaking.aloudScore)} das palavras reconhecidas`,
+        speaking.wpm !== null && `${speaking.wpm} palavras/min no retell`,
       ]
         .filter(Boolean)
         .join(' · '),
@@ -246,6 +247,10 @@ export function ProgressPage() {
           <BarChart title="Revisões concluídas por ciclo" data={series(history, (w) => w.reviewsDone, '')} />
           <BarChart title="Minutos de speaking por ciclo" data={series(history, (w) => minutes(w.speakingSec), 'min')} />
           <BarChart title="Dias estudados por ciclo" data={series(history, (w) => w.studyDays, '')} />
+          <BarChart
+            title="Palavras por minuto no retell"
+            data={series(history, (w) => skillStats(input, w.weekStart).speaking.wpm ?? 0, 'por min')}
+          />
         </div>
         <details className="rounded-2xl border border-line bg-surface p-4">
           <summary className="min-h-8 cursor-pointer text-sm font-medium">Ver como tabela</summary>

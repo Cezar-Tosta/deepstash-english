@@ -9,6 +9,7 @@ import { useCloud } from '../../sync/cloud';
 import { markBackupDone, setAISettings, setTheme } from '../../services/settings';
 import { AccountSection } from '../components/AccountSection';
 import { CycleSection } from '../components/CycleSection';
+import { ListenSettings, VoicePicker } from '../components/Listen';
 import { DataSection } from '../components/Maintenance';
 import { Button, Card, Eyebrow, Hint, Notice, PageTitle, Segmented, TextInput } from '../components/ui';
 import { useSettings, useToday } from '../hooks';
@@ -321,12 +322,13 @@ function StorageSection() {
   );
 }
 
-type SettingsTab = 'cycles' | 'ai' | 'account' | 'data' | 'look';
+type SettingsTab = 'cycles' | 'ai' | 'audio' | 'account' | 'data' | 'look';
 
 /** O menu no topo da tela: uma seção dos ajustes de cada vez. */
 const SECTIONS: readonly { value: SettingsTab; label: string }[] = [
   { value: 'cycles', label: 'Ciclos' },
   { value: 'ai', label: 'IA' },
+  { value: 'audio', label: 'Áudio' },
   { value: 'account', label: 'Conta e backup' },
   { value: 'data', label: 'Dados' },
   { value: 'look', label: 'Aparência' },
@@ -364,6 +366,16 @@ export function SettingsPage() {
         <div className="col-span-full lg:col-span-1">
           <AISection saved={settings.ai} />
         </div>
+      )}
+
+      {tab === 'audio' && (
+        <Card>
+          <Eyebrow>Áudio</Eyebrow>
+          <div className="mt-3 space-y-4">
+            <VoicePicker />
+            <ListenSettings />
+          </div>
+        </Card>
       )}
 
       {tab === 'account' && (

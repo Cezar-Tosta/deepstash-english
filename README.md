@@ -44,6 +44,26 @@ PERSONALIZE (uma frase sua com cada chunk), REFLECT (concordo? por quê?) e SO W
 
 Em Progress, o quadro "As quatro habilidades neste ciclo" mostra: dias ouvindo o texto antes de ler e o acerto no ditado (listening), palavras e textos lidos (reading), tempo lendo em voz alta e recontando, com a fração de palavras reconhecidas na leitura (speaking), e palavras escritas nas frases, reflexões, ações e no texto do ciclo (writing). O resumo da etapa SCHEDULE também é dividido pelas quatro habilidades.
 
+### Fluência na fala
+
+Embaixo de cada retell transcrito aparecem, sem IA: palavras por minuto (sem contar as hesitações), a porcentagem de palavras diferentes, quantas hesitações ("um", "uh", "you know"…) e quantos chunks do dia foram usados. Em Progress, o speaking mostra as palavras por minuto do ciclo e há um gráfico da evolução.
+
+### Dificuldade por fase
+
+Além da meta de fala, a fase (1 a 4) define o listening: o LISTEN começa em 0,75× na fase 1 e em 1× nas outras, e o ditado tem 2, 3, 4 ou 5 frases de até 14, 20, 25 ou 30 palavras.
+
+### Nível do texto
+
+Ao colar o texto na etapa TEXT, o app mostra o tamanho e um nível aproximado (A1–A2, B1, B2 ou C1–C2), estimado pelo tamanho das frases e das palavras (índice Flesch–Kincaid). Acima de 400 palavras, ele sugere estudar só um trecho e oferece "Usar só os primeiros N parágrafos".
+
+### Do dicionário para a revisão
+
+Toda entrada do dicionário tem "Revisar com repetição espaçada": ela vira um chunk de hoje, com o significado e a frase, e entra no calendário D1–D30. Conta no limite de 3 chunks por dia, e um termo que já está na revisão não entra de novo.
+
+### Versão nova do app
+
+Quando há uma versão nova publicada, uma faixa avisa "Nova versão disponível" com o botão Recarregar. O app confere a cada hora e sempre que a aba volta a ficar visível. A troca só acontece ao recarregar, para uma aba aberta não ficar pedindo arquivos da versão antiga.
+
 ### Fonte → textos → parágrafos
 
 Toda a biblioteca segue essa hierarquia. Em **Knowledge**:
@@ -130,7 +150,9 @@ Na página de cada texto, "Encontrar os verbos deste texto" pede à IA os verbos
 
 Onde houver "Ouvir" (texto, parágrafos, termos, dicionário, flashcards, ditado), a leitura usa a voz do navegador e obedece a dois controles: velocidade (1×, 0.75× ou 0.5×) e "Repetir em loop". Os mesmos controles valem para as suas gravações.
 
-As falas gravadas (leitura em voz alta, retelling, fala da semana, explicação de uma fonte) ficam guardadas **neste navegador** e aparecem no Weekly review, em "Minhas falas da semana", numa lista compacta: ideia, dia, duração, player e a transcrição recolhida. Cada fala pode ser excluída (com confirmação); isso remove o áudio, a transcrição e o tempo das estatísticas. Os áudios não entram no backup nem vão para a nuvem; em Settings dá para ver o espaço ocupado e apagar os de mais de 4 semanas.
+**Escolha da voz.** Em Settings → Áudio dá para escolher a voz (americana, britânica, australiana… conforme o que o navegador oferece), com prévia. A escolha vale para toda leitura em voz alta e fica só no aparelho, porque cada um tem as próprias vozes.
+
+As falas gravadas (leitura em voz alta, retelling, fala da semana, explicação de uma fonte) ficam guardadas **neste navegador** e aparecem no Weekly review, em "Minhas falas da semana", numa lista compacta: ideia, dia, duração, player e a transcrição recolhida. Cada fala pode ser excluída (com confirmação); isso remove o áudio, a transcrição e o tempo das estatísticas. Os áudios não entram no backup. Com a nuvem ligada, eles também vão para o Supabase Storage (bucket privado `recordings`, criado pelo `supabase/schema.sql`): cada aparelho envia as próprias gravações e baixa as das últimas 4 semanas feitas em outros; as mais antigas ficam só na nuvem. Em Settings dá para ver o espaço ocupado neste aparelho e apagar os áudios de mais de 4 semanas (com a nuvem, isso só libera espaço local).
 
 ### Cadastrar ideias mais rápido
 
@@ -234,6 +256,8 @@ src/
     stats.ts            estatísticas semanais e totais
     books.ts            fonte → textos → parágrafos
     listening.ts        frases do texto para o ditado do LISTEN
+    fluency.ts          palavras por minuto, variedade e hesitações da fala transcrita
+    textLevel.ts        nível aproximado do texto e trecho para textos longos
     reader.ts           palavras clicáveis, seleção e frase de contexto
     exercises.ts        dificuldade por termo, treino adaptativo, flashcards
     ideaImport.ts       resposta da IA ao ler imagens → título e parágrafos
@@ -246,10 +270,10 @@ src/
     migrations.ts       conversão de dados entre versões
     backup.ts           export/import JSON
   services/             sessions, reviews, library, weekly, study (fontes, ações, dicionário), maintenance (reset, desempenho, áudios), settings
-  sync/                 engine (regras), cloudStore (interface), supabase (implementação), cloud (estado)
+  sync/                 engine (regras), merge (mesclagem por registro), audio (áudios no Storage), cloudStore (interface), supabase (implementação), cloud (estado)
   ai/                   AIProvider, anthropicProvider, openAICompatibleProvider, feedback
   ui/
-    session/            assistente da sessão diária
+    session/            assistente da sessão diária (steps/: uma etapa por arquivo)
     pages/              Today, Review, Knowledge, Book, IdeaDetail, Practice, Progress, Weekly, Settings
     components/         botões, campos, cronômetro, fluxo de revisão, gráfico
 supabase/schema.sql      tabela e políticas de acesso
@@ -284,7 +308,7 @@ pnpm preview
 ### 1. Criar o projeto no Supabase
 
 1. Crie uma conta e um projeto em https://supabase.com (o plano gratuito basta).
-2. Em **SQL Editor**, cole o conteúdo de `supabase/schema.sql` e clique em **Run**. Isso cria a tabela `user_data` e as políticas que fazem cada conta enxergar só os próprios dados.
+2. Em **SQL Editor**, cole o conteúdo de `supabase/schema.sql` e clique em **Run**. Isso cria a tabela `user_data`, o bucket privado `recordings` (áudios das falas) e as políticas que fazem cada conta enxergar só os próprios dados. Quem já tinha publicado antes pode rodar o arquivo de novo: nada é duplicado, e só a parte dos áudios é criada.
 3. Em **Authentication → Users → Add user → Create new user**, crie a sua conta com e-mail e senha e marque **Auto Confirm User**.
 4. Em **Authentication → Sign In / Providers → Email**, desligue **Allow new users to sign up**. Assim ninguém mais cria conta no seu projeto.
 5. Em **Project Settings → API** (ou no botão **Connect**), copie a **Project URL** e a chave pública (**anon** ou **publishable**). Nunca use a chave `service_role`/secreta.
@@ -306,7 +330,9 @@ O workflow `.github/workflows/deploy.yml` roda lint, testes e build a cada push 
 - **Envio automático:** cerca de 2 segundos depois de cada alteração.
 - **Outro navegador:** ao entrar, ou ao voltar para a aba, o app baixa o que mudou.
 - **Sem rede:** você continua estudando; o envio acontece quando a conexão volta.
-- **Conflito:** se dois navegadores mudarem dados diferentes sem se sincronizar, o app não sobrescreve nenhum deles. Ele mostra a tela "Qual versão vale?" e você escolhe entre a nuvem e o navegador atual. O lado não escolhido é substituído; não há mesclagem.
+- **Dois navegadores mudaram:** o app junta as mudanças registro por registro, a partir da última versão em que os dois concordavam (guardada em cada navegador, fora do backup). O que só um lado mudou vence; se os dois mudaram o mesmo registro, a junção é feita campo a campo, e só quando o mesmo campo mudou nos dois fica a versão alterada por último (sem data, a do navegador atual). Excluído de um lado e editado do outro, o editado fica. Quando isso acontece, uma faixa avisa.
+- **Sem a última versão em comum** (primeira vez naquele navegador, ou dados apagados do site): o app não adivinha. Ele mostra a tela "Qual versão vale?" e você escolhe entre a nuvem e o navegador atual.
+- **Áudios:** vão para o bucket `recordings` e são baixados nos outros aparelhos (ver "Áudio"). Uma falha nos áudios não atrapalha a sincronização dos estudos.
 - **Sair da conta:** só é permitido depois de tudo enviado, e apaga os dados daquele navegador (eles continuam na nuvem).
 - **Configuração de IA:** provedor, modelos e chave vão para a sua conta e valem em todos os navegadores.
 
@@ -372,12 +398,15 @@ Para outro provedor, implemente `AIProvider` (`src/ai/AIProvider.ts`) e registre
 
 ```bash
 pnpm test        # regras de negócio
+pnpm test:e2e    # testes de interface (Playwright, com o Google Chrome instalado)
 pnpm typecheck   # TypeScript estrito
 pnpm lint        # oxlint
 pnpm format      # oxfmt
 ```
 
-Cobertura: criação de sessão, texto e parágrafos em sequência, texto do dia, ditado do LISTEN, estatísticas por habilidade, migração do banco, limite de 3 chunks, cálculo D1–D30, revisão atrasada, avaliações AGAIN/HARD/GOOD/EASY, finalização da sessão, estatísticas semanais, ciclo de 4 semanas, sincronização com a nuvem (envio, recebimento e conflito) e leitura do retorno da IA.
+Cobertura: criação de sessão, texto e parágrafos em sequência, texto do dia, ditado do LISTEN, estatísticas por habilidade, migração do banco, limite de 3 chunks, cálculo D1–D30, revisão atrasada, avaliações AGAIN/HARD/GOOD/EASY, finalização da sessão, estatísticas semanais, ciclo de 4 semanas, sincronização com a nuvem (envio, recebimento, mesclagem por registro e conflito), áudios na nuvem, métricas de fluência, nível do texto e leitura do retorno da IA.
+
+Os testes de interface (`e2e/`) rodam contra um build sem nuvem (`pnpm build:e2e`, que usa `.env.e2e`), em tela de computador e de celular: a sessão do texto ao resumo, o ditado do Practice, a sugestão de trecho para texto longo e a escolha da voz. Também rodam no CI, antes do build de produção.
 
 ## Roadmap
 
@@ -392,6 +421,7 @@ Cobertura: criação de sessão, texto e parágrafos em sequência, texto do dia
 | 0.6 | Login e sincronização com Supabase | feito, testado contra um servidor simulado |
 | 0.8 | Reset por semana, treino adaptativo, áudios da semana, importação por texto e screenshots, orientação da IA por etapa, layout para celular | feito, testado com IA simulada |
 | 0.9 | Textos de qualquer fonte, sessão nas quatro habilidades (LISTEN e READ ALOUD), progresso por habilidade | feito |
-| 1.0 | Áudios na nuvem, tabelas relacionais no Supabase com mesclagem por registro, testes de interface | futuro |
+| 0.10 | Aviso de versão nova, escolha da voz, métricas de fala, dificuldade por fase, nível do texto, dicionário → revisão, mesclagem por registro na sincronização, áudios na nuvem, testes de interface | feito |
+| 1.0 | Tabelas relacionais no Supabase | futuro |
 
 Fora do escopo por decisão de produto: scraping de sites, rede social, ranking e gamificação pesada.

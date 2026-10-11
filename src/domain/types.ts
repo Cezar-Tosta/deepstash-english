@@ -302,7 +302,7 @@ export interface PracticeStat {
   lastAt: ISODateTime;
 }
 
-/** Áudio de uma fala. Fica só neste navegador: não entra no backup nem na nuvem. */
+/** Áudio de uma fala. Não entra no backup; com a conta, também vai para o Storage da nuvem (ver sync/audio). */
 export interface Recording {
   /** Igual ao id da SpeakingSession a que pertence. */
   id: string;

@@ -13,6 +13,8 @@ import {
   weekContents,
 } from '../../services/maintenance';
 import { attempt, showToast } from '../toast';
+import { AUDIO_KEEP_WEEKS } from '../../sync/audio';
+import { cloudEnabled } from '../../sync/supabase';
 import { ListenSettings, RecordingPlayer } from './Listen';
 import { Button, Card, Eyebrow, Hint } from './ui';
 
@@ -73,7 +75,6 @@ export function ResetWeek({ weekStart, weekEnd }: { weekStart: ISODate; weekEnd:
 // ---------- Recomeçar do zero e áudios guardados ----------
 
 const megabytes = (bytes: number): string => `${(bytes / 1_048_576).toFixed(1)} MB`;
-const KEEP_WEEKS = 4;
 
 export function DataSection() {
   const [confirming, setConfirming] = useState(false);
@@ -125,7 +126,9 @@ export function DataSection() {
           {usage && usage.count > 0
             ? `${usage.count} ${usage.count === 1 ? 'gravação' : 'gravações'} neste navegador (${megabytes(usage.bytes)}).`
             : 'Nenhuma gravação neste navegador.'}{' '}
-          Os áudios não vão para a nuvem: só podem ser ouvidos no navegador em que foram gravados.
+          {cloudEnabled
+            ? 'Com a conta, os áudios também ficam na nuvem: apagar daqui só libera espaço neste aparelho.'
+            : 'Sem conta na nuvem, os áudios só podem ser ouvidos no navegador em que foram gravados.'}
         </p>
         {usage && usage.count > 0 && (
           <div className="mt-2">
@@ -134,13 +137,13 @@ export function DataSection() {
               variant="secondary"
               onClick={() =>
                 attempt(
-                  deleteRecordingsBefore(addDays(today(), -7 * KEEP_WEEKS)).then((n) =>
+                  deleteRecordingsBefore(addDays(today(), -7 * AUDIO_KEEP_WEEKS)).then((n) =>
                     showToast(n === 0 ? 'Não há áudios tão antigos.' : `${n} ${n === 1 ? 'áudio apagado' : 'áudios apagados'}.`),
                   ),
                 )
               }
             >
-              Apagar áudios com mais de {KEEP_WEEKS} semanas
+              Apagar áudios com mais de {AUDIO_KEEP_WEEKS} semanas
             </Button>
           </div>
         )}

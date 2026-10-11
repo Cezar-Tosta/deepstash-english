@@ -225,6 +225,12 @@ describe('semana e ciclo', () => {
   it('a meta de speaking cresce a cada semana', () => {
     expect([1, 2, 3, 4].map((w) => weekPlan(w).speakingMaxSec)).toEqual([60, 120, 120, 180]);
   });
+
+  it('o listening também fica mais exigente a cada fase', () => {
+    expect([1, 2, 3, 4].map((w) => weekPlan(w).listenRate)).toEqual([0.75, 1, 1, 1]);
+    expect([1, 2, 3, 4].map((w) => weekPlan(w).listenSentences)).toEqual([2, 3, 4, 5]);
+    expect([1, 2, 3, 4].map((w) => weekPlan(w).listenMaxWords)).toEqual([14, 20, 25, 30]);
+  });
 });
 
 describe('as quatro habilidades no ciclo', () => {
@@ -290,7 +296,23 @@ describe('as quatro habilidades no ciclo', () => {
 
   it('speaking: tempo lendo em voz alta, tempo recontando e palavras reconhecidas na leitura', () => {
     // 5 de 5 palavras no primeiro parágrafo e 3 de 4 no segundo.
-    expect(skillStats(skillInput, WEEK).speaking).toEqual({ aloudSec: 30, retellSec: 60, aloudScore: 0.875 });
+    expect(skillStats(skillInput, WEEK).speaking).toEqual({ aloudSec: 30, retellSec: 60, aloudScore: 0.875, wpm: null });
+  });
+
+  it('speaking: palavras por minuto no retell transcrito', () => {
+    const retold = {
+      ...skillInput,
+      speaking: [
+        { ...speaking('x1', day, 30), transcript: 'one two three four five six seven eight nine ten' },
+        {
+          ...speaking('x2', day, 30),
+          transcript:
+            'one two three four five six seven eight nine ten um eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty',
+        },
+      ],
+    };
+    // 20 e 40 palavras por minuto: média 30.
+    expect(skillStats(retold, WEEK).speaking.wpm).toBe(30);
   });
 
   it('writing: palavras escritas nas frases, na reflexão, na ação e no texto do ciclo', () => {

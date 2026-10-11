@@ -13,6 +13,7 @@ import {
   finishSession,
   lastBookTitle,
   loadSessionBundle,
+  promoteToChunk,
   recordSpeaking,
   replaceChunk,
   saveListeningAnswer,
@@ -406,5 +407,50 @@ describe('rascunho em português da reflexão', () => {
       soWhatPt: 'Anotar tudo.',
       soWhat: '',
     });
+  });
+});
+
+describe('palavra do dicionário para a revisão espaçada', () => {
+  async function vocabOn(date: string, term: string, context = 'Keep a regular schedule.') {
+    const session = await startSession(date);
+    const idea = await addIdea(session.id, { title: 'Sleep', cards: [context] });
+    await addVocab(session.id, idea.id, term, 'rotina');
+    const entry = (await db.vocab.toArray()).find((v) => v.term === term)!;
+    await db.vocab.update(entry.id, { context });
+    return { session, idea, entry };
+  }
+
+  it('vira um chunk de hoje, com o significado, a frase e o texto de origem, e entra no calendário', async () => {
+    const { session, idea, entry } = await vocabOn(DAY, 'schedule');
+    const chunk = await promoteToChunk(entry.id, DAY);
+    expect(chunk).toMatchObject({
+      text: 'schedule',
+      meaning: 'rotina',
+      originalSentence: 'Keep a regular schedule.',
+      sourceIdeaId: idea.id,
+      sessionId: session.id,
+      createdDate: DAY,
+      nextReviewDate: '2026-10-04',
+    });
+    // A entrada continua no dicionário, com a fonética e a explicação.
+    expect(await db.vocab.get(entry.id)).toBeDefined();
+  });
+
+  it('respeita o limite de 3 chunks por dia e não repete um termo que já está na revisão', async () => {
+    const { session, entry } = await vocabOn(DAY, 'schedule');
+    await promoteToChunk(entry.id, DAY);
+    await expect(promoteToChunk(entry.id, DAY)).rejects.toThrow(DomainError);
+    await addChunk(session.id, { text: 'one thing at a time' });
+    await addChunk(session.id, { text: 'in your head' });
+    const other = await vocabOn(DAY, 'sleep');
+    await expect(promoteToChunk(other.entry.id, DAY)).rejects.toThrow(ChunkLimitError);
+  });
+
+  it('em outro dia, o chunk nasce naquele dia, mesmo sem sessão aberta', async () => {
+    const { entry, session } = await vocabOn(DAY, 'schedule');
+    const chunk = await promoteToChunk(entry.id, '2026-10-20');
+    expect(chunk).toMatchObject({ createdDate: '2026-10-20', nextReviewDate: '2026-10-21', sessionId: session.id });
+    // Não abre sessão nem ciclo por causa disso.
+    expect(await db.sessions.where('date').equals('2026-10-20').count()).toBe(0);
   });
 });

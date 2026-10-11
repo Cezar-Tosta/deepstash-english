@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BackupFile } from '../data/backup';
 import type { AISettings } from '../domain/types';
 import type { CloudSnapshot, CloudStore } from './cloudStore';
-import { type LocalAdapter, type MetaStore, type SyncMeta, SyncEngine } from './engine';
+import { type BaseStore, type LocalAdapter, type MetaStore, type SyncBase, type SyncMeta, SyncEngine } from './engine';
 
 const GROQ: AISettings = { provider: 'groq', baseUrl: '', model: 'llama', apiKey: 'gsk-secret', visionModel: '' };
 const NO_AI: AISettings = { provider: 'none', baseUrl: '', model: '', apiKey: '', visionModel: '' };
@@ -50,10 +50,17 @@ class FakeCloud implements CloudStore {
 }
 
 /** Um navegador: seu banco local e o que ele lembra da última sincronização. */
-function browser(cloud: FakeCloud, initial: string[] = [], initialAI?: AISettings) {
+function browser(cloud: FakeCloud, initial: string[] = [], initialAI?: AISettings, keepsBase = false) {
   let ideas = initial;
   let ai = initialAI;
   let meta: SyncMeta | null = null;
+  let base: SyncBase | null = null;
+  const baseStore: BaseStore = {
+    get: async () => base,
+    set: async (b) => {
+      base = b;
+    },
+  };
   const configured = (x: AISettings | undefined): x is AISettings => x !== undefined && x.provider !== 'none';
   const local: LocalAdapter = {
     export: async () => payload(ideas, ai),
@@ -71,7 +78,7 @@ function browser(cloud: FakeCloud, initial: string[] = [], initialAI?: AISetting
   };
   const metaStore: MetaStore = { get: () => meta, set: (m) => (meta = m) };
   return {
-    engine: new SyncEngine('user-1', cloud, local, metaStore),
+    engine: keepsBase ? new SyncEngine('user-1', cloud, local, metaStore, baseStore) : new SyncEngine('user-1', cloud, local, metaStore),
     get ideas() {
       return ideas;
     },
@@ -179,6 +186,50 @@ describe('sincronização com a nuvem', () => {
     await browser(cloud, ['a']).engine.reconcile();
     expect(await browser(cloud, ['a']).engine.reconcile()).toBe('synced');
     expect(cloud.snapshot?.version).toBe(1);
+  });
+});
+
+describe('mesclagem quando os dois navegadores mudaram', () => {
+  it('junta o que cada um estudou, sem perguntar', async () => {
+    const cloud = new FakeCloud();
+    const home = browser(cloud, ['a'], undefined, true);
+    await home.engine.reconcile();
+    const work = browser(cloud, [], undefined, true);
+    await work.engine.reconcile();
+
+    work.edit(['a', 'trabalho']);
+    await work.engine.pushIfChanged();
+    home.edit(['a', 'casa']);
+
+    expect(await home.engine.pushIfChanged()).toBe('synced');
+    expect([...home.ideas].sort()).toEqual(['a', 'casa', 'trabalho']);
+    expect(cloud.snapshot?.payload.data.ideas.map((i) => i['id']).sort()).toEqual(['a', 'casa', 'trabalho']);
+    expect(home.engine.lastConflicts).toBe(0);
+
+    // O outro navegador recebe a junção na próxima conferência.
+    expect(await work.engine.reconcile()).toBe('synced');
+    expect([...work.ideas].sort()).toEqual(['a', 'casa', 'trabalho']);
+  });
+
+  it('o que um navegador excluiu sai também da nuvem, se o outro não mexeu', async () => {
+    const cloud = new FakeCloud();
+    const home = browser(cloud, ['a', 'b'], undefined, true);
+    await home.engine.reconcile();
+    const work = browser(cloud, [], undefined, true);
+    await work.engine.reconcile();
+
+    work.edit(['a', 'b', 'c']);
+    await work.engine.pushIfChanged();
+    home.edit(['a']);
+
+    expect(await home.engine.reconcile()).toBe('synced');
+    expect([...home.ideas].sort()).toEqual(['a', 'c']);
+  });
+
+  it('sem a base da última sincronização, continua pedindo a decisão', async () => {
+    const cloud = new FakeCloud();
+    await browser(cloud, ['nuvem'], undefined, true).engine.reconcile();
+    expect(await browser(cloud, ['local'], undefined, true).engine.reconcile()).toBe('choose');
   });
 });
 

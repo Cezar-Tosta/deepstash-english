@@ -10,6 +10,8 @@ export interface SpeechState {
   rate: Rate;
   /** Repete o áudio até o usuário parar. */
   loop: boolean;
+  /** voiceURI da voz escolhida; vazio = a voz em inglês padrão do navegador. Vale só neste aparelho. */
+  voice: string;
   /** Texto que está sendo lido agora, ou null. */
   playing: string | null;
 }
@@ -17,12 +19,12 @@ export interface SpeechState {
 const PREFS_KEY = 'ds-speech';
 const LOOP_PAUSE_MS = 600;
 
-function loadPrefs(): Pick<SpeechState, 'rate' | 'loop'> {
+function loadPrefs(): Pick<SpeechState, 'rate' | 'loop' | 'voice'> {
   try {
     const raw = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') as Partial<SpeechState>;
-    return { rate: RATES.find((r) => r === raw.rate) ?? 1, loop: raw.loop === true };
+    return { rate: RATES.find((r) => r === raw.rate) ?? 1, loop: raw.loop === true, voice: typeof raw.voice === 'string' ? raw.voice : '' };
   } catch {
-    return { rate: 1, loop: false };
+    return { rate: 1, loop: false, voice: '' };
   }
 }
 
@@ -35,7 +37,7 @@ let loopTimer: ReturnType<typeof setTimeout> | undefined;
 function update(patch: Partial<SpeechState>): void {
   state = { ...state, ...patch };
   try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ rate: state.rate, loop: state.loop }));
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ rate: state.rate, loop: state.loop, voice: state.voice }));
   } catch {
     // Sem localStorage a preferência vale só até recarregar a página.
   }
@@ -49,9 +51,11 @@ function update(patch: Partial<SpeechState>): void {
  */
 function utter(text: string, mine: number): void {
   const parts = splitSentences(text);
+  const voice = window.speechSynthesis.getVoices().find((v) => v.voiceURI === state.voice);
   parts.forEach((part, i) => {
     const utterance = new SpeechSynthesisUtterance(part);
-    utterance.lang = 'en-US';
+    utterance.lang = voice?.lang ?? 'en-US';
+    if (voice) utterance.voice = voice;
     utterance.rate = state.rate;
     if (i === parts.length - 1) {
       utterance.addEventListener('end', () => {
@@ -101,6 +105,40 @@ export function setRate(rate: Rate): void {
 
 export function setLoop(loop: boolean): void {
   update({ loop });
+}
+
+export function setVoice(voice: string): void {
+  update({ voice });
+}
+
+let voices: SpeechSynthesisVoice[] = [];
+const voiceListeners = new Set<() => void>();
+
+function loadVoices(): void {
+  const next = window.speechSynthesis
+    .getVoices()
+    .filter((v) => v.lang.toLowerCase().startsWith('en'))
+    .sort((a, b) => a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name));
+  // Só troca a lista (e redesenha) quando ela mudou de verdade.
+  if (next.map((v) => v.voiceURI).join('|') === voices.map((v) => v.voiceURI).join('|')) return;
+  voices = next;
+  for (const l of voiceListeners) l();
+}
+
+function subscribeVoices(listener: () => void): () => void {
+  if (!('speechSynthesis' in window)) return () => undefined;
+  if (voiceListeners.size === 0) window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+  voiceListeners.add(listener);
+  loadVoices();
+  return () => {
+    voiceListeners.delete(listener);
+    if (voiceListeners.size === 0) window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+  };
+}
+
+/** As vozes em inglês deste navegador. A lista chega aos poucos, então fica escutando a mudança. */
+export function useVoices(): SpeechSynthesisVoice[] {
+  return useSyncExternalStore(subscribeVoices, () => voices);
 }
 
 export function useSpeech(): SpeechState {

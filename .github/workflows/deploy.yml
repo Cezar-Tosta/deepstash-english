@@ -32,6 +32,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm test
+      # Testes de interface com o Google Chrome que já vem no runner, contra um build sem nuvem.
+      - run: pnpm test:e2e
       # Valores públicos por natureza: a proteção dos dados é feita pelas políticas RLS do banco.
       - run: pnpm build
         env:

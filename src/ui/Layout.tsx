@@ -4,9 +4,10 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 import { modelsInUse } from '../ai/feedback';
 import type { AISettings } from '../domain/types';
 import { getDueChunks } from '../services/reviews';
-import { useCloud } from '../sync/cloud';
+import { dismissNotice, useCloud } from '../sync/cloud';
 import { useOnline, useSettings, useToday } from './hooks';
 import { dismissToast, useToast } from './toast';
+import { applyUpdate, useNeedRefresh } from './update';
 
 const icon = (paths: ReactNode) => (
   <svg
@@ -171,6 +172,7 @@ export function Layout() {
   const cloud = useCloud();
   const settings = useSettings();
   const due = useLiveQuery(() => getDueChunks(date), [date])?.length ?? 0;
+  const needRefresh = useNeedRefresh();
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-paper text-ink md:flex">
@@ -213,10 +215,26 @@ export function Layout() {
       </nav>
 
       <main className="mx-auto w-full max-w-6xl min-w-0 px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-28 md:px-8 md:pt-8 md:pb-12">
+        {needRefresh && (
+          <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-accent-soft px-4 py-2 text-sm">
+            <span>Nova versão disponível. Recarregue para usar a mais recente; nada do que você fez se perde.</span>
+            <button type="button" onClick={applyUpdate} className="min-h-10 rounded-lg bg-accent px-3 font-semibold text-accent-ink">
+              Recarregar
+            </button>
+          </div>
+        )}
         {!online && (
           <p role="status" className="mb-4 rounded-xl bg-sunken px-4 py-2 text-sm text-muted">
             Sem conexão. Tudo continua funcionando e sendo salvo neste navegador.
           </p>
+        )}
+        {cloud.notice && (
+          <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-sunken px-4 py-2 text-sm">
+            <span>{cloud.notice}</span>
+            <button type="button" onClick={dismissNotice} className="min-h-10 font-medium text-accent">
+              Entendi
+            </button>
+          </div>
         )}
         {online && cloud.user && cloud.status === 'error' && (
           <p role="alert" className="mb-4 rounded-xl bg-sunken px-4 py-2 text-sm text-danger">

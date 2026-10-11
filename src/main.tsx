@@ -18,6 +18,7 @@ import { SettingsPage } from './ui/pages/SettingsPage';
 import { TodayPage } from './ui/pages/TodayPage';
 import { WeeklyPage } from './ui/pages/WeeklyPage';
 import { SessionPage } from './ui/session/SessionPage';
+import { registerUpdates } from './ui/update';
 
 /** Última barreira: se o banco ou uma tela falhar, o usuário vê o motivo e como seguir. */
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -78,6 +79,7 @@ function App() {
 }
 
 initCloud();
+registerUpdates();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Elemento #root não encontrado.');

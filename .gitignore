@@ -1,9 +1,16 @@
 node_modules
 dist
+dist-e2e
+test-results
+playwright-report
 dev-dist
+dist-e2e
+test-results
+playwright-report
 *.local
 .env
 .env.*
 coverage
 .DS_Store
 !.env.example
+!.env.e2e

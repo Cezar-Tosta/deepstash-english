@@ -9,6 +9,12 @@ export interface WeekPlan {
   /** Faixa-alvo do retelling, em segundos. */
   speakingMinSec: number;
   speakingMaxSec: number;
+  /** Velocidade com que o LISTEN começa. */
+  listenRate: 0.75 | 1;
+  /** Quantas frases do texto entram no ditado do LISTEN. */
+  listenSentences: number;
+  /** Tamanho máximo, em palavras, de cada frase do ditado. */
+  listenMaxWords: number;
 }
 
 const PLANS: readonly WeekPlan[] = [
@@ -19,6 +25,9 @@ const PLANS: readonly WeekPlan[] = [
     speakingLabel: '≈ 1 minuto',
     speakingMinSec: 60,
     speakingMaxSec: 60,
+    listenRate: 0.75,
+    listenSentences: 2,
+    listenMaxWords: 14,
   },
   {
     week: 2,
@@ -27,6 +36,9 @@ const PLANS: readonly WeekPlan[] = [
     speakingLabel: '1–2 minutos',
     speakingMinSec: 60,
     speakingMaxSec: 120,
+    listenRate: 1,
+    listenSentences: 3,
+    listenMaxWords: 20,
   },
   {
     week: 3,
@@ -35,6 +47,9 @@ const PLANS: readonly WeekPlan[] = [
     speakingLabel: '≈ 2 minutos',
     speakingMinSec: 120,
     speakingMaxSec: 120,
+    listenRate: 1,
+    listenSentences: 4,
+    listenMaxWords: 25,
   },
   {
     week: 4,
@@ -43,6 +58,9 @@ const PLANS: readonly WeekPlan[] = [
     speakingLabel: '2–3 minutos',
     speakingMinSec: 120,
     speakingMaxSec: 180,
+    listenRate: 1,
+    listenSentences: 5,
+    listenMaxWords: 30,
   },
 ];
 

@@ -6,15 +6,15 @@ const MIN_WORDS = 6;
 const MAX_WORDS = 30;
 
 /**
- * Frases do texto para o ditado da etapa LISTEN: de tamanho bom para ditar, espalhadas
+ * Frases do texto para o ditado da etapa LISTEN: de tamanho bom para ditar (até `maxWords`, que cresce com a fase), espalhadas
  * do começo ao fim do texto e na ordem em que aparecem. Sem nenhuma frase nessa faixa,
  * ficam as mais longas que houver.
  */
-export function listeningSentences(paragraphs: readonly string[], count: number): string[] {
+export function listeningSentences(paragraphs: readonly string[], count: number, maxWords = MAX_WORDS): string[] {
   const all = paragraphs.flatMap(splitSentences);
   const good = all.filter((s) => {
     const words = countWords(s);
-    return words >= MIN_WORDS && words <= MAX_WORDS;
+    return words >= MIN_WORDS && words <= maxWords;
   });
   if (good.length === 0) {
     const longest = new Set([...all].sort((a, b) => countWords(b) - countWords(a)).slice(0, count));

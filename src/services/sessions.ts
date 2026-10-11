@@ -371,6 +371,41 @@ export async function chunksToPractice(sessionId: string, count: number, skip: r
     .slice(0, count);
 }
 
+/**
+ * Leva uma palavra do dicionário para a repetição espaçada: vira um chunk criado em
+ * `date`, com o significado e a frase do dicionário, e entra no calendário D1–D30.
+ * Conta no limite de chunks do dia. Fica na sessão do dia, se houver; senão, na sessão
+ * em que a palavra foi anotada (não abre sessão nem ciclo por causa disso). A entrada
+ * do dicionário continua lá, com a fonética e a explicação.
+ */
+export function promoteToChunk(vocabId: string, date: ISODate = today()): Promise<Chunk> {
+  return db.transaction('rw', db.vocab, db.chunks, db.sessions, async () => {
+    const entry = await db.vocab.get(vocabId);
+    if (!entry) throw new DomainError('Palavra não encontrada no dicionário.');
+    const chunks = await db.chunks.toArray();
+    const same = (text: string): string => text.trim().toLowerCase();
+    if (chunks.some((c) => same(c.text) === same(entry.term))) {
+      throw new DomainError(`"${entry.term}" já está na revisão espaçada.`);
+    }
+    if (!canAddChunk(chunks.filter((c) => c.createdDate === date).length)) throw new ChunkLimitError();
+    const session = await db.sessions.where('date').equals(date).first();
+    const chunk: Chunk = {
+      id: newId(),
+      sessionId: session?.id ?? entry.sessionId,
+      sourceIdeaId: entry.ideaId,
+      text: entry.term,
+      meaning: entry.meaning,
+      originalSentence: entry.context ?? '',
+      userSentence: '',
+      createdAt: nowISO(),
+      createdDate: date,
+      ...scheduler.initial(date),
+    };
+    await db.chunks.add(chunk);
+    return chunk;
+  });
+}
+
 export function deleteChunk(chunkId: string): Promise<void> {
   return db.transaction('rw', db.chunks, db.reviews, async () => {
     await db.reviews.where('chunkId').equals(chunkId).delete();

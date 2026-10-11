@@ -44,3 +44,16 @@ describe('frases para o ditado do LISTEN', () => {
     expect(listeningSentences([], 3)).toEqual([]);
   });
 });
+
+describe('ditado do LISTEN conforme a fase', () => {
+  const paragraphs = [
+    'Habits are the compound interest of self-improvement and they grow over time.',
+    'You do not rise to the level of your goals because you fall to the level of your systems.',
+  ];
+
+  it('com limite de palavras, frases longas ficam de fora', () => {
+    expect(listeningSentences(paragraphs, 3, 14)).toEqual([
+      'Habits are the compound interest of self-improvement and they grow over time.',
+    ]);
+  });
+});

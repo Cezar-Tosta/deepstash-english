@@ -1,8 +1,11 @@
-import { liveQuery, type Subscription } from 'dexie';
+import Dexie, { liveQuery, type Subscription } from 'dexie';
 import { useSyncExternalStore } from 'react';
 import { adoptCloudAI, clearLocalData, exportForCloud, isLocalEmpty, restoreBackup } from '../data/backup';
-import { type MetaStore, type SyncMeta, SyncEngine, type SyncOutcome } from './engine';
-import { cloudEnabled, createSupabaseStore, getClient } from './supabase';
+import { db } from '../data/db';
+import { today } from '../domain/dates';
+import { type BaseStore, type MetaStore, type SyncBase, type SyncMeta, SyncEngine, type SyncOutcome } from './engine';
+import { syncAudio } from './audio';
+import { cloudEnabled, createSupabaseAudioStore, createSupabaseStore, getClient } from './supabase';
 
 export interface CloudState {
   /** O build tem um projeto Supabase configurado. */
@@ -15,6 +18,11 @@ export interface CloudState {
   status: 'idle' | 'syncing' | 'synced' | 'choose' | 'error';
   lastSyncedAt: string | null;
   error: string;
+  /** Aviso sobre a última mesclagem, quando o mesmo campo tinha mudado nos dois lados. */
+  notice: string;
+  /** Áudios das falas na nuvem. `unavailable`: o bucket não existe ou não deu acesso. */
+  audio: 'idle' | 'syncing' | 'synced' | 'unavailable';
+  audioError: string;
 }
 
 let state: CloudState = {
@@ -25,6 +33,9 @@ let state: CloudState = {
   status: 'idle',
   lastSyncedAt: null,
   error: '',
+  notice: '',
+  audio: 'idle',
+  audioError: '',
 };
 const listeners = new Set<() => void>();
 
@@ -66,6 +77,33 @@ const metaStore: MetaStore = {
   },
 };
 
+/**
+ * A base da mesclagem: a última versão em que este navegador e a nuvem concordavam.
+ * Fica num banco à parte, fora do backup, e é apagada ao sair da conta.
+ */
+const baseDb = new Dexie('deepstash-english-sync');
+baseDb.version(1).stores({ base: 'userId' });
+
+const baseStore: BaseStore = {
+  async get() {
+    try {
+      return ((await baseDb.table('base').toCollection().first()) as SyncBase | undefined) ?? null;
+    } catch {
+      return null;
+    }
+  },
+  async set(base) {
+    try {
+      await baseDb.transaction('rw', 'base', async () => {
+        await baseDb.table('base').clear();
+        if (base) await baseDb.table('base').put(base);
+      });
+    } catch {
+      // Sem a base, dois lados alterados voltam a pedir a decisão; nada se perde.
+    }
+  },
+};
+
 // ---------- Motor ----------
 
 let engine: SyncEngine | null = null;
@@ -91,6 +129,14 @@ function run(task: (e: SyncEngine) => Promise<SyncOutcome>): Promise<SyncOutcome
     try {
       const outcome = await task(current);
       update(outcome === 'synced' ? { status: 'synced', hydrated: true, lastSyncedAt: new Date().toISOString() } : { status: 'choose' });
+      const conflicts = current.lastConflicts ?? 0;
+      if (conflicts > 0) {
+        update({
+          notice: `As alterações de outro aparelho foram juntadas às suas. ${
+            conflicts === 1 ? 'Um registro tinha' : `${conflicts} registros tinham`
+          } o mesmo campo alterado nos dois: ficou a versão mais recente.`,
+        });
+      }
       return outcome;
     } catch (error) {
       // Num navegador que já sincronizou antes, dá para seguir estudando sem rede.
@@ -101,6 +147,40 @@ function run(task: (e: SyncEngine) => Promise<SyncOutcome>): Promise<SyncOutcome
   });
   queue = result;
   return result;
+}
+
+// ---------- Áudios ----------
+
+let audioWatcher: Subscription | null = null;
+let audioDebounce: ReturnType<typeof setTimeout> | undefined;
+let audioQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Sincroniza os áudios das falas, separado dos dados: uma falha aqui (sem rede, bucket
+ * ainda não criado) não atrapalha a sincronização dos estudos.
+ */
+function runAudio(): void {
+  const user = state.user;
+  if (!user || !state.hydrated) return;
+  audioQueue = audioQueue.then(async () => {
+    if (state.user?.id !== user.id) return;
+    update({ audio: 'syncing' });
+    try {
+      await syncAudio(createSupabaseAudioStore(getClient(), user.id), today());
+      update({ audio: 'synced', audioError: '' });
+    } catch (error) {
+      update({ audio: 'unavailable', audioError: error instanceof Error ? error.message : String(error) });
+    }
+  });
+}
+
+function watchRecordings(): void {
+  audioWatcher?.unsubscribe();
+  // Cada gravação nova (ou excluída) agenda uma conferência dos áudios.
+  audioWatcher = liveQuery(() => db.recordings.toCollection().primaryKeys()).subscribe(() => {
+    clearTimeout(audioDebounce);
+    audioDebounce = setTimeout(runAudio, 3000);
+  });
 }
 
 function watchLocalChanges(): void {
@@ -121,14 +201,21 @@ function startFor(user: { id: string; email: string }): void {
     createSupabaseStore(getClient(), user.id),
     { export: exportForCloud, restore: restoreBackup, isEmpty: isLocalEmpty, adoptAI: adoptCloudAI },
     metaStore,
+    baseStore,
   );
   update({ user, authReady: true, hydrated: false, status: 'idle', error: '' });
-  void run((e) => e.reconcile()).then(watchLocalChanges);
+  void run((e) => e.reconcile()).then(() => {
+    watchLocalChanges();
+    watchRecordings();
+  });
 }
 
 function stop(): void {
   watcher?.unsubscribe();
   watcher = null;
+  audioWatcher?.unsubscribe();
+  audioWatcher = null;
+  clearTimeout(audioDebounce);
   clearTimeout(debounce);
   engine = null;
   update({ user: null, authReady: true, hydrated: false, status: 'idle', error: '', lastSyncedAt: null });
@@ -149,7 +236,7 @@ export function initCloud(): void {
   // Ao voltar para a aba ou recuperar a rede, confere se outro navegador mudou algo.
   const recheck = () => {
     if (document.visibilityState === 'visible' && state.status !== 'choose') {
-      void run((e) => e.reconcile());
+      void run((e) => e.reconcile()).then((outcome) => outcome === 'synced' && runAudio());
     }
   };
   document.addEventListener('visibilitychange', recheck);
@@ -175,11 +262,19 @@ export async function signOut(): Promise<string | null> {
   }
   watcher?.unsubscribe();
   watcher = null;
+  audioWatcher?.unsubscribe();
+  audioWatcher = null;
+  clearTimeout(audioDebounce);
   engine = null;
   await clearLocalData();
   metaStore.set(null);
+  await baseStore.set(null);
   await getClient().auth.signOut();
   return null;
+}
+
+export function dismissNotice(): void {
+  update({ notice: '' });
 }
 
 export function syncNow(): Promise<SyncOutcome | null> {
