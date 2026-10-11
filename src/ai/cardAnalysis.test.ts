@@ -25,13 +25,13 @@ async function seed(texts: string[]) {
   return db.cards.where('ideaId').equals(idea.id).sortBy('position');
 }
 
-describe('comentário da estrutura do texto de um card', () => {
-  it('o pedido cobre gramática, ortografia, sintaxe e semântica, só sobre o texto do card', () => {
+describe('comentário da estrutura de um parágrafo', () => {
+  it('o pedido cobre gramática, ortografia, sintaxe e semântica, só sobre o parágrafo', () => {
     const { system, user } = buildCardAnalysisPrompt('Your mind is for having ideas.', 'Thought Into Action');
     for (const aspect of ANALYSIS_ASPECTS) expect(system).toContain(`**${aspect}**`);
     expect(system).toContain('português do Brasil');
     expect(system).toContain('não invente trechos');
-    expect(user).toBe('Ideia: Thought Into Action\n\nTexto do card:\nYour mind is for having ideas.');
+    expect(user).toBe('Título do texto: Thought Into Action\n\nParágrafo:\nYour mind is for having ideas.');
   });
 
   it('o comentário fica guardado no card pedido e não toca nos outros', async () => {

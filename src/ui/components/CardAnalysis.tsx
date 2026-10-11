@@ -6,8 +6,8 @@ import { RichText } from './RichText';
 import { Button, Spinner } from './ui';
 
 /**
- * Comentário da estrutura do texto de um card (gramática, ortografia, sintaxe e
- * semântica). É gerado só quando o usuário pede, fica guardado no card e pode ser
+ * Comentário da estrutura de um parágrafo (gramática, ortografia, sintaxe e
+ * semântica). É gerado só quando o usuário pede, fica guardado no parágrafo e pode ser
  * recolhido ou expandido pela setinha.
  */
 export function CardAnalysis({ card, canAsk }: { card: SourceCard; canAsk: boolean }) {
@@ -90,7 +90,7 @@ export function CardAnalysis({ card, canAsk }: { card: SourceCard; canAsk: boole
           <p className="mb-1 text-xs font-semibold tracking-[0.14em] text-muted uppercase">
             Estrutura do texto · gramática, ortografia, sintaxe e semântica
           </p>
-          {stale && <p className="mb-2 text-xs text-warn">O texto do card mudou depois deste comentário. Gere de novo para atualizar.</p>}
+          {stale && <p className="mb-2 text-xs text-warn">O parágrafo mudou depois deste comentário. Gere de novo para atualizar.</p>}
           <RichText text={analysis} className="text-sm" />
         </div>
       )}

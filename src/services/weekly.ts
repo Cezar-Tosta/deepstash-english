@@ -16,7 +16,7 @@ export interface WeekBundle {
   weekStart: ISODate;
   /** Último dia do ciclo, inclusive. */
   weekEnd: ISODate;
-  /** As Ideas of the Day da semana, em ordem de data. */
+  /** Os textos estudados na semana, em ordem de data. */
   ideas: WeekIdea[];
   chunks: Chunk[];
   review: WeeklyReview;
@@ -73,7 +73,7 @@ export function saveWeeklyReview(weekStart: ISODate, patch: Partial<Omit<WeeklyR
   return db.transaction('rw', db.weeklyReviews, async () => {
     const current = (await db.weeklyReviews.get(weekStart)) ?? emptyReview(weekStart);
     if (patch.topIdeaIds && patch.topIdeaIds.length > TOP_IDEAS) {
-      throw new DomainError(`Escolha no máximo ${TOP_IDEAS} ideias.`);
+      throw new DomainError(`Escolha no máximo ${TOP_IDEAS} textos.`);
     }
     await db.weeklyReviews.put({ ...current, ...patch, updatedAt: nowISO() });
   });

@@ -32,7 +32,7 @@ export async function weekContents(weekStart: ISODate): Promise<WeekContents> {
 }
 
 /**
- * Apaga tudo o que foi estudado numa semana: sessões, ideias, cards, dicionário,
+ * Apaga tudo o que foi estudado numa semana: sessões, textos, parágrafos, dicionário,
  * chunks (com seu histórico de revisão), falas, reflexões, fechamento e texto.
  *
  * Revisões feitas nessa semana de chunks aprendidos em semanas anteriores são

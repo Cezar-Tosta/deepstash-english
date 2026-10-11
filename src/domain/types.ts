@@ -8,7 +8,29 @@ export type SessionStatus = 'in_progress' | 'completed';
 export type ThemePref = 'system' | 'light' | 'dark';
 export type AIProviderKind = 'none' | 'anthropic' | 'groq' | 'openai-compatible';
 
-export type StepId = 'review' | 'read' | 'focus' | 'check' | 'mine' | 'retell' | 'personalize' | 'reflect' | 'sowhat' | 'schedule';
+export type StepId =
+  | 'review'
+  | 'text'
+  | 'listen'
+  | 'read'
+  | 'mine'
+  | 'aloud'
+  | 'retell'
+  | 'personalize'
+  | 'reflect'
+  | 'sowhat'
+  | 'schedule';
+
+/** As quatro habilidades que a sessão trabalha. */
+export type Skill = 'listening' | 'reading' | 'speaking' | 'writing';
+
+/** Uma frase do texto ditada na etapa LISTEN, com o que o aluno escreveu. */
+export interface ListeningAnswer {
+  sentence: string;
+  answer: string;
+  /** Fração (0 a 1) das palavras certas. */
+  score: number;
+}
 
 export interface AISettings {
   provider: AIProviderKind;
@@ -16,7 +38,7 @@ export interface AISettings {
   model: string;
   /** Fica só neste aparelho (IndexedDB). Nunca entra no backup nem no código-fonte. */
   apiKey: string;
-  /** Modelo que lê imagens, usado para importar screenshots de cards. Vazio = padrão do provedor. */
+  /** Modelo que lê imagens, usado para importar screenshots do texto. Vazio = padrão do provedor. */
   visionModel?: string;
 }
 
@@ -50,6 +72,7 @@ export interface StudySession {
   cycleWeek: number;
   startedAt: ISODateTime;
   completedAt: ISODateTime | null;
+  /** O texto em estudo na sessão. Preenchido ao registrar o texto. */
   ideaOfDayId: string | null;
   currentStep: StepId;
   status: SessionStatus;
@@ -57,19 +80,25 @@ export interface StudySession {
   misunderstood: string;
   /** RETELL: palavras de apoio para a fala. */
   retellNotes: string;
+  /** LISTEN: o que entendi só ouvindo, antes de ler. */
+  listenGist?: string;
+  /** LISTEN: frases do texto ditadas e o que escrevi. */
+  listenAnswers?: ListeningAnswer[];
   /** Resumo "o que estudar", escrito pela IA a partir das correções e dos exercícios do dia. */
   studySummary?: string;
   studySummaryAt?: ISODateTime;
 }
 
 /**
- * Uma ideia de um livro, como o Deepstash a apresenta. É a unidade de leitura e de
- * aprofundamento: a "Idea of the Day" é uma ideia inteira, não um card isolado.
+ * Um texto de estudo, de qualquer origem (artigo, livro, site, letra de música...).
+ * O nome `Idea` e as tabelas `ideas`/`cards` vêm das versões anteriores do app e foram
+ * mantidos para não quebrar o banco local, os backups e a sincronização.
  */
 export interface Idea {
   id: string;
   sessionId: string;
   date: ISODate;
+  /** Fonte do texto (opcional): livro, site, autor... Textos com a mesma fonte são agrupados. */
   bookTitle: string;
   title: string;
   mainIdea: string;
@@ -78,24 +107,24 @@ export interface Idea {
   createdAt: ISODateTime;
 }
 
-/** Um card da ideia. Os cards de uma ideia são lidos em sequência, como uma história. */
+/** Um parágrafo do texto, na ordem de leitura. */
 export interface SourceCard {
   id: string;
   ideaId: string;
   sessionId: string;
   date: ISODate;
-  /** Ordem do card dentro da ideia, começando em 0. */
+  /** Ordem do parágrafo dentro do texto, começando em 0. */
   position: number;
   content: string;
   createdAt: ISODateTime;
   /** Comentário da IA sobre a estrutura do texto (gramática, ortografia, sintaxe e semântica). */
   analysis?: string;
   analysisAt?: ISODateTime;
-  /** O texto do card quando o comentário foi gerado, para avisar se ele mudou depois. */
+  /** O texto do parágrafo quando o comentário foi gerado, para avisar se ele mudou depois. */
   analysisOf?: string;
 }
 
-/** Vocabulário só para entender o card. Nunca entra na repetição espaçada. */
+/** Vocabulário só para entender o texto. Nunca entra na repetição espaçada. */
 export interface ComprehensionVocab {
   id: string;
   ideaId: string;
@@ -144,11 +173,19 @@ export interface ChunkReview {
   createdAt: ISODateTime;
 }
 
+/**
+ * daily: retell da sessão; aloud: leitura em voz alta de um parágrafo; weekly: fala do
+ * fechamento do ciclo; book: explicação de uma fonte inteira.
+ */
+export type SpeakingKind = 'daily' | 'aloud' | 'weekly' | 'book';
+
 export interface SpeakingSession {
   id: string;
-  kind: 'daily' | 'weekly' | 'book';
-  /** Livro explicado, quando `kind` é 'book'. */
+  kind: SpeakingKind;
+  /** Fonte explicada, quando `kind` é 'book'. */
   bookKey?: string;
+  /** Parágrafo lido em voz alta, quando `kind` é 'aloud'. */
+  cardId?: string;
   sessionId: string | null;
   ideaId: string | null;
   date: ISODate;
@@ -168,7 +205,7 @@ export interface Reflection {
   userOpinion: string;
   /** SO WHAT? — What will I do differently? */
   soWhat: string;
-  /** Rascunho em português da opinião: organiza a ideia antes de escrever em inglês. */
+  /** Rascunho em português da opinião: organiza o raciocínio antes de escrever em inglês. */
   opinionPt?: string;
   /** Rascunho em português da ação. */
   soWhatPt?: string;
@@ -219,7 +256,7 @@ export interface VerbDrill {
   translation?: string;
 }
 
-/** Um verbo encontrado no texto de uma ideia, com suas formas e exercícios. */
+/** Um verbo encontrado no texto, com suas formas e exercícios. */
 export interface VerbEntry {
   id: string;
   ideaId: string;
@@ -232,7 +269,7 @@ export interface VerbEntry {
   /** Como aparece no texto, e em que tempo ou forma. */
   textForm: string;
   textTense: string;
-  /** A frase do card em que ele aparece. */
+  /** A frase do texto em que ele aparece. */
   sentence: string;
   /** Só os verbos selecionados entram nos exercícios. */
   selected: boolean;
@@ -247,7 +284,7 @@ export interface SentenceTranslation {
   createdAt: ISODateTime;
 }
 
-/** Uma mensagem da conversa com a IA sobre uma ideia. */
+/** Uma mensagem da conversa com a IA sobre um texto. */
 export interface ChatMessage {
   id: string;
   ideaId: string;
@@ -275,11 +312,11 @@ export interface Recording {
 
 export type FollowUpStatus = 'done' | 'partly' | 'not';
 
-/** Fechamento de um livro. A chave é o título normalizado (ver domain/books). */
+/** Fechamento de uma fonte. A chave é o nome normalizado (ver domain/books). */
 export interface BookNote {
   id: string;
   title: string;
-  /** O que fica do livro, nas palavras do usuário, em inglês. */
+  /** O que fica da fonte, nas palavras do usuário, em inglês. */
   takeaway: string;
   finishedAt: ISODateTime | null;
   updatedAt: ISODateTime;

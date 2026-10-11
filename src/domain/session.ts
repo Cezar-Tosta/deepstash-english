@@ -1,5 +1,5 @@
 import { formatDate } from './dates';
-import type { StepId, ISODate } from './types';
+import type { ISODate, Skill, StepId } from './types';
 
 /** Limite rígido do método: no máximo 3 chunks novos por dia. */
 export const MAX_CHUNKS_PER_DAY = 3;
@@ -12,7 +12,18 @@ export interface StepDef {
   frequency: string;
   /** Tempo sugerido, em minutos. */
   minutes: number;
+  /** Habilidade trabalhada na etapa. Revisão, registro do texto e encerramento não têm uma. */
+  skill: Skill | null;
 }
+
+export const SKILL_LABELS: Record<Skill, string> = {
+  listening: 'Listening',
+  reading: 'Reading',
+  speaking: 'Speaking',
+  writing: 'Writing',
+};
+
+export const SKILLS: readonly Skill[] = ['listening', 'reading', 'speaking', 'writing'];
 
 const DAILY = 'Dias 1 a 5 do ciclo';
 
@@ -20,16 +31,17 @@ const DAILY = 'Dias 1 a 5 do ciclo';
 export const SESSION_DAYS_PER_WEEK = 5;
 
 export const STEPS: readonly StepDef[] = [
-  { id: 'review', label: 'REVIEW', hint: 'Recupere antes de olhar.', frequency: `${DAILY}, antes de ler`, minutes: 5 },
-  { id: 'read', label: 'READ', hint: 'Leia as ideias sem traduzir primeiro.', frequency: DAILY, minutes: 8 },
-  { id: 'focus', label: 'IDEA OF THE DAY', hint: 'Escolha uma ideia para aprofundar.', frequency: DAILY, minutes: 1 },
-  { id: 'check', label: 'CHECK', hint: 'Confirme a compreensão.', frequency: DAILY, minutes: 3 },
-  { id: 'mine', label: 'MINE', hint: 'Até 3 chunks úteis.', frequency: `${DAILY}, no máximo 3 chunks`, minutes: 3 },
-  { id: 'retell', label: 'RETELL', hint: 'Explique sem olhar.', frequency: DAILY, minutes: 3 },
-  { id: 'personalize', label: 'PERSONALIZE', hint: 'Use o inglês.', frequency: DAILY, minutes: 3 },
-  { id: 'reflect', label: 'REFLECT', hint: 'Do I agree?', frequency: DAILY, minutes: 2 },
-  { id: 'sowhat', label: 'SO WHAT?', hint: 'Transforme em ação.', frequency: DAILY, minutes: 1 },
-  { id: 'schedule', label: 'SCHEDULE REVIEW', hint: 'Agende e encerre.', frequency: DAILY, minutes: 1 },
+  { id: 'review', label: 'REVIEW', hint: 'Recupere antes de olhar.', frequency: `${DAILY}, antes de ler`, minutes: 4, skill: null },
+  { id: 'text', label: 'TEXT', hint: 'Registre o texto do dia, sem ler ainda.', frequency: DAILY, minutes: 1, skill: null },
+  { id: 'listen', label: 'LISTEN', hint: 'Ouça antes de ler.', frequency: DAILY, minutes: 5, skill: 'listening' },
+  { id: 'read', label: 'READ', hint: 'Leia e confirme a compreensão.', frequency: DAILY, minutes: 5, skill: 'reading' },
+  { id: 'mine', label: 'MINE', hint: 'Até 3 chunks úteis.', frequency: `${DAILY}, no máximo 3 chunks`, minutes: 3, skill: 'reading' },
+  { id: 'aloud', label: 'READ ALOUD', hint: 'Ouça o modelo e leia em voz alta.', frequency: DAILY, minutes: 3, skill: 'speaking' },
+  { id: 'retell', label: 'RETELL', hint: 'Explique sem olhar.', frequency: DAILY, minutes: 3, skill: 'speaking' },
+  { id: 'personalize', label: 'PERSONALIZE', hint: 'Use o inglês.', frequency: DAILY, minutes: 2, skill: 'writing' },
+  { id: 'reflect', label: 'REFLECT', hint: 'Do I agree?', frequency: DAILY, minutes: 2, skill: 'writing' },
+  { id: 'sowhat', label: 'SO WHAT?', hint: 'Transforme em ação.', frequency: DAILY, minutes: 1, skill: 'writing' },
+  { id: 'schedule', label: 'SCHEDULE REVIEW', hint: 'Agende e encerre.', frequency: DAILY, minutes: 1, skill: null },
 ];
 
 export interface RoutineItem {
@@ -43,7 +55,7 @@ export const ROUTINE: readonly RoutineItem[] = [
   {
     activity: 'Sessão de estudo',
     frequency: 'Dias 1 a 5 do ciclo',
-    detail: `${STEPS.reduce((sum, s) => sum + s.minutes, 0)} min: as 10 etapas, do REVIEW ao SCHEDULE REVIEW.`,
+    detail: `${STEPS.reduce((sum, s) => sum + s.minutes, 0)} min: as ${STEPS.length} etapas, do REVIEW ao SCHEDULE REVIEW, passando por listening, reading, speaking e writing.`,
   },
   {
     activity: 'Dias de revisão',
@@ -64,12 +76,12 @@ export const ROUTINE: readonly RoutineItem[] = [
   {
     activity: 'Fechamento do ciclo',
     frequency: 'Dia 5 do ciclo',
-    detail: 'Depois da última sessão do ciclo: relembrar as ideias, Top 3, ouvir suas falas, fala livre e texto de 80 a 120 palavras.',
+    detail: 'Depois da última sessão do ciclo: relembrar os textos, Top 3, ouvir suas falas, fala livre e texto de 80 a 120 palavras.',
   },
   {
-    activity: 'Fechamento do livro',
-    frequency: 'Ao terminar cada livro',
-    detail: 'Explicar o livro em 2 minutos e escrever o que fica dele.',
+    activity: 'Fechamento da fonte',
+    frequency: 'Ao terminar uma fonte',
+    detail: 'Quando vários textos vêm da mesma fonte (um livro, um curso, um site): explicá-la em 2 minutos e escrever o que fica dela.',
   },
   {
     activity: 'Fases',
@@ -130,9 +142,10 @@ export function looksLikeSingleWord(text: string): boolean {
 }
 
 export interface ProgressInput {
-  /** Ideias lidas hoje. Não há meta numérica: basta ter lido ao menos uma. */
+  /** Textos registrados hoje. Basta um. */
   ideas: number;
-  hasIdeaOfDay: boolean;
+  /** Ouviu o texto e anotou o que entendeu, ou fez o ditado. */
+  listened: boolean;
   hasMainIdea: boolean;
   chunks: number;
   sentences: number;
@@ -145,7 +158,7 @@ export interface ProgressInput {
 export function sessionProgress(p: ProgressInput): number {
   const parts = [
     p.ideas > 0 ? 1 : 0,
-    p.hasIdeaOfDay ? 1 : 0,
+    p.listened ? 1 : 0,
     p.hasMainIdea ? 1 : 0,
     Math.min(p.chunks, MAX_CHUNKS_PER_DAY) / MAX_CHUNKS_PER_DAY,
     Math.min(p.sentences, MAX_CHUNKS_PER_DAY) / MAX_CHUNKS_PER_DAY,

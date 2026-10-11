@@ -30,12 +30,12 @@ const PROVIDERS: readonly { value: AIProviderKind; label: string }[] = [
 // ---------- Backup ----------
 
 async function deliver(backup: BackupFile): Promise<void> {
-  const name = `deepstash-english-${backup.exportedAt.slice(0, 10)}.json`;
+  const name = `english-study-${backup.exportedAt.slice(0, 10)}.json`;
   const file = new File([JSON.stringify(backup, null, 2)], name, { type: 'application/json' });
   // No celular, a folha de compartilhamento deixa salvar em Arquivos, Drive, e-mail etc.
   if (navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: 'Backup Deepstash English' });
+      await navigator.share({ files: [file], title: 'Backup English Study System' });
       return;
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') throw error;
@@ -219,7 +219,7 @@ function AISection({ saved }: { saved: AISettings }) {
               placeholder={GROQ_DEFAULT_MODEL}
             />
             <TextInput
-              label="Modelo de visão (para ler screenshots de cards)"
+              label="Modelo de visão (para ler o texto de fotos e screenshots)"
               autoComplete="off"
               value={draft.visionModel ?? ''}
               onChange={(visionModel) => patch({ visionModel })}
@@ -389,7 +389,7 @@ export function SettingsPage() {
         </Card>
       )}
 
-      <p className="col-span-full text-center text-xs text-muted">Deepstash English Study System · v{__APP_VERSION__}</p>
+      <p className="col-span-full text-center text-xs text-muted">English Study System · v{__APP_VERSION__}</p>
     </div>
   );
 }

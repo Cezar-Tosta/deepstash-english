@@ -150,7 +150,7 @@ export function DaySummary({ sessionId }: { sessionId: string }) {
                       <span className="font-serif break-words" lang="en">
                         {text}
                       </span>
-                      <span className="block text-xs text-muted">não usado ao recontar a ideia</span>
+                      <span className="block text-xs text-muted">não usado ao recontar o texto</span>
                     </li>
                   ))}
                 </ul>

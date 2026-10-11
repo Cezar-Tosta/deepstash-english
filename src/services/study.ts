@@ -11,7 +11,7 @@ import type { BookNote, Chunk, ComprehensionVocab, FollowUpStatus, Idea, ISODate
 import { getCycleInfo } from './cycles';
 import { DomainError } from './errors';
 
-// ---------- Livros ----------
+// ---------- Fontes ----------
 
 export async function listBooks(): Promise<BookSummary[]> {
   const [ideas, cards] = await Promise.all([db.ideas.toArray(), db.cards.toArray()]);
@@ -21,7 +21,7 @@ export async function listBooks(): Promise<BookSummary[]> {
 export interface BookDetail {
   book: BookSummary;
   note: BookNote | null;
-  /** Ideias do livro escolhidas como Idea of the Day em alguma sessão. */
+  /** Textos da fonte estudados em alguma sessão. */
   studiedIdeaIds: Set<string>;
 }
 
@@ -43,7 +43,7 @@ export function saveBookNote(key: string, title: string, patch: Partial<Pick<Boo
   });
 }
 
-/** Ideia anterior e seguinte dentro do mesmo livro, para ler o livro em sequência. */
+/** Texto anterior e seguinte da mesma fonte, para ler a fonte em sequência. */
 export async function getNeighbors(idea: Idea): Promise<{ prev: Idea | null; next: Idea | null }> {
   const book = (await listBooks()).find((b) => b.key === bookKey(idea.bookTitle));
   const index = book?.ideas.findIndex((i) => i.id === idea.id) ?? -1;
@@ -113,7 +113,7 @@ export function addToDictionary(input: DictionaryInput): Promise<ComprehensionVo
     const term = input.term.trim();
     if (!term) throw new DomainError('Selecione uma palavra ou expressão.');
     const idea = await db.ideas.get(input.ideaId);
-    if (!idea) throw new DomainError('Ideia não encontrada.');
+    if (!idea) throw new DomainError('Texto não encontrado.');
 
     const existing = (await db.vocab.where('ideaId').equals(idea.id).toArray()).find(
       (v) => sameText(v.term, term) && sameText(v.context, input.context),
@@ -144,7 +144,7 @@ export async function findInDictionary(term: string, context: string): Promise<C
   return all.find((v) => sameText(v.term, term) && sameText(v.context, context) && v.meaning) ?? null;
 }
 
-/** Todas as entradas salvas para este termo, em qualquer ideia ou frase. */
+/** Todas as entradas salvas para este termo, em qualquer texto ou frase. */
 export async function findEntries(term: string): Promise<ComprehensionVocab[]> {
   const all = await db.vocab.toArray();
   return all.filter((v) => sameText(v.term, term)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -158,7 +158,7 @@ export async function findChunks(term: string): Promise<Chunk[]> {
 
 /**
  * Exclui o termo do dicionário por inteiro: todos os registros dele, de qualquer
- * ideia ou frase. Com isso ele deixa de aparecer destacado em todos os textos.
+ * texto ou frase. Com isso ele deixa de aparecer destacado em todos os textos.
  */
 export function deleteTerm(term: string): Promise<number> {
   return db.transaction('rw', db.vocab, db.practiceStats, async () => {
@@ -208,7 +208,7 @@ export interface GlossaryEntry {
   senses: Sense[];
 }
 
-/** Dicionário e chunks de todas as ideias, agrupados por termo. */
+/** Dicionário e chunks de todos os textos, agrupados por termo. */
 export async function loadGlossary(): Promise<GlossaryEntry[]> {
   const [vocab, chunks] = await Promise.all([db.vocab.toArray(), db.chunks.toArray()]);
   const byKey = new Map<string, GlossaryEntry>();

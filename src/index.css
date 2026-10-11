@@ -17,6 +17,11 @@
   --color-danger: var(--danger);
   --color-good: var(--good);
   --color-chart: var(--chart);
+  /* As quatro habilidades, nas faixas do stepper e no progresso. */
+  --color-listening: var(--listening);
+  --color-reading: var(--reading);
+  --color-speaking: var(--speaking);
+  --color-writing: var(--writing);
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, ui-serif, serif;
@@ -37,6 +42,10 @@
   --danger: #a23b3b;
   --good: #2e6b4a;
   --chart: #0e8aa8;
+  --listening: #2f7fb5;
+  --reading: #2e8a5c;
+  --speaking: #b7791f;
+  --writing: #b0466a;
 }
 
 .dark {
@@ -54,6 +63,10 @@
   --danger: #e89a9a;
   --good: #8fcfa9;
   --chart: #0e8aa8;
+  --listening: #7db8e0;
+  --reading: #7fcca3;
+  --speaking: #e5b567;
+  --writing: #e391ad;
 }
 
 /* Nada pode empurrar a página para os lados: textos longos quebram em vez de vazar. */

@@ -10,16 +10,16 @@ import { RichText } from './RichText';
 import { Button, Eyebrow, Hint, Spinner, StarterChips, TextArea } from './ui';
 
 const STARTERS = [
-  'Qual é o ponto mais forte desta ideia?',
+  'Qual é o ponto mais forte deste texto?',
   'O que um crítico diria?',
   'Dê um exemplo da vida real.',
   'Como aplico isso no meu trabalho?',
-  'Com que outras ideias isso se conecta?',
+  'Com que outras ideias este texto se conecta?',
 ] as const;
 
 /**
- * Conversa com a IA sobre uma ideia. A IA conhece os cards, a ideia principal e o
- * que o usuário já escreveu. A conversa fica guardada junto com a ideia.
+ * Conversa com a IA sobre um texto. A IA conhece o texto, a ideia principal e o
+ * que o usuário já escreveu. A conversa fica guardada junto com o texto.
  */
 export function IdeaChat({ ideaId }: { ideaId: string }) {
   const settings = useSettings();
@@ -42,7 +42,7 @@ export function IdeaChat({ ideaId }: { ideaId: string }) {
   if (!isAIConfigured(settings.ai)) {
     return (
       <section className="rounded-2xl border border-line bg-surface p-4">
-        <Eyebrow>Conversar sobre esta ideia</Eyebrow>
+        <Eyebrow>Conversar sobre este texto</Eyebrow>
         <p className="mt-2 text-sm text-muted">
           Com a IA configurada, você pode conversar sobre esta ideia e pedir exemplos, contrapontos e conexões.{' '}
           <Link to="/settings" className="text-accent underline underline-offset-2">
@@ -89,7 +89,7 @@ export function IdeaChat({ ideaId }: { ideaId: string }) {
   return (
     <section className="rounded-2xl border border-line bg-surface p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Eyebrow>Conversar sobre esta ideia</Eyebrow>
+        <Eyebrow>Conversar sobre este texto</Eyebrow>
         {messages.length > 0 &&
           (confirmingClear ? (
             <span role="alert" className="flex flex-wrap items-center gap-2 text-sm">

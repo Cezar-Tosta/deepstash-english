@@ -18,7 +18,8 @@ describe('orientação da IA por etapa', () => {
     const { system, user } = buildCoachPrompt(base);
     expect(system).toContain('MINE');
     expect(system).toContain('Fase 2 de 4');
-    expect(user).toContain('Livro: Getting Things Done');
+    expect(user).toContain('Fonte: Getting Things Done');
+    expect(user).toContain('Título: Thought Into Action');
     expect(user).toContain('Your mind is for having ideas');
     expect(user).toContain('Chunks escolhidos: one thing at a time');
   });
@@ -27,6 +28,12 @@ describe('orientação da IA por etapa', () => {
     expect(buildCoachPrompt({ ...base, step: 'retell' }).system).toContain('roteiro');
     expect(buildCoachPrompt({ ...base, step: 'reflect' }).system).toContain('ângulos');
     expect(buildCoachPrompt({ ...base, step: 'sowhat' }).system).toContain('ação');
+    expect(buildCoachPrompt({ ...base, step: 'aloud' }).system).toContain('pronúncia');
+  });
+
+  it('no LISTEN o aluno ainda não leu: a IA orienta a escuta sem revelar o texto', () => {
+    expect(buildCoachPrompt({ ...base, step: 'listen' }).system).toContain('não revele o conteúdo');
+    expect(buildCoachPrompt({ ...base, step: 'read' }).system).not.toContain('não revele o conteúdo');
   });
 
   it('orienta sem entregar a resposta, e considera o que o aluno já escreveu', () => {
@@ -41,7 +48,7 @@ describe('orientação da IA por etapa', () => {
   });
 });
 
-describe('leitura de imagem por card', () => {
+describe('leitura de imagem por parágrafo', () => {
   it('remove cerca de código e aspas em volta do texto, sem mexer no conteúdo', async () => {
     const { cleanCardText } = await import('./coach');
     expect(cleanCardText('```\nDo one thing at a time.\n```')).toBe('Do one thing at a time.');
@@ -91,7 +98,7 @@ describe('rascunho em português', () => {
   });
 });
 
-describe('importação por imagens com qualquer quantidade de cards', () => {
+describe('importação por imagens com qualquer quantidade de parágrafos', () => {
   it('junta os lotes mantendo a ordem e o primeiro título encontrado', async () => {
     const { mergeImported } = await import('./coach');
     expect(

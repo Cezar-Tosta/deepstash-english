@@ -19,7 +19,7 @@ export interface SuggestionInput {
   hardItems: number;
   /** Dias desde o último exercício; null se nunca treinou. */
   daysSincePractice: number | null;
-  /** Ideas of the Day já estudadas neste ciclo. */
+  /** Textos já estudados neste ciclo. */
   weekIdeas: number;
   weeklyDone: boolean;
 }
@@ -76,7 +76,7 @@ export function suggestToday(input: SuggestionInput): Suggestion[] {
       detail: [
         noCycle && 'Não há ciclo em andamento: a sessão de hoje abre um ciclo de 7 dias.',
         input.dueReviews > 0 && `Começa por ${plural(input.dueReviews, 'revisão', 'revisões')}.`,
-        'Leia as ideias no Deepstash, aprofunde uma, guarde até 3 chunks e reconte em voz alta',
+        'Ouça o texto do dia, leia, guarde até 3 chunks, leia em voz alta, reconte e escreva',
         `(meta de fala: ${input.speakingLabel}).`,
       ]
         .filter(Boolean)
@@ -126,7 +126,7 @@ export function suggestToday(input: SuggestionInput): Suggestion[] {
     plan.push({
       id: 'weekly',
       title: 'Feche o ciclo',
-      detail: `Relembre ${plural(input.weekIdeas, 'ideia', 'ideias')}, escolha as melhores, ouça suas falas e fale 2 a 3 minutos.`,
+      detail: `Relembre ${plural(input.weekIdeas, 'texto', 'textos')}, escolha os melhores, ouça suas falas e fale 2 a 3 minutos.`,
       minutes: 20,
       to: '/weekly',
     });

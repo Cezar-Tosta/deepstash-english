@@ -7,23 +7,25 @@ import { Card, Eyebrow, PageTitle } from '../components/ui';
 /** O essencial de cada etapa, em uma linha. */
 const STEP_ACTION: Record<StepId, string> = {
   review: 'Lembre a expressão e diga uma frase; só então revele.',
-  read: 'Leia as ideias em inglês, sem traduzir. Registre livro, título e ideia principal.',
-  focus: 'Escolha uma ideia para aprofundar.',
-  check: 'Resuma em uma frase em inglês; depois confira a tradução.',
+  text: 'Cole o texto do dia (título, fonte opcional e parágrafos), sem ler ainda.',
+  listen: 'Ouça o texto sem ler, anote o que entendeu e faça o ditado de 3 frases dele.',
+  read: 'Leia em inglês, clique no que não souber, resuma em uma frase; só então traduza.',
   mine: `Guarde até ${MAX_CHUNKS_PER_DAY} expressões reutilizáveis.`,
-  retell: 'Feche o Deepstash e reconte a ideia em voz alta.',
+  aloud: 'Ouça o modelo de um parágrafo e grave a sua leitura em voz alta.',
+  retell: 'Esconda o texto e reconte-o em voz alta.',
   personalize: 'Escreva uma frase sua com cada chunk.',
   reflect: 'Concordo? Por quê? Rascunhe em português, escreva em inglês.',
   sowhat: 'Defina uma ação concreta: “I’ll…”.',
   schedule: 'Confira as próximas revisões e finalize.',
 };
 
-/** As etapas agrupadas nos quatro movimentos do método. */
+/** As etapas agrupadas pelas habilidades que trabalham. */
 const PHASES: { name: string; steps: StepId[] }[] = [
-  { name: 'Recuperar', steps: ['review'] },
-  { name: 'Ler e entender', steps: ['read', 'focus', 'check'] },
-  { name: 'Guardar', steps: ['mine'] },
-  { name: 'Produzir', steps: ['retell', 'personalize', 'reflect', 'sowhat', 'schedule'] },
+  { name: 'Recuperar e preparar', steps: ['review', 'text'] },
+  { name: 'Listening', steps: ['listen'] },
+  { name: 'Reading', steps: ['read', 'mine'] },
+  { name: 'Speaking', steps: ['aloud', 'retell'] },
+  { name: 'Writing e encerramento', steps: ['personalize', 'reflect', 'sowhat', 'schedule'] },
 ];
 
 const AFTER: { when: string; what: string; to: string }[] = [
@@ -32,7 +34,7 @@ const AFTER: { when: string; what: string; to: string }[] = [
   { when: '2 a 3× por ciclo', what: 'Treino e flashcards', to: '/practice' },
   { when: 'Dias 6 e 7 do ciclo', what: 'Só revisões', to: '/review' },
   { when: 'Dia 5 do ciclo', what: 'Fechamento do ciclo', to: '/weekly' },
-  { when: 'Fim do livro', what: 'Explicar o livro', to: '/knowledge' },
+  { when: 'Fim de uma fonte', what: 'Explicar a fonte', to: '/knowledge' },
   { when: 'A cada ciclo de 7 dias', what: 'Sobe a fase (meta de fala)', to: '/settings' },
   { when: 'Quando quiser', what: 'Rever os pontos críticos', to: '/focus' },
 ];
@@ -70,32 +72,32 @@ export function ManualPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <PageTitle eyebrow="Manual" title="O fluxo de estudos">
-        Livro → ideias → cards. Em tudo, você tenta primeiro; tradução e IA vêm depois.
+        Um texto por dia, trabalhado nas quatro habilidades. Em tudo, você tenta primeiro; tradução e IA vêm depois.
       </PageTitle>
 
       <Card>
         <Eyebrow>Visão geral</Eyebrow>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <Box title="Ouvir" to="/session">
+            o texto, antes de ler
+          </Box>
+          <span className="hidden sm:flex">
+            <Arrow />
+          </span>
           <Box title="Ler" to="/session">
-            as ideias do dia
+            e guardar {MAX_CHUNKS_PER_DAY} chunks
           </Box>
           <span className="hidden sm:flex">
             <Arrow />
           </span>
-          <Box title="Aprofundar 1" to="/session">
-            Idea of the Day
+          <Box title="Falar" to="/session">
+            em voz alta e recontar
           </Box>
           <span className="hidden sm:flex">
             <Arrow />
           </span>
-          <Box title={`Guardar ${MAX_CHUNKS_PER_DAY}`} to="/session">
-            chunks úteis
-          </Box>
-          <span className="hidden sm:flex">
-            <Arrow />
-          </span>
-          <Box title="Falar 1" to="/session">
-            vez, em voz alta
+          <Box title="Escrever" to="/session">
+            frases e opinião
           </Box>
           <span className="hidden sm:flex">
             <Arrow />
@@ -159,7 +161,7 @@ export function ManualPage() {
           ))}
         </ol>
         <p className="mt-3 text-sm text-muted">
-          A qualquer momento: em Knowledge, abra uma ideia e clique nas palavras dos cards para ver a tradução e montar o dicionário.
+          A qualquer momento: em Knowledge, abra um texto e clique nas palavras para ver a tradução e montar o dicionário.
         </p>
       </Card>
 
@@ -168,7 +170,7 @@ export function ManualPage() {
         <ol className="mt-2 list-inside list-decimal space-y-1 text-sm">
           <li>Tente antes de revelar, traduzir ou pedir ajuda à IA.</li>
           <li>Poucas expressões, bem aprendidas: no máximo {MAX_CHUNKS_PER_DAY} chunks por dia.</li>
-          <li>Constância vale mais que quantidade: uma ideia por dia útil já conta, com quantos cards ela tiver.</li>
+          <li>Constância vale mais que quantidade: um texto curto por dia útil, trabalhado nas quatro habilidades, já conta.</li>
         </ol>
       </Card>
 

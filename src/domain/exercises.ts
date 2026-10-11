@@ -198,7 +198,7 @@ export interface StudyItem {
   wordClass: string;
   /** Explicação do uso naquele contexto, quando registrada. */
   explanation: string;
-  /** Frases em que o termo aparece (do card ou escritas pelo usuário). Nunca vazio. */
+  /** Frases em que o termo aparece (do texto ou escritas pelo usuário). Nunca vazio. */
   sentences: string[];
   source: ItemSource;
   right: number;
@@ -222,7 +222,7 @@ export function difficultyOf(stat: PracticeStat | undefined, reviews: readonly C
 
 /**
  * Os termos treináveis. Nenhum exercício mostra palavra solta, então só entra o
- * termo que tem pelo menos uma frase registrada (o contexto do card ou uma frase
+ * termo que tem pelo menos uma frase registrada (o contexto no texto ou uma frase
  * do usuário).
  */
 export function studyItems(m: PracticeMaterial): StudyItem[] {
@@ -453,7 +453,7 @@ export interface VerbDifficulty {
 
 /**
  * Os verbos em que o usuário mais erra nos exercícios de tempo verbal, somando
- * todas as frases do verbo (em todas as ideias). Só entram verbos com mais erros
+ * todas as frases do verbo (em todos os textos). Só entram verbos com mais erros
  * do que a metade dos acertos, do pior para o melhor.
  */
 export function hardestVerbs(verbs: readonly VerbEntry[], stats: readonly PracticeStat[], count: number): VerbDifficulty[] {

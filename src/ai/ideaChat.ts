@@ -22,16 +22,16 @@ export interface IdeaChatContext {
 
 export function buildChatSystem(ctx: IdeaChatContext): string {
   return [
-    'Você conversa com um brasileiro que estuda inglês lendo ideias de livros (Deepstash). O assunto da conversa é a ideia abaixo.',
-    'Seu papel é ajudar a pensar: traga insights, exemplos concretos, conexões com outras áreas, contrapontos e perguntas que aprofundem. Baseie-se no texto dos cards e deixe claro quando algo for conhecimento seu, de fora do texto.',
+    'Você conversa com um brasileiro que estuda inglês a partir de textos que ele escolhe. O assunto da conversa é o texto abaixo.',
+    'Seu papel é ajudar a pensar: traga insights, exemplos concretos, conexões com outras áreas, contrapontos e perguntas que aprofundem. Baseie-se no texto e deixe claro quando algo for conhecimento seu, de fora do texto.',
     'Responda SEMPRE em português do Brasil, inclusive quando ele escrever em inglês e inclusive nas perguntas que você fizer. Palavras e trechos do texto original podem ser citados em inglês, entre aspas, seguidos da tradução.',
     'Se ele escrever em inglês, acrescente no fim uma linha iniciada por "Inglês:" apontando, em português, no máximo dois erros relevantes da mensagem dele (ou nada, se não houver).',
     'Seja direto: até 150 palavras por resposta, a não ser que ele peça mais. Termine, quando fizer sentido, com uma pergunta que o faça avançar.',
-    // Só entram as partes que existem para esta ideia.
+    // Só entram as partes que existem para este texto.
     ...[
-      ctx.bookTitle && `Livro: ${ctx.bookTitle}`,
-      `Ideia: ${ctx.ideaTitle}`,
-      ctx.cardsText && `Texto dos cards:\n${ctx.cardsText.slice(0, CARDS_LIMIT)}`,
+      ctx.bookTitle && `Fonte: ${ctx.bookTitle}`,
+      `Título: ${ctx.ideaTitle}`,
+      ctx.cardsText && `Texto:\n${ctx.cardsText.slice(0, CARDS_LIMIT)}`,
       ctx.mainIdea && `Ideia principal, nas palavras dele: ${ctx.mainIdea}`,
       ctx.opinion && `Opinião que ele escreveu: ${ctx.opinion}`,
       ctx.soWhat && `Ação que ele se propôs: ${ctx.soWhat}`,
@@ -40,7 +40,7 @@ export function buildChatSystem(ctx: IdeaChatContext): string {
   ].join('\n');
 }
 
-/** Junta o que se sabe da ideia para dar contexto à conversa. */
+/** Junta o que se sabe do texto para dar contexto à conversa. */
 export async function loadChatContext(ideaId: string): Promise<IdeaChatContext | null> {
   const idea = await db.ideas.get(ideaId);
   if (!idea) return null;
@@ -80,7 +80,7 @@ export async function sendChatMessage(ideaId: string, text: string, provider?: A
   const content = text.trim();
   if (!content) return;
   const context = await loadChatContext(ideaId);
-  if (!context) throw new AIError('Ideia não encontrada.');
+  if (!context) throw new AIError('Texto não encontrado.');
   await store(ideaId, 'user', content);
   await answer(ideaId, context, provider);
 }
@@ -88,7 +88,7 @@ export async function sendChatMessage(ideaId: string, text: string, provider?: A
 /** Pede de novo a resposta para a última mensagem do usuário, depois de uma falha. */
 export async function retryChat(ideaId: string, provider?: AIProvider): Promise<void> {
   const context = await loadChatContext(ideaId);
-  if (!context) throw new AIError('Ideia não encontrada.');
+  if (!context) throw new AIError('Texto não encontrado.');
   await answer(ideaId, context, provider);
 }
 

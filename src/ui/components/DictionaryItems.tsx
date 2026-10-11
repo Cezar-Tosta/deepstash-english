@@ -135,7 +135,7 @@ export function useClassFilter(entries: readonly ComprehensionVocab[]): [(entry:
   return [matches, filter];
 }
 
-/** O dicionário de uma ideia: filtra por tipo; clicar num item mostra o contexto e permite excluí-lo. */
+/** O dicionário de um texto: filtra por tipo; clicar num item mostra o contexto e permite excluí-lo. */
 export function IdeaDictionary({ entries }: { entries: readonly ComprehensionVocab[] }) {
   const [matches, filter] = useClassFilter(entries);
   return (

@@ -36,7 +36,7 @@ export interface IdeaListItem {
   chunks: string[];
 }
 
-/** Pesquisa por título, livro, tema, palavra dos cards, chunk ou data (dd/mm/aaaa ou aaaa-mm-dd). */
+/** Pesquisa por título, fonte, tema, palavra do texto, chunk ou data (dd/mm/aaaa ou aaaa-mm-dd). */
 export async function searchIdeas(query: string, onlyIdeaOfDay: boolean): Promise<IdeaListItem[]> {
   const [ideas, cards, sessions, chunks] = await Promise.all([
     db.ideas.toArray(),
@@ -110,7 +110,7 @@ export async function getIdeaDetail(ideaId: string): Promise<IdeaDetail | null> 
     db.speaking.where('ideaId').equals(ideaId).toArray(),
     db.reflections.where('ideaId').equals(ideaId).first(),
   ]);
-  // A página da Idea of the Day mostra os 3 chunks do dia, que saem do conjunto das ideias lidas.
+  // A página do texto estudado mostra os chunks do dia, mesmo os que vieram de outro texto da sessão.
   const chunks = (isIdeaOfDay ? sessionChunks : ownChunks).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return {
     idea,
@@ -158,14 +158,16 @@ export async function searchChunks(query: string, filter: ChunkFilter, date: ISO
 
 /** Os dados são locais e pequenos; carregar tudo e calcular no domínio mantém as regras testáveis. */
 export async function loadStatsInput(): Promise<StatsInput> {
-  const [sessions, ideas, cards, chunks, reviews, speaking, cycleStarts] = await Promise.all([
+  const [sessions, ideas, cards, chunks, reviews, speaking, reflections, writings, cycleStarts] = await Promise.all([
     db.sessions.toArray(),
     db.ideas.toArray(),
     db.cards.toArray(),
     db.chunks.toArray(),
     db.reviews.toArray(),
     db.speaking.toArray(),
+    db.reflections.toArray(),
+    db.writings.toArray(),
     getCycleStarts(),
   ]);
-  return { sessions, ideas, cards, chunks, reviews, speaking, cycleStarts };
+  return { sessions, ideas, cards, chunks, reviews, speaking, reflections, writings, cycleStarts };
 }

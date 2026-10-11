@@ -1,6 +1,6 @@
 import type { Idea, ISODate, SourceCard } from './types';
 
-/** Chave estável de um livro: o título sem acentos, caixa ou espaços sobrando. */
+/** Chave estável de uma fonte: o nome sem acentos, caixa ou espaços sobrando. */
 export function bookKey(title: string): string {
   return title
     .normalize('NFD')
@@ -10,7 +10,7 @@ export function bookKey(title: string): string {
     .trim();
 }
 
-export const NO_BOOK_TITLE = 'Sem livro';
+export const NO_BOOK_TITLE = 'Sem fonte';
 
 export interface BookSummary {
   key: string;
@@ -23,9 +23,8 @@ export interface BookSummary {
 }
 
 /**
- * Livro → ideias → cards. O livro é o título informado em cada ideia; ideias com o
- * mesmo título (ignorando caixa e acentos) pertencem ao mesmo livro. Os mais
- * recentes vêm primeiro.
+ * Fonte → textos → parágrafos. A fonte é o nome informado em cada texto; textos com a
+ * mesma fonte (ignorando caixa e acentos) ficam juntos. As mais recentes vêm primeiro.
  */
 export function groupByBook(ideas: readonly Idea[], cards: readonly SourceCard[]): BookSummary[] {
   const cardsPerIdea = new Map<string, number>();

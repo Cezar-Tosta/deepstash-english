@@ -14,15 +14,15 @@ import { useToday } from '../hooks';
 type Tab = 'books' | 'ideas' | 'english' | 'dictionary';
 
 const TABS: readonly { value: Tab; label: string }[] = [
-  { value: 'books', label: 'Livros' },
-  { value: 'ideas', label: 'Ideias' },
+  { value: 'ideas', label: 'Textos' },
+  { value: 'books', label: 'Fontes' },
   { value: 'english', label: 'My English' },
   { value: 'dictionary', label: 'Dicionário' },
 ];
 
 const SEARCH: Record<Tab, string> = {
-  books: 'Pesquisar livro…',
-  ideas: 'Título, livro, tema, palavra dos cards, chunk ou data…',
+  books: 'Pesquisar fonte…',
+  ideas: 'Título, fonte, tema, palavra do texto, chunk ou data…',
   english: 'Pesquisar expressão…',
   dictionary: 'Pesquisar palavra ou significado…',
 };
@@ -41,7 +41,7 @@ const PAGE = 60;
 
 const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
-/** Livro → ideias → cards: a entrada principal da biblioteca. */
+/** As fontes (livro, site, autor...) com os textos de cada uma. */
 function BookList({ query }: { query: string }) {
   const books = useLiveQuery(listBooks, []);
   const q = query.trim().toLowerCase();
@@ -50,8 +50,8 @@ function BookList({ query }: { query: string }) {
   return (
     <div className="space-y-3">
       {shown?.length === 0 && (
-        <EmptyState title={q ? 'Nenhum livro encontrado.' : 'Nenhum livro ainda.'}>
-          {!q && 'Os livros aparecem aqui conforme você registra as ideias lidas em cada sessão.'}
+        <EmptyState title={q ? 'Nenhuma fonte encontrada.' : 'Nenhuma fonte ainda.'}>
+          {!q && 'As fontes aparecem aqui quando você informa de onde vem cada texto registrado.'}
         </EmptyState>
       )}
       <ul className="grid grid-cols-1 items-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -63,7 +63,7 @@ function BookList({ query }: { query: string }) {
             >
               <p className="font-serif text-lg leading-snug break-words">{book.title}</p>
               <p className="mt-0.5 text-xs text-muted">
-                {count(book.ideas.length, 'ideia', 'ideias')} · {count(book.cardCount, 'card', 'cards')} ·{' '}
+                {count(book.ideas.length, 'texto', 'textos')} · {count(book.cardCount, 'parágrafo', 'parágrafos')} ·{' '}
                 {book.firstDate === book.lastDate
                   ? formatDate(book.firstDate, 'medium')
                   : `${formatDate(book.firstDate, 'short')} a ${formatDate(book.lastDate, 'medium')}`}
@@ -76,9 +76,9 @@ function BookList({ query }: { query: string }) {
   );
 }
 
-const NO_BOOK = 'Sem livro';
+const NO_BOOK = 'Sem fonte';
 
-/** As ideias agrupadas por livro: cada livro é uma seção que abre e fecha. */
+/** Os textos agrupados por fonte: cada fonte é uma seção que abre e fecha. */
 function IdeaList({ query }: { query: string }) {
   const [onlyIdeaOfDay, setOnlyIdeaOfDay] = useState(false);
   const items = useLiveQuery(() => searchIdeas(query, onlyIdeaOfDay), [query, onlyIdeaOfDay]);
@@ -99,29 +99,26 @@ function IdeaList({ query }: { query: string }) {
           checked={onlyIdeaOfDay}
           onChange={(e) => setOnlyIdeaOfDay(e.target.checked)}
         />
-        Mostrar só as Ideas of the Day
+        Mostrar só os textos estudados em sessão
       </label>
       {items?.length === 0 && (
-        <EmptyState title={query ? 'Nada encontrado.' : 'Nenhuma ideia ainda.'}>
-          {query ? 'Tente outra palavra, livro, tema ou data.' : 'As ideias registradas nas sessões aparecem aqui.'}
+        <EmptyState title={query ? 'Nada encontrado.' : 'Nenhum texto ainda.'}>
+          {query ? 'Tente outra palavra, fonte, tema ou data.' : 'Os textos registrados nas sessões aparecem aqui.'}
         </EmptyState>
       )}
       <div className="grid grid-cols-1 items-start gap-2 lg:grid-cols-2">
         {[...groups].map(([book, ideas], i) => (
-          // Na busca, tudo abre; fora dela, só o livro mais recente.
+          // Na busca, tudo abre; fora dela, só a fonte mais recente.
           <Collapsible key={`${book}-${searching}`} title={book} count={ideas.length} defaultOpen={searching || i === 0}>
             <ul className="-mx-2 divide-y divide-line">
-              {ideas.map(({ idea, isIdeaOfDay, cardCount, chunks }) => (
+              {ideas.map(({ idea, cardCount, chunks }) => (
                 <li key={idea.id}>
                   <Link
                     to={`/knowledge/idea/${idea.id}`}
                     className="flex min-h-10 items-baseline justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-sunken"
                   >
                     <span className="min-w-0">
-                      <span className="font-serif leading-snug break-words">
-                        {isIdeaOfDay && <span title="Idea of the Day">⭐ </span>}
-                        {idea.title}
-                      </span>
+                      <span className="font-serif leading-snug break-words">{idea.title}</span>
                       {chunks.length > 0 && (
                         <span className="block truncate font-serif text-xs text-muted" lang="en">
                           {chunks.join(' • ')}
@@ -129,7 +126,7 @@ function IdeaList({ query }: { query: string }) {
                       )}
                     </span>
                     <span className="shrink-0 text-xs text-muted tabular-nums">
-                      {formatDate(idea.date, 'short')} · {count(cardCount, 'card', 'cards')}
+                      {formatDate(idea.date, 'short')} · {count(cardCount, 'parágrafo', 'parágrafos')}
                     </span>
                   </Link>
                 </li>
@@ -180,7 +177,7 @@ function DictionaryList({ query }: { query: string }) {
     <div className="space-y-3">
       {items?.length === 0 && (
         <EmptyState title={query ? 'Nada encontrado.' : 'Seu dicionário está vazio.'}>
-          {!query && 'Abra uma ideia, clique numa palavra do card e adicione o significado.'}
+          {!query && 'Abra um texto, clique numa palavra e adicione o significado.'}
         </EmptyState>
       )}
       {items && items.length > 0 && (
@@ -218,7 +215,7 @@ function DictionaryList({ query }: { query: string }) {
 export function KnowledgePage() {
   const [params, setParams] = useSearchParams();
   const requested = params.get('tab');
-  const tab: Tab = TABS.some((t) => t.value === requested) ? (requested as Tab) : 'books';
+  const tab: Tab = TABS.some((t) => t.value === requested) ? (requested as Tab) : 'ideas';
   const [query, setQuery] = useState('');
 
   return (
@@ -230,7 +227,7 @@ export function KnowledgePage() {
         options={TABS}
         onChange={(next) => {
           setQuery('');
-          setParams(next === 'books' ? {} : { tab: next }, { replace: true });
+          setParams(next === 'ideas' ? {} : { tab: next }, { replace: true });
         }}
       />
       <TextInput type="search" label={SEARCH[tab]} hideLabel placeholder={SEARCH[tab]} value={query} onChange={setQuery} />

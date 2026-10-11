@@ -1,6 +1,7 @@
+import { dictationScore } from './exercises';
 import { legacyStarts, periodDates, periodOf, periods, periodStarting } from './periods';
-import { SESSION_DAYS_PER_WEEK } from './session';
-import type { Chunk, ChunkReview, Idea, ISODate, SourceCard, SpeakingSession, StudySession } from './types';
+import { countWords, SESSION_DAYS_PER_WEEK } from './session';
+import type { Chunk, ChunkReview, Idea, ISODate, Reflection, SourceCard, SpeakingSession, StudySession, WritingExercise } from './types';
 
 export interface StatsInput {
   sessions: readonly StudySession[];
@@ -9,6 +10,9 @@ export interface StatsInput {
   chunks: readonly Chunk[];
   reviews: readonly ChunkReview[];
   speaking: readonly SpeakingSession[];
+  /** Para as palavras escritas. Ausentes: não entram na conta. */
+  reflections?: readonly Reflection[];
+  writings?: readonly WritingExercise[];
   /** Inícios dos ciclos de 7 dias. Ausente: valem as semanas de calendário em que houve estudo. */
   cycleStarts?: readonly ISODate[];
 }
@@ -35,7 +39,7 @@ export interface WeekStats {
   weekEnd: ISODate;
   ideasRead: number;
   cardsRead: number;
-  /** Ideias aprofundadas (Idea of the Day). */
+  /** Textos estudados em sessão. */
   ideasStudied: number;
   chunksCreated: number;
   reviewsDone: number;
@@ -43,14 +47,14 @@ export interface WeekStats {
   recallRate: number | null;
   speakingSec: number;
   studyDays: number;
-  /** Dias em que houve leitura de ideia (sessão). A meta são os 5 primeiros dias do ciclo. */
+  /** Dias em que houve texto registrado (sessão). A meta são os 5 primeiros dias do ciclo. */
   sessionDays: number;
   days: DayStats[];
 }
 
 /**
  * Os números do ciclo que começa em `weekStart`. Um dia conta como estudado quando
- * houve leitura de ideia ou revisão concluída.
+ * houve texto registrado ou revisão concluída.
  */
 export function weekStats(input: StatsInput, weekStart: ISODate): WeekStats {
   const period = periodStarting(startsOf(input), weekStart);
@@ -91,6 +95,70 @@ export function weekStats(input: StatsInput, weekStart: ISODate): WeekStats {
     studyDays: days.filter((d) => d.studied).length,
     sessionDays: days.filter((d) => d.ideas > 0).length,
     days,
+  };
+}
+
+export interface SkillStats {
+  listening: {
+    /** Dias em que o texto foi ouvido antes de ler (resumo anotado ou ditado). */
+    days: number;
+    /** Frases do texto ditadas. */
+    sentences: number;
+    /** Acerto médio no ditado, de 0 a 1; null sem ditado. */
+    score: number | null;
+  };
+  reading: { texts: number; words: number };
+  speaking: {
+    aloudSec: number;
+    retellSec: number;
+    /** Fração média das palavras reconhecidas na leitura em voz alta transcrita; null sem transcrição. */
+    aloudScore: number | null;
+  };
+  writing: { words: number };
+}
+
+const average = (values: readonly number[]): number | null =>
+  values.length === 0 ? null : values.reduce((sum, v) => sum + v, 0) / values.length;
+
+/** O que foi feito em cada habilidade no ciclo que começa em `weekStart`. */
+export function skillStats(input: StatsInput, weekStart: ISODate): SkillStats {
+  const period = periodStarting(startsOf(input), weekStart);
+  const inPeriod = (date: ISODate): boolean => date >= period.start && date <= period.end;
+  const sessions = input.sessions.filter((s) => inPeriod(s.date));
+  const sessionIds = new Set(sessions.map((s) => s.id));
+  const speaking = input.speaking.filter((s) => inPeriod(s.date));
+  const aloud = speaking.filter((s) => s.kind === 'aloud');
+  const cardsById = new Map(input.cards.map((c) => [c.id, c]));
+  const answers = sessions.flatMap((s) => s.listenAnswers ?? []);
+  const ideas = input.ideas.filter((i) => inPeriod(i.date));
+  const ideaIds = new Set(ideas.map((i) => i.id));
+
+  const recognized = aloud.flatMap((s) => {
+    const card = s.cardId ? cardsById.get(s.cardId) : undefined;
+    return card && s.transcript ? [dictationScore(s.transcript, card.content)] : [];
+  });
+  const written = [
+    ...input.chunks.filter((c) => inPeriod(c.createdDate)).map((c) => c.userSentence),
+    ...(input.reflections ?? []).filter((r) => sessionIds.has(r.sessionId)).flatMap((r) => [r.userOpinion, r.soWhat]),
+    ...(input.writings ?? []).filter((w) => w.weekStart === period.start).map((w) => w.revisedText.trim() || w.text),
+  ];
+
+  return {
+    listening: {
+      days: sessions.filter((s) => s.listenGist?.trim() || (s.listenAnswers?.length ?? 0) > 0).length,
+      sentences: answers.length,
+      score: average(answers.map((a) => a.score)),
+    },
+    reading: {
+      texts: ideas.length,
+      words: input.cards.filter((c) => ideaIds.has(c.ideaId)).reduce((sum, c) => sum + countWords(c.content), 0),
+    },
+    speaking: {
+      aloudSec: aloud.reduce((sum, s) => sum + s.durationSec, 0),
+      retellSec: speaking.filter((s) => s.kind === 'daily').reduce((sum, s) => sum + s.durationSec, 0),
+      aloudScore: average(recognized),
+    },
+    writing: { words: written.reduce((sum, text) => sum + countWords(text), 0) },
   };
 }
 

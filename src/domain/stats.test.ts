@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { weekPlan } from './cycle';
 import { startOfWeek } from './dates';
-import { type StatsInput, totals, weeklyHistory, weekStats } from './stats';
+import { skillStats, type StatsInput, totals, weeklyHistory, weekStats } from './stats';
 import type { Chunk, ChunkReview, Idea, SourceCard, SpeakingSession, StudySession } from './types';
 
 const WEEK = '2026-09-28'; // segunda-feira
@@ -224,5 +224,84 @@ describe('semana e ciclo', () => {
 
   it('a meta de speaking cresce a cada semana', () => {
     expect([1, 2, 3, 4].map((w) => weekPlan(w).speakingMaxSec)).toEqual([60, 120, 120, 180]);
+  });
+});
+
+describe('as quatro habilidades no ciclo', () => {
+  const day = '2026-09-28';
+  const text: SourceCard[] = [
+    { ...(cards('t1', day, 1)[0] as SourceCard), content: 'Sleep is vital for memory.' },
+    { ...(cards('t1', day, 2)[1] as SourceCard), content: 'We dream every night.' },
+  ];
+  const withListening: StudySession = {
+    ...session(day, 't1'),
+    listenGist: 'About sleep.',
+    listenAnswers: [
+      { sentence: 'Sleep is vital for memory.', answer: 'sleep is vital', score: 0.6 },
+      { sentence: 'We dream every night.', answer: 'we dream every night', score: 1 },
+    ],
+  };
+  const skillInput: StatsInput = {
+    sessions: [withListening, session('2026-09-29', null)],
+    ideas: [idea('t1', day)],
+    cards: text,
+    chunks: [{ ...chunk('k1', day), userSentence: 'I need to sleep more.' }],
+    reviews: [],
+    speaking: [
+      { ...speaking('a1', day, 20), kind: 'aloud', cardId: 't1-0', transcript: 'sleep is vital for memory' },
+      { ...speaking('a2', day, 10), kind: 'aloud', cardId: 't1-1', transcript: 'we dream every' },
+      speaking('r1', day, 60),
+      // Fora do ciclo: não conta.
+      { ...speaking('a3', '2026-10-06', 30), kind: 'aloud', cardId: 't1-0', transcript: 'x' },
+    ],
+    reflections: [
+      {
+        id: 'f1',
+        ideaId: 't1',
+        sessionId: `s-${day}`,
+        userOpinion: 'I agree with the author.',
+        soWhat: "I'll sleep earlier.",
+        createdAt: `${day}T10:00:00.000Z`,
+        updatedAt: `${day}T10:00:00.000Z`,
+      },
+    ],
+    writings: [
+      {
+        id: 'w1',
+        weekStart: WEEK,
+        ideaId: null,
+        text: 'Sleep matters a lot.',
+        finalizedAt: null,
+        revisedText: '',
+        createdAt: `${day}T10:00:00.000Z`,
+        updatedAt: `${day}T10:00:00.000Z`,
+      },
+    ],
+    cycleStarts: [WEEK],
+  };
+
+  it('listening: dias com escuta e acerto médio no ditado', () => {
+    expect(skillStats(skillInput, WEEK).listening).toEqual({ days: 1, sentences: 2, score: 0.8 });
+  });
+
+  it('reading: textos e palavras lidas', () => {
+    expect(skillStats(skillInput, WEEK).reading).toEqual({ texts: 1, words: 9 });
+  });
+
+  it('speaking: tempo lendo em voz alta, tempo recontando e palavras reconhecidas na leitura', () => {
+    // 5 de 5 palavras no primeiro parágrafo e 3 de 4 no segundo.
+    expect(skillStats(skillInput, WEEK).speaking).toEqual({ aloudSec: 30, retellSec: 60, aloudScore: 0.875 });
+  });
+
+  it('writing: palavras escritas nas frases, na reflexão, na ação e no texto do ciclo', () => {
+    // 5 (frase) + 5 (opinião) + 3 (ação) + 4 (texto do ciclo).
+    expect(skillStats(skillInput, WEEK).writing).toEqual({ words: 17 });
+  });
+
+  it('sem atividade, as médias ficam vazias', () => {
+    expect(skillStats(input, WEEK)).toMatchObject({
+      listening: { days: 0, sentences: 0, score: null },
+      speaking: { aloudSec: 0, aloudScore: null },
+    });
   });
 });

@@ -1,75 +1,99 @@
-# Deepstash English Study System
+# English Study System
 
-Aplicação web (PWA) que digitaliza o método de estudo do planner "Deepstash + English": usar os cards diários do Deepstash para aprender inglês por recuperação ativa, produção e repetição espaçada.
+Aplicação web (PWA) para aprender inglês a partir de **qualquer texto** que você escolher (artigo, notícia, página de livro, post, letra de música), trabalhando as quatro habilidades: **listening, reading, speaking e writing**, com recuperação ativa e repetição espaçada.
 
 A aplicação não estuda pelo usuário. Ela organiza o esforço: **tentar → recuperar → produzir → receber retorno → revisar**.
 
-## Metodologia: ideias → 1 → 3 → 1
+> O app nasceu como "Deepstash English", para estudar com os cards do Deepstash. O banco local (`deepstash-english`), as tabelas `ideas`/`cards` e o identificador dos backups mantêm o nome antigo, para que dados, backups e a sincronização de antes continuem valendo. Na interface, uma "ideia" é um **texto** e um "card" é um **parágrafo**.
 
-O Deepstash apresenta **ideias de livros**. Cada ideia é uma sequência de **cards**, lida como uma história, e a quantidade de ideias e de cards varia. Por isso a unidade de estudo do app é a ideia, não o card.
+## Metodologia: 1 texto → 4 habilidades
 
-| | O que | Etapas da sessão |
+| Habilidade | O que | Etapas da sessão |
 |---|---|---|
-| **Ideias** | as ideias lidas no dia, quantas forem, cada uma com seus cards em ordem | READ |
-| **1** | Idea of the Day: uma ideia inteira para aprofundar | IDEA OF THE DAY, CHECK |
-| **3** | chunks úteis, no máximo, por dia | MINE, PERSONALIZE |
-| **1** | explicação oral recontando a ideia | RETELL |
+| **Listening** | ouvir o texto antes de ler, anotar o que entendeu e fazer o ditado de 3 frases dele | LISTEN |
+| **Reading** | ler com clique nas palavras, resumir a ideia principal e guardar até 3 chunks | READ, MINE |
+| **Speaking** | ler um parágrafo em voz alta imitando o modelo (shadowing) e recontar o texto sem olhar | READ ALOUD, RETELL |
+| **Writing** | frases pessoais com os chunks, opinião e uma ação concreta | PERSONALIZE, REFLECT, SO WHAT? |
 
-A sessão diária é um assistente de 10 etapas, uma por tela, com salvamento automático. No topo, dez caixas numeradas mostram onde você está (a etapa atual em destaque, as anteriores marcadas) e levam direto a qualquer etapa:
-REVIEW → READ → IDEA OF THE DAY → CHECK → MINE → RETELL → PERSONALIZE → REFLECT → SO WHAT? → SCHEDULE REVIEW.
+A sessão diária é um assistente de 11 etapas (~30 min), uma por tela, com salvamento automático. No topo, caixas numeradas mostram onde você está e levam direto a qualquer etapa; uma faixa colorida embaixo de cada uma indica a habilidade trabalhada:
+REVIEW → TEXT → LISTEN → READ → MINE → READ ALOUD → RETELL → PERSONALIZE → REFLECT → SO WHAT? → SCHEDULE REVIEW.
 
-Na etapa READ, cada ideia registra o livro, o título e os cards. O texto dos cards é opcional e pode ser colado de uma vez (uma linha em branco separa um card do outro).
+### O texto do dia
 
-### Livro → ideias → cards
+Na etapa TEXT você informa o título, a fonte (opcional: livro, site, autor…) e cola o texto. Cada parágrafo vira uma unidade de leitura: o texto é dividido por linhas em branco ou, se não houver nenhuma (comum em texto copiado da web), por quebras de linha. Com a IA configurada, o texto também pode vir de fotos ou screenshots. O primeiro texto registrado na sessão é o texto em estudo; a recomendação é colar sem ler, porque a primeira passada é só ouvindo.
+
+### Listening
+
+Na etapa LISTEN o texto fica escondido. Você ouve o texto inteiro (ou um parágrafo por vez), na velocidade que quiser, e anota o que entendeu, em inglês ou em português. Depois vem o ditado de 3 frases tiradas do próprio texto, escolhidas pelo tamanho (de 6 a 30 palavras) e espalhadas do começo ao fim. A conferência é só pelas palavras, e o que faltou aparece em destaque. Na etapa READ, o que você entendeu ouvindo aparece ao lado do texto, para comparar.
+
+A leitura em voz alta usa a voz do navegador, frase por frase, para não ser cortada em textos longos.
+
+### Reading
+
+Na etapa READ o texto aparece com cada palavra clicável (ver "Leitura com clique nas palavras"), seguido da ideia principal em uma frase em inglês, do que você entendeu errado e do vocabulário de compreensão. A etapa MINE guarda até 3 chunks do texto para a repetição espaçada.
+
+### Speaking
+
+Na etapa READ ALOUD você escolhe um parágrafo, ouve o modelo e grava a sua leitura. O cronômetro mostra o tempo esperado em ritmo natural (~130 palavras por minuto). Com Groq (ou outro serviço compatível com OpenAI), a gravação é transcrita e comparada com o parágrafo: as palavras que a transcrição não reconheceu aparecem em destaque, como pista de pronúncia. Na etapa RETELL você esconde o texto e o reconta em voz alta (ver "Retelling gravado e transcrito").
+
+### Writing
+
+PERSONALIZE (uma frase sua com cada chunk), REFLECT (concordo? por quê?) e SO WHAT? (uma ação concreta) recebem retorno da IA, quando configurada.
+
+### Progresso por habilidade
+
+Em Progress, o quadro "As quatro habilidades neste ciclo" mostra: dias ouvindo o texto antes de ler e o acerto no ditado (listening), palavras e textos lidos (reading), tempo lendo em voz alta e recontando, com a fração de palavras reconhecidas na leitura (speaking), e palavras escritas nas frases, reflexões, ações e no texto do ciclo (writing). O resumo da etapa SCHEDULE também é dividido pelas quatro habilidades.
+
+### Fonte → textos → parágrafos
 
 Toda a biblioteca segue essa hierarquia. Em **Knowledge**:
 
-- **Livros:** cada livro lista suas ideias na ordem de leitura e tem um fechamento ("Explain this book in two minutes" e "What stays with me from this book?"). O livro é o título informado em cada ideia; títulos que só diferem em maiúsculas, acentos ou espaços são tratados como o mesmo livro.
-- **Ideias:** cada ideia tem sua página com os cards em sequência e links para a ideia anterior e a seguinte do mesmo livro.
+- **Textos:** cada texto tem sua página com os parágrafos em sequência e links para o texto anterior e o seguinte da mesma fonte. Na lista, os textos ficam agrupados por fonte.
+- **Fontes:** cada fonte lista seus textos na ordem de leitura e tem um fechamento opcional ("Explain what you learned from this source in two minutes" e "What stays with me from these texts?"). Nomes que só diferem em maiúsculas, acentos ou espaços são tratados como a mesma fonte.
 - **My English:** os chunks em repetição espaçada.
 - **Dicionário:** palavras e expressões consultadas na leitura.
 
 ### Leitura com clique nas palavras
 
-Na página de uma ideia, cada palavra dos cards é clicável. Um clique seleciona a palavra; um segundo clique, em outra palavra do mesmo card, estende a seleção até formar a expressão. O painel mostra a frase em que ela aparece e, pouco depois do clique, a análise naquele contexto (pela IA): tradução em português num campo editável, transcrição fonética (IPA) e uma explicação do uso. Expressões de várias palavras são analisadas como uma unidade. "Adicionar ao dicionário" guarda tudo isso junto com a frase. Sem IA, a tradução é digitada.
+Na etapa READ e na página de cada texto, cada palavra é clicável. Um clique seleciona a palavra; um segundo clique, em outra palavra do mesmo parágrafo, estende a seleção até formar a expressão. O painel mostra a frase em que ela aparece e, pouco depois do clique, a análise naquele contexto (pela IA): tradução em português num campo editável, transcrição fonética (IPA) e uma explicação do uso. Expressões de várias palavras são analisadas como uma unidade. "Adicionar ao dicionário" guarda tudo isso junto com a frase. Sem IA, a tradução é digitada.
 
 A mesma palavra pode ter sentidos diferentes em frases diferentes, então cada par termo + frase é uma entrada própria do dicionário, e clicar numa palavra já conhecida em outra frase refaz a análise naquele contexto.
 
-**Termos conhecidos sublinhados.** Tudo o que está no dicionário ou nos chunks aparece sublinhado nos textos dos cards de qualquer ideia, de qualquer livro (na página da ideia e na releitura da etapa CHECK), mesmo que ainda não tenha tradução anotada. Clicar num termo sublinhado mostra o que está salvo, com Editar e Excluir. Excluir vale para o termo inteiro (todos os registros dele no dicionário, ou o chunk com seu histórico) e o destaque some de todos os textos na hora. Chunks também podem ser excluídos em Knowledge → My English. Passar o mouse mostra tradução, fonética, explicação e a frase em que cada sentido foi registrado. Expressões são reconhecidas inteiras, e a mais longa vence a palavra contida nela.
+**Termos conhecidos sublinhados.** Tudo o que está no dicionário ou nos chunks aparece sublinhado em qualquer texto, de qualquer fonte (na etapa READ e na página do texto), mesmo que ainda não tenha tradução anotada. Clicar num termo sublinhado mostra o que está salvo, com Editar e Excluir. Excluir vale para o termo inteiro (todos os registros dele no dicionário, ou o chunk com seu histórico) e o destaque some de todos os textos na hora. Chunks também podem ser excluídos em Knowledge → My English. Passar o mouse mostra tradução, fonética, explicação e a frase em que cada sentido foi registrado. Expressões são reconhecidas inteiras, e a mais longa vence a palavra contida nela.
 
-O dicionário, na aba e na página de cada ideia, é listado em ordem alfabética. O dicionário não entra na repetição espaçada; ele alimenta os exercícios.
+O dicionário, na aba e na página de cada texto, é listado em ordem alfabética. O dicionário não entra na repetição espaçada; ele alimenta os exercícios.
 
 ### Retelling gravado e transcrito
 
-Na etapa RETELL, o cronômetro grava o microfone. Ao parar, você pode ouvir a própria fala e, com Groq (ou outro serviço compatível com OpenAI) configurado, ela é transcrita. Sobre a transcrição há a ação "Evaluate my retelling". O áudio não é guardado; a transcrição sim.
+Na etapa RETELL, o cronômetro grava o microfone (o mesmo vale para o READ ALOUD). Ao parar, você pode ouvir a própria fala e, com Groq (ou outro serviço compatível com OpenAI) configurado, ela é transcrita. Sobre a transcrição há a ação "Evaluate my retelling". O áudio não é guardado; a transcrição sim.
 
 ### Acompanhamento das ações
 
-Três dias depois de registrar um "So what?", a tela Today pergunta "Did you do it?", com um campo "What happened?" em inglês e as respostas *Yes, I did it*, *Partly* e *Not yet*. A resposta fica na página da ideia.
+Três dias depois de registrar um "So what?", a tela Today pergunta "Did you do it?", com um campo "What happened?" em inglês e as respostas *Yes, I did it*, *Partly* e *Not yet*. A resposta fica na página do texto.
 
 ### Exercícios (menu Practice)
 
 Nenhum exercício mostra palavra solta: o termo sempre aparece dentro de uma frase. Um termo sem frase registrada fica fora dos exercícios até ganhar uma (a tela avisa quantos estão nessa situação).
 
 - **Treino.** Escolhe os termos em que você mais erra e alterna três formas: completar a frase (com a tradução como dica opcional), ouvir a frase e escrever a palavra que falta, e ouvir uma frase curta e escrevê-la inteira. A pergunta errada volta algumas posições adiante, na mesma rodada, até duas vezes.
-- **Tempos verbais.** Frases com lacuna para conjugar, no tempo pedido, os verbos selecionados nas suas ideias (ver "Verbos da ideia"). Antes de começar você escolhe os verbos, os tempos verbais e a quantidade de frases. O bloco "Verbos em que você mais erra" soma os erros de cada verbo em todas as ideias e tem o atalho "Treinar só estes verbos".
+- **Tempos verbais.** Frases com lacuna para conjugar, no tempo pedido, os verbos selecionados nos seus textos (ver "Verbos do texto"). Antes de começar você escolhe os verbos, os tempos verbais e a quantidade de frases. O bloco "Verbos em que você mais erra" soma os erros de cada verbo em todas as ideias e tem o atalho "Treinar só estes verbos".
 - **Flashcards.** A frente mostra a frase com o termo destacado; o verso traz a tradução, a classe gramatical (verbo, substantivo, phrasal verb…) e como o termo é usado naquele contexto. Você escolhe a origem e a quantidade; por padrão entram primeiro os mais difíceis.
 
 **Ciclos de 7 dias com início escolhido.** Em Settings você define em que data cada ciclo começa (ou ele começa sozinho na primeira sessão feita fora de um ciclo). Os dias 1 a 5 são de sessão e os dias 6 e 7, só de revisão: um ciclo iniciado na terça tem revisão no domingo e na segunda. Progress, fechamento, sugestão do dia e reset são contados por ciclo, não por semana de calendário; os dias entre o fim de um ciclo e o começo do próximo não entram no histórico. A fase (1 a 4, que define a meta de fala) sobe a cada ciclo. Dados anteriores a essa mudança continuam valendo como ciclos de segunda a domingo.
 
 **Focus: pontos críticos.** Novo item do menu. Junta as correções da IA de todos os ciclos (uma por texto, agrupadas por ciclo), os termos e verbos em que você mais erra nos exercícios e os chunks mais esquecidos nas revisões. Com a IA configurada, gera um plano com os assuntos mais críticos, do que mais se repete para o que menos se repete, com regra, exemplos tirados dos seus erros e um mini-exercício. O plano fica guardado e sincronizado.
 
-**Correção junto do texto.** Na página da ideia (Main idea, Retell, My view, So what?) e em My English (minha frase, frases extras e frases das revisões), a correção gerada aparece logo abaixo do texto, em uma linha: o que saiu riscado e o que entrou em negrito. Se ainda não há correção, "Gerar correção" pede uma.
+**Correção junto do texto.** Na página do texto (Main idea, Retell, My view, So what?) e em My English (minha frase, frases extras e frases das revisões), a correção gerada aparece logo abaixo do texto, em uma linha: o que saiu riscado e o que entrou em negrito. Se ainda não há correção, "Gerar correção" pede uma.
 
 **Correções sucintas.** "Correções de hoje" mostra cada texto corrigido uma única vez, em uma linha, com um comentário curto, mesmo que ele tenha recebido vários pedidos de retorno.
 
 **Menus superiores.** Today tem a visão do ciclo sempre no topo e um menu com Hoje, O que estudar, Did you do it? e Fechamento do ciclo. Settings tem um menu com Ciclos, IA, Conta e backup, Dados e Aparência. A rotina (frequência de cada etapa) fica só no Manual.
 
-**Filtro por tipo no dicionário.** O dicionário de cada ideia e o dicionário geral têm botões para filtrar por tipo: Substantivo, Verbo, Phrasal verb, Adjetivo, Advérbio, Expressão e os demais que existirem, cada um com a contagem. O tipo vem da classe gramatical registrada pela IA; termos de mais de uma palavra sem classe contam como Expressão, e palavras sem classe ficam em "Sem classe".
+**Filtro por tipo no dicionário.** O dicionário de cada texto e o dicionário geral têm botões para filtrar por tipo: Substantivo, Verbo, Phrasal verb, Adjetivo, Advérbio, Expressão e os demais que existirem, cada um com a contagem. O tipo vem da classe gramatical registrada pela IA; termos de mais de uma palavra sem classe contam como Expressão, e palavras sem classe ficam em "Sem classe".
 
 **Menu de exercícios.** A tela Practice tem um menu no topo com os tipos de exercício (Treino, Tempos verbais, Ditado e Flashcards) e mostra um de cada vez; "Onde você mais erra" fica ao lado.
 
-**Estrutura do texto de cada card.** Em Knowledge, depois de cada card há o botão "Comentar a estrutura do texto": a IA comenta gramática, ortografia, sintaxe e semântica daquele card, citando os trechos. O comentário fica guardado no card e uma setinha recolhe ou expande o texto.
+**Estrutura de cada parágrafo.** Na leitura, depois de cada parágrafo há o botão "Comentar a estrutura do texto": a IA comenta gramática, ortografia, sintaxe e semântica daquele card, citando os trechos. O comentário fica guardado no card e uma setinha recolhe ou expande o texto.
 
 **Ditado.** Em Practice, o ditado fala a frase em que a palavra ou o chunk aparece e você escreve o que ouviu. Dá para escolher só palavras, só chunks ou os dois, e uma, duas ou três palavras ou chunks por áudio (com mais de um, as frases são ditas em sequência). A conferência é só pelas palavras: maiúsculas, pontuação e apóstrofos não contam ("dont" vale como "don't"), e a resposta mostra a frase bem escrita, com maiúscula e pontuação; o que faltou aparece em destaque, e cada frase vem com o termo em negrito e a tradução.
 
@@ -81,9 +105,9 @@ Nenhum exercício mostra palavra solta: o termo sempre aparece dentro de uma fra
 
 **Chunks no RETELL.** A etapa lista os chunks do dia para usar na fala e, depois da transcrição, marca quais foram usados.
 
-**Correção em destaque.** No retorno da IA (CHECK, PERSONALIZE, REFLECT, SO WHAT e os demais textos), a comparação é feita palavra por palavra: em MY VERSION, o que saiu ou foi trocado aparece riscado; em CORRECTED e MORE NATURAL, o que mudou aparece em negrito com fundo. Se nada mudou, a tela diz que a frase já estava certa.
+**Correção em destaque.** No retorno da IA (READ, PERSONALIZE, REFLECT, SO WHAT e os demais textos), a comparação é feita palavra por palavra: em MY VERSION, o que saiu ou foi trocado aparece riscado; em CORRECTED e MORE NATURAL, o que mudou aparece em negrito com fundo. Se nada mudou, a tela diz que a frase já estava certa.
 
-**Listas compactas.** O que cresce com os estudos aparece em uma linha por item, e clicar abre os detalhes: dicionário, chunks, verbos da ideia, ideias (agrupadas por livro, em seções que abrem e fecham) e ações pendentes. Dicionário e chunks mostram 60 itens por vez, com "Mostrar mais". No computador, as listas usam duas ou três colunas, a página da ideia põe verbos e chat lado a lado, o fechamento da semana distribui as partes em duas colunas e a orientação da IA fica ao lado da etapa da sessão.
+**Listas compactas.** O que cresce com os estudos aparece em uma linha por item, e clicar abre os detalhes: dicionário, chunks, verbos do texto, textos (agrupados por fonte, em seções que abrem e fecham) e ações pendentes. Dicionário e chunks mostram 60 itens por vez, com "Mostrar mais". No computador, as listas usam duas ou três colunas, a página da ideia põe verbos e chat lado a lado, o fechamento da semana distribui as partes em duas colunas e a orientação da IA fica ao lado da etapa da sessão.
 
 **Termo em negrito.** No flashcard e na frase revelada depois da conferência, o termo aparece em negrito. A busca do termo na frase tolera pequenas diferenças entre o que foi cadastrado e o que está escrito: uma palavra a mais ou a menos ("one thing at time" em "one thing at a time") e outra flexão ("hold" em "holding"). Nos exercícios, a resposta esperada é sempre o trecho como está na frase.
 
@@ -91,11 +115,11 @@ Nenhum exercício mostra palavra solta: o termo sempre aparece dentro de uma fra
 
 **Dificuldade de um termo:** erros nos exercícios pesam o dobro dos acertos; para chunks, "não lembrei" e "difícil" nas revisões espaçadas também contam; termos nunca treinados têm prioridade sobre os dominados. O bloco "Onde você mais erra" mostra os campeões de erro. O desempenho por termo é guardado e sincronizado.
 
-A classe gramatical e a explicação de contexto vêm da análise da IA feita ao clicar na palavra no card. Entradas antigas, ou chunks cadastrados à mão, não as têm; basta clicar no termo de novo para a IA analisar.
+A classe gramatical e a explicação de contexto vêm da análise da IA feita ao clicar na palavra no texto. Entradas antigas, ou chunks cadastrados à mão, não as têm; basta clicar no termo de novo para a IA analisar.
 
-### Verbos da ideia
+### Verbos do texto
 
-Na página de cada ideia, "Encontrar os verbos desta ideia" pede à IA os verbos principais do texto (até 8), com tradução, formas (he/she/it, past simple, past participle, -ing), a forma e o tempo em que cada um aparece no texto, e quatro frases com lacuna em tempos diferentes. Também dá para cadastrar um verbo à mão ("Cadastrar um verbo"): com a IA, ela completa as formas e os exercícios daquele verbo; sem IA, ele fica cadastrado só com a forma base e pode ser completado depois. Você marca quais quer estudar; só os marcados entram em "Tempos verbais". "Treinar estes verbos" abre a rodada só com os verbos daquela ideia.
+Na página de cada texto, "Encontrar os verbos deste texto" pede à IA os verbos principais do texto (até 8), com tradução, formas (he/she/it, past simple, past participle, -ing), a forma e o tempo em que cada um aparece no texto, e quatro frases com lacuna em tempos diferentes. Também dá para cadastrar um verbo à mão ("Cadastrar um verbo"): com a IA, ela completa as formas e os exercícios daquele verbo; sem IA, ele fica cadastrado só com a forma base e pode ser completado depois. Você marca quais quer estudar; só os marcados entram em "Tempos verbais". "Treinar estes verbos" abre a rodada só com os verbos daquela ideia.
 
 ### Mais prática dentro da sessão
 
@@ -104,32 +128,31 @@ Na página de cada ideia, "Encontrar os verbos desta ideia" pede à IA os verbos
 
 ### Áudio
 
-Onde houver "Ouvir" (cards, termos, dicionário, flashcards, ditado), a leitura usa a voz do navegador e obedece a dois controles: velocidade (1×, 0.75× ou 0.5×) e "Repetir em loop". Os mesmos controles valem para as suas gravações.
+Onde houver "Ouvir" (texto, parágrafos, termos, dicionário, flashcards, ditado), a leitura usa a voz do navegador e obedece a dois controles: velocidade (1×, 0.75× ou 0.5×) e "Repetir em loop". Os mesmos controles valem para as suas gravações.
 
-As falas gravadas (retelling, fala da semana, explicação do livro) ficam guardadas **neste navegador** e aparecem no Weekly review, em "Minhas falas da semana", numa lista compacta: ideia, dia, duração, player e a transcrição recolhida. Cada fala pode ser excluída (com confirmação); isso remove o áudio, a transcrição e o tempo das estatísticas. Os áudios não entram no backup nem vão para a nuvem; em Settings dá para ver o espaço ocupado e apagar os de mais de 4 semanas.
+As falas gravadas (leitura em voz alta, retelling, fala da semana, explicação de uma fonte) ficam guardadas **neste navegador** e aparecem no Weekly review, em "Minhas falas da semana", numa lista compacta: ideia, dia, duração, player e a transcrição recolhida. Cada fala pode ser excluída (com confirmação); isso remove o áudio, a transcrição e o tempo das estatísticas. Os áudios não entram no backup nem vão para a nuvem; em Settings dá para ver o espaço ocupado e apagar os de mais de 4 semanas.
 
 ### Cadastrar ideias mais rápido
 
-Na etapa READ, "Importar a ideia inteira" oferece dois caminhos, e em ambos o resultado volta para o formulário para você conferir antes de salvar:
+Na etapa TEXT, além de colar o texto, dá para trazê-lo de imagens; o resultado volta para o formulário para você conferir antes de salvar:
 
-- **Colar o texto:** a primeira linha vira o título e cada bloco separado por linha em branco vira um card. No site do Deepstash (navegador) dá para selecionar e copiar a ideia inteira.
-- **Screenshots da ideia inteira:** escolha as imagens, quantas forem, ou cole com Ctrl+V. A IA transcreve título e cards, lendo em lotes de 4 imagens e mostrando o progresso; uma ideia pode ter qualquer quantidade de cards. Precisa de um modelo que leia imagens: Anthropic, ou Groq com o "Modelo de visão" de Ajustes.
+- **Fotos ou screenshots do texto:** escolha as imagens, quantas forem, ou cole com Ctrl+V. A IA transcreve título e parágrafos, lendo em lotes de 4 imagens e mostrando o progresso; um texto pode ter qualquer quantidade de parágrafos. Precisa de um modelo que leia imagens: Anthropic, ou Groq com o "Modelo de visão" de Ajustes.
 
-**Imagem por card.** Dentro de uma ideia já criada, em "Cards da ideia", "+ Cards a partir de imagens" lê um screenshot por vez: cada imagem vira um card, na ordem escolhida, com o progresso "Lendo imagem N de M". Cada card também tem "Ler de uma imagem", que preenche ou substitui só aquele card. Um ícone girando indica a leitura em andamento.
+**Imagem por parágrafo.** Dentro de um texto já criado, em "Parágrafos", "+ Parágrafos a partir de imagens" lê uma imagem por vez: cada imagem vira um parágrafo, na ordem escolhida, com o progresso "Lendo imagem N de M". Cada parágrafo também tem "Ler de uma imagem", que preenche ou substitui só aquele parágrafo. Um ícone girando indica a leitura em andamento.
 
 O menu lateral mostra o provedor e o modelo usado em cada função: texto, imagens e áudio.
 
-### Conversa sobre a ideia
+### Conversa sobre o texto
 
-A página de cada ideia tem um chat com a IA. Ela recebe o livro, o texto dos cards, a ideia principal e o que você já escreveu (opinião, ação, chunks), e foi instruída a trazer insights, exemplos, conexões e contrapontos, em respostas curtas. Responde sempre em português, inclusive quando você escreve em inglês (nesse caso, acrescenta uma linha apontando até dois erros da sua mensagem). A conversa fica guardada com a ideia (e sincronizada), e pode ser apagada. A cada pergunta seguem as últimas 20 mensagens.
+A página de cada texto tem um chat com a IA. Ela recebe a fonte, o texto, a ideia principal e o que você já escreveu (opinião, ação, chunks), e foi instruída a trazer insights, exemplos, conexões e contrapontos, em respostas curtas. Responde sempre em português, inclusive quando você escreve em inglês (nesse caso, acrescenta uma linha apontando até dois erros da sua mensagem). A conversa fica guardada com o texto (e sincronizada), e pode ser apagada. A cada pergunta seguem as últimas 20 mensagens.
 
 ### Orientação da IA por etapa
 
-Em cada etapa da sessão há o botão "Como fazer esta etapa?". A IA responde com sugestões ligadas ao objetivo daquela etapa e ao conteúdo em estudo (livro, texto dos cards, o que você já escreveu): perguntas-guia na leitura, expressões candidatas no MINE, roteiro em tópicos no RETELL, ângulos de questionamento no REFLECT, tipos de ação no SO WHAT. Ela orienta e sugere; não escreve a resposta por você.
+Em cada etapa da sessão há o botão "Como fazer esta etapa?". A IA responde com sugestões ligadas ao objetivo daquela etapa e ao conteúdo em estudo (fonte, texto, o que você já escreveu): estratégias de escuta no LISTEN (sem revelar o texto), perguntas-guia na leitura, pronúncia e pausas no READ ALOUD, expressões candidatas no MINE, roteiro em tópicos no RETELL, ângulos de questionamento no REFLECT, tipos de ação no SO WHAT. Ela orienta e sugere; não escreve a resposta por você.
 
 ### Manual
 
-O menu **Manual** mostra o fluxo de estudos em uma tela: a visão geral (ler → aprofundar 1 → guardar 3 → falar 1 → revisar), a sessão diária com as 10 etapas agrupadas em quatro fases e uma linha de instrução cada, o que acontece depois da sessão e três regras. Tempos e frequências vêm das mesmas definições usadas nas telas.
+O menu **Manual** mostra o fluxo de estudos em uma tela: a visão geral (ouvir → ler → falar → escrever → revisar), a sessão diária com as 11 etapas agrupadas por habilidade e uma linha de instrução cada, o que acontece depois da sessão e três regras. Tempos e frequências vêm das mesmas definições usadas nas telas.
 
 ### Sugestão para hoje
 
@@ -137,7 +160,7 @@ A tela Today monta um plano do dia, em ordem e com o tempo de cada item, a parti
 
 ### Rascunho em português
 
-No REFLECT e no SO WHAT há um campo para rascunhar a ideia em português antes de escrever em inglês. Ao pedir "Como fazer esta etapa?", a IA parte desse rascunho e indica o vocabulário e as estruturas necessários para dizer aquilo em inglês, sem traduzir o texto inteiro.
+No REFLECT e no SO WHAT há um campo para rascunhar o raciocínio em português antes de escrever em inglês. Ao pedir "Como fazer esta etapa?", a IA parte desse rascunho e indica o vocabulário e as estruturas necessários para dizer aquilo em inglês, sem traduzir o texto inteiro.
 
 ### Frequência de cada etapa
 
@@ -145,25 +168,25 @@ Cada etapa mostra a frequência e o tempo sugerido, e a tela Today tem o quadro 
 
 | Atividade | Frequência |
 |---|---|
-| Sessão de estudo (10 etapas, ~30 min) | segunda a sexta |
+| Sessão de estudo (11 etapas, ~30 min) | dias 1 a 5 do ciclo |
 | Fim de semana | sábado e domingo: só as revisões agendadas |
 | Revisão de cada chunk | 5 vezes: D1, D3, D7, D14, D30 |
 | Did you do it? | 3 dias depois de cada ação |
 | Exercícios | 2 a 3 vezes por semana |
 | Weekly review | sexta-feira, depois da sessão |
-| Fechamento do livro | ao terminar cada livro |
+| Fechamento da fonte | ao terminar uma fonte |
 | Ciclo de progressão | a cada 4 semanas |
 
 ### Recomeçar
 
-- **Resetar uma semana** (tela Progress, na semana escolhida): apaga sessões, ideias, cards, dicionário, chunks com seu histórico, falas, reflexões e o fechamento daquela semana, depois de mostrar o que será apagado. Revisões feitas nessa semana de chunks de semanas anteriores são mantidas.
+- **Resetar uma semana** (tela Progress, na semana escolhida): apaga sessões, textos, parágrafos, dicionário, chunks com seu histórico, falas, reflexões e o fechamento daquela semana, depois de mostrar o que será apagado. Revisões feitas nessa semana de chunks de semanas anteriores são mantidas.
 - **Recomeçar do zero** (Settings): apaga todos os estudos, mantendo tema e configuração de IA.
 
 Com a nuvem ligada, o que for apagado também some da sua conta. Não há como desfazer; exporte um backup antes, se quiser guardar.
 
 ### Layout
 
-Em telas largas, as páginas usam duas colunas (por exemplo, os cards da ideia à esquerda e o que você produziu à direita) e o menu lateral mostra qual IA está em uso. No celular tudo volta a uma coluna, com navegação inferior e a IA em uso no topo; nenhum texto ou botão ultrapassa a largura da tela (palavras longas quebram).
+Em telas largas, as páginas usam duas colunas (por exemplo, o texto à esquerda e o que você produziu à direita) e o menu lateral mostra qual IA está em uso. No celular tudo volta a uma coluna, com navegação inferior e a IA em uso no topo; nenhum texto ou botão ultrapassa a largura da tela (palavras longas quebram).
 
 ## Stack
 
@@ -193,7 +216,7 @@ ui  ──►  services  ──►  data (Dexie/IndexedDB)
 
 - **domain**: regras puras e testáveis: agendamento, ciclo, progresso da sessão, estatísticas.
 - **data**: esquema do banco, migrations e backup.
-- **services**: casos de uso (abrir sessão, escolher a Idea of the Day, avaliar revisão…), cada um numa transação.
+- **services**: casos de uso (abrir sessão, registrar o texto, avaliar revisão…), cada um numa transação.
 - **sync**: login e sincronização. `SyncEngine` decide entre enviar, baixar ou pedir a decisão do usuário e só conhece a interface `CloudStore`; o Supabase é uma implementação dela.
 - **ai**: interface `AIProvider`, provedores e o fluxo de retorno. Carregado só quando usado.
 - **ui**: telas e componentes. Não acessa o banco diretamente.
@@ -209,10 +232,11 @@ src/
     cycle.ts            ciclo de 4 semanas e metas de speaking
     chunks.ts           pendente / atrasado / difícil
     stats.ts            estatísticas semanais e totais
-    books.ts            livro → ideias → cards
+    books.ts            fonte → textos → parágrafos
+    listening.ts        frases do texto para o ditado do LISTEN
     reader.ts           palavras clicáveis, seleção e frase de contexto
     exercises.ts        dificuldade por termo, treino adaptativo, flashcards
-    ideaImport.ts       texto colado ou resposta da IA → título e cards
+    ideaImport.ts       resposta da IA ao ler imagens → título e parágrafos
     srs/
       scheduler.ts      interface ReviewScheduler
       fixedInterval.ts  D1/D3/D7/D14/D30
@@ -221,7 +245,7 @@ src/
     db.ts               esquema Dexie e versões
     migrations.ts       conversão de dados entre versões
     backup.ts           export/import JSON
-  services/             sessions, reviews, library, weekly, study (livros, ações, dicionário), maintenance (reset, desempenho, áudios), settings
+  services/             sessions, reviews, library, weekly, study (fontes, ações, dicionário), maintenance (reset, desempenho, áudios), settings
   sync/                 engine (regras), cloudStore (interface), supabase (implementação), cloud (estado)
   ai/                   AIProvider, anthropicProvider, openAICompatibleProvider, feedback
   ui/
@@ -298,8 +322,9 @@ pnpm dev
 
 No navegador: IndexedDB, banco `deepstash-english`. Na nuvem: uma linha por usuário em `public.user_data` (coluna `data` em JSON, no mesmo formato do backup, e `version` para detectar gravações concorrentes). Tabelas: `settings`, `sessions`, `ideas`, `cards`, `vocab`, `chunks`, `reviews`, `speaking`, `reflections`, `weeklyReviews`, `writings`, `aiFeedback`, `bookNotes`, `practiceStats`, `ideaChats`, `verbs`, `translations` e, só neste navegador, `recordings`.
 
-- Uma sessão por data. A Idea of the Day é `session.ideaOfDayId`, sem campo duplicado na ideia.
-- `ideas` guarda livro, título e ideia principal; `cards` guarda o texto de cada card, com `ideaId` e `position` (ordem de leitura).
+- Uma sessão por data. O texto em estudo é `session.ideaOfDayId`; o que foi feito no LISTEN fica em `session.listenGist` e `session.listenAnswers`.
+- `ideas` guarda os textos (fonte em `bookTitle`, título e ideia principal); `cards` guarda cada parágrafo, com `ideaId` e `position` (ordem de leitura).
+- `speaking` guarda as falas: `kind` é `daily` (retell), `aloud` (leitura em voz alta, com o parágrafo em `cardId`), `weekly` ou `book` (fechamento de uma fonte).
 - `reviews` só recebe inclusões: cada tentativa de revisão fica registrada.
 - **Migrations:** para mudar o esquema, acrescente uma nova `this.version(n).stores({...}).upgrade(...)` em `src/data/db.ts`. Nunca edite uma versão já publicada. A versão 2 converte os cards antigos em ideias (`src/data/migrations.ts`); backups antigos são convertidos na importação.
 
@@ -352,7 +377,7 @@ pnpm lint        # oxlint
 pnpm format      # oxfmt
 ```
 
-Cobertura: criação de sessão, ideias e cards em sequência, Idea of the Day, migração do banco, limite de 3 chunks, cálculo D1–D30, revisão atrasada, avaliações AGAIN/HARD/GOOD/EASY, finalização da sessão, estatísticas semanais, ciclo de 4 semanas, sincronização com a nuvem (envio, recebimento e conflito) e leitura do retorno da IA.
+Cobertura: criação de sessão, texto e parágrafos em sequência, texto do dia, ditado do LISTEN, estatísticas por habilidade, migração do banco, limite de 3 chunks, cálculo D1–D30, revisão atrasada, avaliações AGAIN/HARD/GOOD/EASY, finalização da sessão, estatísticas semanais, ciclo de 4 semanas, sincronização com a nuvem (envio, recebimento e conflito) e leitura do retorno da IA.
 
 ## Roadmap
 
@@ -366,6 +391,7 @@ Cobertura: criação de sessão, ideias e cards em sequência, Idea of the Day, 
 | 0.7 | Livros, leitura com clique e dicionário, gravação e transcrição do retelling, acompanhamento das ações, exercícios | feito, testado com IA simulada |
 | 0.6 | Login e sincronização com Supabase | feito, testado contra um servidor simulado |
 | 0.8 | Reset por semana, treino adaptativo, áudios da semana, importação por texto e screenshots, orientação da IA por etapa, layout para celular | feito, testado com IA simulada |
+| 0.9 | Textos de qualquer fonte, sessão nas quatro habilidades (LISTEN e READ ALOUD), progresso por habilidade | feito |
 | 1.0 | Áudios na nuvem, tabelas relacionais no Supabase com mesclagem por registro, testes de interface | futuro |
 
-Fora do escopo por decisão de produto: scraping do Deepstash, rede social, ranking e gamificação pesada.
+Fora do escopo por decisão de produto: scraping de sites, rede social, ranking e gamificação pesada.

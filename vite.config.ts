@@ -15,9 +15,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Deepstash English Study System',
+        name: 'English Study System',
         short_name: 'DS English',
-        description: 'Método 5 → 1 → 3 → 1 para estudar inglês com os cards do Deepstash.',
+        description: 'Um texto por dia, trabalhado em listening, reading, speaking e writing.',
         lang: 'pt-BR',
         start_url: '.',
         scope: '.',

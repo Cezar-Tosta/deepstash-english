@@ -6,14 +6,14 @@ import { AIError, type AIProvider } from './AIProvider';
 import { createProvider } from './feedback';
 
 const WHERE: Record<string, string> = {
-  mainIdea: 'ideia principal (CHECK)',
+  mainIdea: 'ideia principal (READ)',
   chunkSentence: 'frase com chunk (PERSONALIZE)',
   opinion: 'opinião (REFLECT)',
   soWhat: 'ação (SO WHAT)',
   retell: 'fala transcrita (RETELL)',
   writing: 'texto do fechamento',
   followUp: 'Did you do it?',
-  bookTakeaway: 'resumo do livro',
+  bookTakeaway: 'resumo de uma fonte',
   practice: 'exercício',
 };
 
@@ -55,7 +55,7 @@ export function describeDigest(digest: DayDigest): string {
 export function buildSummaryPrompt(digest: DayDigest): { system: string; user: string } {
   return {
     system: [
-      'Você é professor de inglês de um aluno brasileiro que estuda lendo ideias de livros.',
+      'Você é professor de inglês de um aluno brasileiro que estuda inglês a partir de textos que ele escolhe.',
       'Abaixo estão os dados da sessão de hoje: as correções que ele recebeu, os erros nos exercícios e as revisões que não lembrou.',
       'Escreva, em português do Brasil, um resumo do que ele deve estudar. Use só o que está nos dados: não invente erros.',
       'Formato: de 3 a 6 tópicos em lista markdown. Cada tópico começa com o ponto a estudar em **negrito** (por exemplo, **concordância do verbo com o sujeito**), dá um exemplo tirado dos erros dele (o errado e o certo, em inglês) e diz em uma frase o que praticar.',

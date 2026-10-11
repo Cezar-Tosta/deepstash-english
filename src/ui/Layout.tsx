@@ -179,9 +179,9 @@ export function Layout() {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:static md:w-56 md:shrink-0 md:border-t-0 md:border-r md:pb-0"
       >
         <p className="hidden px-6 pt-8 pb-6 font-serif text-lg leading-tight md:block">
-          Deepstash
-          <br />
           English
+          <br />
+          Study System
         </p>
         <ul className="flex md:flex-col md:gap-1 md:px-3">
           {NAV.map((item) => (

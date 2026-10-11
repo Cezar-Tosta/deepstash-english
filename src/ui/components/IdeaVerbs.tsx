@@ -126,7 +126,7 @@ function VerbCard({ verb, canComplete }: { verb: VerbEntry; canComplete: boolean
 }
 
 /**
- * Estudo dos verbos de uma ideia: a IA encontra os verbos do texto, com as formas
+ * Estudo dos verbos de um texto: a IA encontra os verbos do texto, com as formas
  * e o tempo em que aparecem; o usuário escolhe quais estudar e treina os tempos
  * verbais em frases com lacuna.
  */
@@ -177,7 +177,7 @@ export function IdeaVerbs({ ideaId, hasText }: { ideaId: string; hasText: boolea
   return (
     <section className="rounded-2xl border border-line bg-surface p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Eyebrow>Verbos desta ideia · tempos verbais</Eyebrow>
+        <Eyebrow>Verbos deste texto · tempos verbais</Eyebrow>
         {aiReady && hasText && (
           <Button small variant="secondary" disabled={busy || !online} onClick={() => void find()}>
             {busy ? (
@@ -185,7 +185,7 @@ export function IdeaVerbs({ ideaId, hasText }: { ideaId: string; hasText: boolea
                 <Spinner /> Procurando os verbos…
               </span>
             ) : verbs.length === 0 ? (
-              'Encontrar os verbos desta ideia'
+              'Encontrar os verbos deste texto'
             ) : (
               'Procurar mais verbos'
             )}
@@ -225,7 +225,7 @@ export function IdeaVerbs({ ideaId, hasText }: { ideaId: string; hasText: boolea
         <div className="mt-2">
           <Hint>
             {!hasText
-              ? 'Registre o texto dos cards para estudar os verbos desta ideia.'
+              ? 'Registre os parágrafos do texto para estudar os verbos dele.'
               : aiReady
                 ? 'A IA lista os verbos principais do texto, com as formas (passado, particípio, -ing), o tempo em que cada um aparece e frases para treinar outros tempos.'
                 : 'Com a IA configurada em Settings, dá para listar os verbos do texto e treinar os tempos verbais.'}

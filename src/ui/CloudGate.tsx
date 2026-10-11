@@ -5,7 +5,7 @@ import { Button, Card, Hint, Notice, TextInput } from './components/ui';
 function Screen({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center bg-paper px-5 py-10 text-ink">
-      <p className="font-serif text-lg leading-tight text-muted">Deepstash English</p>
+      <p className="font-serif text-lg leading-tight text-muted">English Study System</p>
       <h1 className="mt-1 mb-6 text-2xl font-semibold tracking-tight">{title}</h1>
       {children}
     </div>

@@ -266,7 +266,7 @@ export function PracticePage() {
   const requested = params.get('tab');
   const tab: ExerciseTab = EXERCISES.some((e) => e.value === requested) ? (requested as ExerciseTab) : 'training';
 
-  // Vindo da página de uma ideia ("Treinar estes verbos"), a rodada começa direto com os verbos dela.
+  // Vindo da página de um texto ("Treinar estes verbos"), a rodada começa direto com os verbos dela.
   useEffect(() => {
     if (!material || !verbsOfIdea) return;
     const verbs = material.verbs.filter((v) => v.ideaId === verbsOfIdea);

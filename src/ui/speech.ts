@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { showToast } from './toast';
+import { splitSentences } from '../domain/reader';
 
 export const RATES = [1, 0.75, 0.5] as const;
 export type Rate = (typeof RATES)[number];
@@ -41,19 +42,29 @@ function update(patch: Partial<SpeechState>): void {
   for (const l of listeners) l();
 }
 
+/**
+ * Lê frase por frase, em fila: vários navegadores cortam uma fala longa no meio, e o
+ * texto inteiro de um LISTEN pode ter muitos parágrafos. O fim da última frase encerra
+ * a leitura (ou recomeça, em loop).
+ */
 function utter(text: string, mine: number): void {
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'en-US';
-  utterance.rate = state.rate;
-  utterance.addEventListener('end', () => {
-    if (mine !== generation) return;
-    if (state.loop) loopTimer = setTimeout(() => mine === generation && utter(text, mine), LOOP_PAUSE_MS);
-    else update({ playing: null });
+  const parts = splitSentences(text);
+  parts.forEach((part, i) => {
+    const utterance = new SpeechSynthesisUtterance(part);
+    utterance.lang = 'en-US';
+    utterance.rate = state.rate;
+    if (i === parts.length - 1) {
+      utterance.addEventListener('end', () => {
+        if (mine !== generation) return;
+        if (state.loop) loopTimer = setTimeout(() => mine === generation && utter(text, mine), LOOP_PAUSE_MS);
+        else update({ playing: null });
+      });
+    }
+    utterance.addEventListener('error', () => {
+      if (mine === generation) update({ playing: null });
+    });
+    window.speechSynthesis.speak(utterance);
   });
-  utterance.addEventListener('error', () => {
-    if (mine === generation) update({ playing: null });
-  });
-  window.speechSynthesis.speak(utterance);
 }
 
 export function stopSpeaking(): void {

@@ -10,7 +10,7 @@ import { Timer } from '../components/Timer';
 import { AutoTextArea, Button, Card, EmptyState, Eyebrow, Hint, Prompt } from '../components/ui';
 import { attempt, showToast } from '../toast';
 
-/** Um livro: suas ideias na ordem de leitura e o fechamento ao terminar. */
+/** Uma fonte (livro, site, autor...): seus textos na ordem de leitura e o fechamento ao terminar. */
 export function BookPage() {
   const key = decodeURIComponent(useParams()['key'] ?? '');
   const detail = useLiveQuery(() => getBook(key), [key]);
@@ -19,20 +19,20 @@ export function BookPage() {
   if (detail === undefined) return null;
 
   const back = (
-    <Link to="/knowledge" className="mb-4 flex min-h-10 items-center text-sm font-medium text-accent">
-      ← Livros
+    <Link to="/knowledge?tab=books" className="mb-4 flex min-h-10 items-center text-sm font-medium text-accent">
+      ← Fontes
     </Link>
   );
   if (detail === null) {
     return (
       <div>
         {back}
-        <EmptyState title="Livro não encontrado." />
+        <EmptyState title="Fonte não encontrada." />
       </div>
     );
   }
 
-  const { book, note, studiedIdeaIds } = detail;
+  const { book, note } = detail;
   const finished = Boolean(note?.finishedAt);
   const spokenSec = (spoken ?? []).reduce((sum, s) => sum + s.durationSec, 0);
 
@@ -40,28 +40,25 @@ export function BookPage() {
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
       <header className="col-span-full">
         {back}
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Livro</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Fonte</p>
         <h1 className="mt-1 font-serif text-3xl leading-tight">{book.title}</h1>
         <p className="mt-2 text-sm text-muted">
-          {book.ideas.length} {book.ideas.length === 1 ? 'ideia' : 'ideias'} · {book.cardCount} {book.cardCount === 1 ? 'card' : 'cards'} ·{' '}
-          {studiedIdeaIds.size > 0 && `${book.ideas.filter((i) => studiedIdeaIds.has(i.id)).length} aprofundadas · `}
-          {formatDate(book.firstDate, 'short')} a {formatDate(book.lastDate, 'medium')}
+          {book.ideas.length} {book.ideas.length === 1 ? 'texto' : 'textos'} · {book.cardCount}{' '}
+          {book.cardCount === 1 ? 'parágrafo' : 'parágrafos'} · {formatDate(book.firstDate, 'short')} a{' '}
+          {formatDate(book.lastDate, 'medium')}
           {finished && ' · concluído'}
         </p>
       </header>
 
       <section className="space-y-3">
-        <Eyebrow>Ideias do livro</Eyebrow>
+        <Eyebrow>Textos desta fonte</Eyebrow>
         <ol className="divide-y divide-line rounded-2xl border border-line bg-surface px-2 py-1">
           {book.ideas.map((idea, i) => (
             <li key={idea.id}>
               <Link to={`/knowledge/idea/${idea.id}`} className="flex min-h-10 items-baseline gap-3 rounded-lg px-2 py-1.5 hover:bg-sunken">
                 <span className="w-5 shrink-0 text-right text-xs text-muted tabular-nums">{i + 1}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="font-serif leading-snug break-words">
-                    {studiedIdeaIds.has(idea.id) && <span title="Idea of the Day">⭐ </span>}
-                    {idea.title}
-                  </span>
+                  <span className="font-serif leading-snug break-words">{idea.title}</span>
                   {idea.mainIdea && <span className="block truncate text-xs text-muted">{idea.mainIdea}</span>}
                 </span>
                 <span className="shrink-0 text-xs text-muted tabular-nums">{formatDate(idea.date, 'short')}</span>
@@ -72,10 +69,10 @@ export function BookPage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="border-b border-line pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted">Fechamento do livro</h2>
+        <h2 className="border-b border-line pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted">Fechamento da fonte</h2>
         <div>
-          <Prompt>Explain this book in two minutes.</Prompt>
-          <Hint>Sem reler: qual é a tese do livro e quais ideias a sustentam? Fale como se explicasse a um amigo.</Hint>
+          <Prompt>Explain what you learned from this source in two minutes.</Prompt>
+          <Hint>Sem reler: qual é a mensagem central dos textos desta fonte e o que a sustenta? Fale como se explicasse a um amigo.</Hint>
         </div>
         <Card>
           <Timer
@@ -102,22 +99,22 @@ export function BookPage() {
             }
           />
         </Card>
-        {spokenSec > 0 && <p className="text-sm text-muted">Tempo explicando este livro: {formatDuration(spokenSec)}.</p>}
+        {spokenSec > 0 && <p className="text-sm text-muted">Tempo explicando esta fonte: {formatDuration(spokenSec)}.</p>}
 
         <div>
           <AutoTextArea
-            label="What stays with me from this book?"
+            label="What stays with me from these texts?"
             value={note?.takeaway ?? ''}
             onSave={(takeaway) => saveBookNote(key, book.title, { takeaway })}
             rows={5}
             lang="en"
-            starters={['The main message of this book is', 'The idea I will keep is', 'I changed my mind about', 'I disagree with']}
+            starters={['The main message of these texts is', 'The idea I will keep is', 'I changed my mind about', 'I disagree with']}
           />
           <AIFeedbackPanel
             targetType="bookTakeaway"
             targetId={key}
             text={note?.takeaway ?? ''}
-            context={`Resumo pessoal do livro "${book.title}".`}
+            context={`Resumo pessoal dos textos da fonte "${book.title}".`}
           />
         </div>
 
@@ -125,7 +122,7 @@ export function BookPage() {
           variant={finished ? 'secondary' : 'primary'}
           onClick={() => attempt(saveBookNote(key, book.title, { finishedAt: finished ? null : nowISO() }))}
         >
-          {finished ? 'Livro concluído · reabrir' : 'Marcar livro como concluído'}
+          {finished ? 'Fonte concluída · reabrir' : 'Marcar fonte como concluída'}
         </Button>
       </section>
     </div>

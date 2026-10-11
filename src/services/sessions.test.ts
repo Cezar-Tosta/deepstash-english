@@ -15,12 +15,14 @@ import {
   loadSessionBundle,
   recordSpeaking,
   replaceChunk,
+  saveListeningAnswer,
   saveReflection,
   setIdeaOfDay,
   splitIntoCards,
   startSession,
   updateChunk,
   updateIdea,
+  updateSessionNotes,
 } from './sessions';
 
 const DAY = '2026-10-03'; // sábado
@@ -125,7 +127,15 @@ describe('ideias e seus cards', () => {
     ]);
   });
 
-  it('texto colado vira um card por bloco separado por linha em branco', () => {
+  it('sem linha em branco no texto, cada linha vira um parágrafo (texto copiado da web)', () => {
+    expect(splitIntoCards('First paragraph.\r\nSecond paragraph.\n  Third.\n')).toEqual([
+      'First paragraph.',
+      'Second paragraph.',
+      'Third.',
+    ]);
+  });
+
+  it('texto colado vira um parágrafo por bloco separado por linha em branco', () => {
     expect(splitIntoCards('First card\nsecond line.\n\n  Second card.  \n\n\n\nThird card.')).toEqual([
       'First card\nsecond line.',
       'Second card.',
@@ -309,7 +319,7 @@ describe('finalização da sessão', () => {
 describe('progresso da sessão', () => {
   const empty = {
     ideas: 0,
-    hasIdeaOfDay: false,
+    listened: false,
     hasMainIdea: false,
     chunks: 0,
     sentences: 0,
@@ -323,7 +333,7 @@ describe('progresso da sessão', () => {
     expect(
       sessionProgress({
         ideas: 2,
-        hasIdeaOfDay: true,
+        listened: true,
         hasMainIdea: true,
         chunks: 3,
         sentences: 3,
@@ -334,9 +344,48 @@ describe('progresso da sessão', () => {
     ).toBe(100);
   });
 
-  it('não há meta de quantidade: uma ideia lida vale o mesmo que várias', () => {
+  it('não há meta de quantidade: um texto vale o mesmo que vários', () => {
     expect(sessionProgress({ ...empty, ideas: 1 })).toBe(sessionProgress({ ...empty, ideas: 6 }));
-    expect(sessionProgress({ ...empty, ideas: 1, hasIdeaOfDay: true })).toBe(25);
+    expect(sessionProgress({ ...empty, ideas: 1, listened: true })).toBe(25);
+  });
+});
+
+describe('texto do dia', () => {
+  it('o primeiro texto registrado passa a ser o texto em estudo; os seguintes não o substituem', async () => {
+    const session = await startSession(DAY);
+    const first = await addIdea(session.id, { title: 'How sleep works', cards: ['One.', 'Two.'] });
+    await addIdea(session.id, { title: 'Another text' });
+    const bundle = await loadSessionBundle(DAY);
+    expect(bundle?.session.ideaOfDayId).toBe(first.id);
+    expect(bundle?.ideaOfDay?.cards.map((c) => c.content)).toEqual(['One.', 'Two.']);
+  });
+
+  it('guarda o que entendi ouvindo e as respostas do ditado, uma por frase', async () => {
+    const session = await startSession(DAY);
+    await updateSessionNotes(session.id, { listenGist: 'It is about sleep.' });
+    await saveListeningAnswer(session.id, { sentence: 'Sleep is vital.', answer: 'sleep is', score: 0.67 });
+    await saveListeningAnswer(session.id, { sentence: 'We dream.', answer: 'we dream', score: 1 });
+    await saveListeningAnswer(session.id, { sentence: 'Sleep is vital.', answer: 'sleep is vital', score: 1 });
+    const saved = await db.sessions.get(session.id);
+    expect(saved?.listenGist).toBe('It is about sleep.');
+    expect(saved?.listenAnswers).toEqual([
+      { sentence: 'We dream.', answer: 'we dream', score: 1 },
+      { sentence: 'Sleep is vital.', answer: 'sleep is vital', score: 1 },
+    ]);
+  });
+
+  it('a leitura em voz alta guarda o parágrafo lido', async () => {
+    const session = await startSession(DAY);
+    const id = await recordSpeaking({
+      kind: 'aloud',
+      sessionId: session.id,
+      ideaId: null,
+      cardId: 'card-1',
+      date: DAY,
+      durationSec: 20,
+      targetSec: 25,
+    });
+    expect(await db.speaking.get(id ?? '')).toMatchObject({ kind: 'aloud', cardId: 'card-1' });
   });
 });
 

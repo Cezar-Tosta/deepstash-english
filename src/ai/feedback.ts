@@ -75,13 +75,13 @@ const FOCUS: Record<FeedbackKind, string> = {
   natural:
     'Em "moreNatural", mostre como um falante nativo diria a mesma coisa; em "corrected", o texto do aluno só com os erros corrigidos. Em "why", diga em até 2 frases que escolhas de palavras ou de construção deixam a versão mais natural.',
   retell:
-    'O texto é a transcrição de uma fala improvisada do aluno recontando uma ideia. Ignore hesitações e falhas da transcrição. Em "corrected", reescreva a fala corrigida, mantendo o conteúdo e o nível dele. Em "why", comente em português, em até 4 frases: se ele transmitiu a ideia principal, os 2 ou 3 erros de inglês mais importantes, e se usou as expressões que está aprendendo. Em "moreNatural" responda null.',
+    'O texto é a transcrição de uma fala improvisada do aluno recontando um texto que leu. Ignore hesitações e falhas da transcrição. Em "corrected", reescreva a fala corrigida, mantendo o conteúdo e o nível dele. Em "why", comente em português, em até 4 frases: se ele transmitiu a ideia principal, os 2 ou 3 erros de inglês mais importantes, e se usou as expressões que está aprendendo. Em "moreNatural" responda null.',
 };
 
 export function buildFeedbackPrompt(kind: FeedbackKind, text: string, context: string): { system: string; user: string } {
   return {
     system: [
-      'Você é um professor de inglês de um aluno brasileiro que estuda com cards curtos de ideias.',
+      'Você é um professor de inglês de um aluno brasileiro que estuda inglês a partir de textos que ele escolhe.',
       'O aluno já escreveu a própria tentativa; seu papel é dar retorno sobre ela, nunca escrever no lugar dele.',
       FOCUS[kind],
       'Responda somente com um objeto JSON, sem texto antes ou depois, neste formato:',
@@ -222,7 +222,7 @@ export function buildLookupPrompt(term: string, sentence: string): { system: str
         ];
   return {
     system: [
-      'Você é um dicionário inglês → português para um estudante brasileiro que lê resumos de livros.',
+      'Você é um dicionário inglês → português para um estudante brasileiro que lê textos em inglês.',
       'O que deve ser analisado é exatamente o trecho marcado entre [[ ]] na frase: nem mais, nem menos.',
       ...unit,
       'Responda somente com um objeto JSON, sem texto antes ou depois, neste formato:',
@@ -273,7 +273,7 @@ export interface ModelsInUse {
   provider: string;
   /** Correções, traduções e orientação. */
   text: string;
-  /** Leitura de screenshots de cards. */
+  /** Leitura do texto de fotos e screenshots. */
   images: string;
   /** Transcrição da fala; null quando o provedor não transcreve áudio. */
   audio: string | null;

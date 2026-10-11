@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useState } from 'react';
 import { addDays, formatDate, formatDuration, today } from '../../domain/dates';
-import type { ISODate } from '../../domain/types';
+import type { ISODate, SpeakingKind } from '../../domain/types';
 import {
   deleteRecordingsBefore,
   deleteSpeaking,
@@ -43,7 +43,7 @@ export function ResetWeek({ weekStart, weekEnd }: { weekStart: ISODate; weekEnd:
       </p>
       <p className="mt-1">
         Serão apagados {contents.sessions} {contents.sessions === 1 ? 'sessão' : 'sessões'}, {contents.ideas}{' '}
-        {contents.ideas === 1 ? 'ideia' : 'ideias'} com seus cards e dicionário, {contents.chunks}{' '}
+        {contents.ideas === 1 ? 'texto' : 'textos'} com seus parágrafos e dicionário, {contents.chunks}{' '}
         {contents.chunks === 1 ? 'chunk' : 'chunks'} com o histórico de revisão, {contents.speaking}{' '}
         {contents.speaking === 1 ? 'fala' : 'falas'}, reflexões e o fechamento do ciclo. Não dá para desfazer.
       </p>
@@ -151,7 +151,12 @@ export function DataSection() {
 
 // ---------- Falas da semana ----------
 
-const KIND_LABEL = { daily: 'Retelling', weekly: 'Fala do ciclo', book: 'Livro' } as const;
+const KIND_LABEL: Record<SpeakingKind, string> = {
+  daily: 'Retelling',
+  aloud: 'Leitura em voz alta',
+  weekly: 'Fala do ciclo',
+  book: 'Fonte',
+};
 
 /** Uma fala em poucas linhas: quando, o quê, o player e, sob demanda, a transcrição. */
 function SpokenRow({ item }: { item: SpokenItem }) {

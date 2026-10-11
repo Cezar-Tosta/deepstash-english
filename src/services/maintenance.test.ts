@@ -153,6 +153,11 @@ describe('frequência das etapas', () => {
     expect(STEPS.reduce((sum, s) => sum + s.minutes, 0)).toBe(30);
   });
 
+  it('a sessão passa pelas quatro habilidades, nesta ordem', () => {
+    const skills = STEPS.flatMap((s) => (s.skill ? [s.skill] : []));
+    expect([...new Set(skills)]).toEqual(['listening', 'reading', 'speaking', 'writing']);
+  });
+
   it('a rotina cobre do dia a dia ao ciclo de 4 semanas', () => {
     expect(ROUTINE.map((r) => r.frequency)).toEqual([
       'Dias 1 a 5 do ciclo',
@@ -161,7 +166,7 @@ describe('frequência das etapas', () => {
       '3 dias depois',
       '2 a 3 vezes por ciclo',
       'Dia 5 do ciclo',
-      'Ao terminar cada livro',
+      'Ao terminar uma fonte',
       'Uma por ciclo, de 1 a 4',
     ]);
   });

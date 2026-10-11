@@ -53,7 +53,7 @@ function ReviewCard({ item, date, remaining }: { item: DueItem; date: ISODate; r
             <Detail label="Frase original" value={chunk.originalSentence} serif />
             <Detail label="Frase que você criou" value={lastReviewSentence || chunk.userSentence} serif />
             {sentence.trim() && <Detail label="Sua frase de agora" value={sentence} serif />}
-            <Detail label="Ideia de origem" value={sourceIdea ? `${sourceIdea.title} · ${formatDate(chunk.createdDate, 'medium')}` : ''} />
+            <Detail label="Texto de origem" value={sourceIdea ? `${sourceIdea.title} · ${formatDate(chunk.createdDate, 'medium')}` : ''} />
           </dl>
           <div>
             <p className="mb-2 text-sm font-medium">Como foi a recuperação?</p>

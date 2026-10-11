@@ -1,4 +1,4 @@
-/** Uma imagem (screenshot de card) já codificada para envio. */
+/** Uma imagem (foto ou screenshot de um texto) já codificada para envio. */
 export interface ImageInput {
   mediaType: string;
   base64: string;

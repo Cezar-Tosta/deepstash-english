@@ -7,6 +7,8 @@ interface TimerProps {
   minSec: number;
   maxSec: number;
   targetLabel: string;
+  /** O que vem antes da meta, na linha acima do cronômetro. */
+  targetPrefix?: string | undefined;
   /** Grava o microfone enquanto o cronômetro corre. Se o acesso for negado, só conta o tempo. */
   record?: boolean | undefined;
   onStop: (durationSec: number, audio: Blob | null) => void;
@@ -45,7 +47,7 @@ function finishRecording(recording: Recording): Promise<Blob | null> {
 }
 
 /** Cronômetro crescente. Mede pelo relógio, então continua certo se a aba ficar em segundo plano. */
-export function Timer({ minSec, maxSec, targetLabel, record, onStop }: TimerProps) {
+export function Timer({ minSec, maxSec, targetLabel, targetPrefix = 'Meta desta fase', record, onStop }: TimerProps) {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [micDenied, setMicDenied] = useState(false);
@@ -103,7 +105,9 @@ export function Timer({ minSec, maxSec, targetLabel, record, onStop }: TimerProp
 
   return (
     <div className="flex flex-col items-center gap-4 py-2">
-      <p className="text-sm text-muted">Meta desta fase: {targetLabel}</p>
+      <p className="text-sm text-muted">
+        {targetPrefix}: {targetLabel}
+      </p>
       <p role="timer" aria-live="off" className={`font-serif text-6xl tabular-nums ${reached && running ? 'text-good' : 'text-ink'}`}>
         {formatDuration(elapsed)}
       </p>

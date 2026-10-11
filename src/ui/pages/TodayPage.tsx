@@ -52,7 +52,7 @@ export function TodayPage() {
   const progress = bundle
     ? sessionProgress({
         ideas: bundle.ideas.length,
-        hasIdeaOfDay: bundle.ideaOfDay !== null,
+        listened: Boolean(bundle.session.listenGist?.trim()) || (bundle.session.listenAnswers?.length ?? 0) > 0,
         hasMainIdea: Boolean(bundle.ideaOfDay?.idea.mainIdea.trim()),
         chunks: bundle.chunks.length,
         sentences: bundle.chunks.filter((c) => c.userSentence.trim()).length,
@@ -62,8 +62,9 @@ export function TodayPage() {
       })
     : 0;
 
-  const ideasToday = bundle?.ideas.length ?? 0;
-  const cardsToday = bundle?.ideas.reduce((sum, i) => sum + i.cards.length, 0) ?? 0;
+  const text = bundle?.ideaOfDay ?? null;
+  const listenAnswers = bundle?.session.listenAnswers ?? [];
+  const listened = Boolean(bundle?.session.listenGist?.trim()) || listenAnswers.length > 0;
 
   const weekend = info.rest;
   // Nos dias 6 e 7 do ciclo a sessão só aparece se o usuário já tiver decidido fazer uma.
@@ -110,12 +111,12 @@ export function TodayPage() {
         <>
           {totalSessions === 0 && (
             <Card className="bg-accent-soft">
-              <Eyebrow>Método: ideias → 1 → 3 → 1</Eyebrow>
+              <Eyebrow>Método: 1 texto → 4 habilidades</Eyebrow>
               <p className="mt-2 leading-relaxed">
-                Leia as <strong>ideias</strong> do dia no Deepstash (cada uma é uma sequência de cards), escolha <strong>1 ideia</strong>{' '}
-                para aprofundar, guarde só <strong>3 expressões</strong> úteis e faça <strong>1 explicação</strong> em voz alta. Cerca de 30
-                minutos por dia. O estudo anda em <strong>ciclos de 7 dias</strong>, que começam no dia da sua primeira sessão: 5 dias de
-                sessão e 2 só de revisão.
+                Escolha <strong>1 texto</strong> em inglês, de qualquer fonte. Primeiro você o <strong>ouve</strong> sem ler, depois{' '}
+                <strong>lê</strong> e guarda só <strong>3 expressões</strong> úteis, <strong>fala</strong> (leitura em voz alta e reconto) e{' '}
+                <strong>escreve</strong> com as suas palavras. Cerca de 30 minutos por dia. O estudo anda em{' '}
+                <strong>ciclos de 7 dias</strong>, que começam no dia da sua primeira sessão: 5 dias de sessão e 2 só de revisão.
               </p>
               <Link to="/manual" className="mt-2 inline-flex min-h-10 items-center font-medium text-accent underline underline-offset-2">
                 Ler o manual: a sequência completa de estudos →
@@ -183,14 +184,20 @@ export function TodayPage() {
                   value={due.length === 0 ? 'nenhuma' : overdue > 0 ? `${due.length} (${overdue} em atraso)` : String(due.length)}
                 />
                 <Row
-                  label="Ideias lidas hoje"
-                  done={ideasToday > 0}
-                  value={ideasToday === 0 ? 'nenhuma' : `${ideasToday} · ${cardsToday} ${cardsToday === 1 ? 'card' : 'cards'}`}
+                  label="Texto do dia"
+                  done={text !== null}
+                  value={text ? <span className="font-serif">{text.idea.title}</span> : 'não registrado'}
                 />
                 <Row
-                  label="Idea of the Day"
-                  done={Boolean(bundle?.ideaOfDay)}
-                  value={bundle?.ideaOfDay ? <span className="font-serif">{bundle.ideaOfDay.idea.title}</span> : 'não escolhida'}
+                  label="Listening"
+                  done={listened}
+                  value={
+                    listenAnswers.length > 0
+                      ? `ditado ${Math.round((listenAnswers.reduce((sum, a) => sum + a.score, 0) / listenAnswers.length) * 100)}%`
+                      : listened
+                        ? 'feito'
+                        : 'não realizado'
+                  }
                 />
                 <Row
                   label="Chunks"
@@ -261,7 +268,7 @@ export function TodayPage() {
           <Eyebrow>Fechamento do ciclo</Eyebrow>
           <p className="mt-2">
             {info.reference ? `Ciclo de ${formatDate(info.reference.start, 'short')} a ${formatDate(info.reference.end, 'short')}. ` : ''}
-            Relembrar as Ideas of the Day, escolher o Top 3, ouvir suas falas, fala livre e escrita curta.
+            Relembrar os textos do ciclo, escolher o Top 3, ouvir suas falas, fala livre e escrita curta.
           </p>
           <p className="mt-1 text-sm text-muted">Sugerido no dia 5, depois da última sessão do ciclo.</p>
           {totalSessions > 0 ? (

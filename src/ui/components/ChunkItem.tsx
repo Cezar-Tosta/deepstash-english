@@ -117,7 +117,7 @@ export function ChunkItem({ item, date, linkToIdea = true }: { item: ChunkWithHi
               </div>
               {sourceIdea && (
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Ideia de origem</dt>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Texto de origem</dt>
                   <dd>
                     {linkToIdea ? (
                       <Link to={`/knowledge/idea/${sourceIdea.id}`} className="text-accent underline underline-offset-2">

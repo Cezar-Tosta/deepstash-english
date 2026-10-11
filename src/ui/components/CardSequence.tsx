@@ -9,7 +9,7 @@ import { attempt, showToast } from '../toast';
 import { toImageInput } from './IdeaImport';
 import { AutoTextArea, Button, Hint, Spinner, TextArea } from './ui';
 
-const cardCount = (n: number): string => `${n} ${n === 1 ? 'card' : 'cards'}`;
+const paragraphCount = (n: number): string => `${n} ${n === 1 ? 'parágrafo' : 'parágrafos'}`;
 const onlyImages = (files: Iterable<File>): File[] => [...files].filter((f) => f.type.startsWith('image/'));
 const aiMessage = (e: unknown): string => (e instanceof AIError ? e.message : 'Não foi possível ler a imagem.');
 
@@ -52,7 +52,7 @@ function ImageButton({
   );
 }
 
-/** Um card: texto editável, e a opção de preenchê-lo a partir de um screenshot. */
+/** Um parágrafo: texto editável, e a opção de preenchê-lo a partir de uma imagem. */
 function CardRow({ card, canRead }: { card: SourceCard; canRead: boolean }) {
   const [reading, setReading] = useState(false);
   const number = card.position + 1;
@@ -71,24 +71,24 @@ function CardRow({ card, canRead }: { card: SourceCard; canRead: boolean }) {
   return (
     <li>
       <AutoTextArea
-        label={`Card ${number}`}
+        label={`Parágrafo ${number}`}
         value={card.content}
         onSave={(content) => updateCard(card.id, content)}
         rows={3}
         lang="en"
-        placeholder="Texto do card (opcional)."
+        placeholder="Texto do parágrafo."
       />
       <div className="mt-1 flex flex-wrap items-center gap-2">
         {canRead && (
           <ImageButton
             label={card.content.trim() ? 'Substituir pelo texto de uma imagem' : 'Ler de uma imagem'}
-            busyLabel={reading ? `Lendo a imagem do card ${number}…` : null}
+            busyLabel={reading ? `Lendo a imagem do parágrafo ${number}…` : null}
             disabled={false}
             onFiles={(files) => files[0] && void fill(files[0])}
           />
         )}
-        <Button small variant="ghost" aria-label={`Remover card ${number}`} onClick={() => attempt(deleteCard(card.id))}>
-          Remover card
+        <Button small variant="ghost" aria-label={`Remover parágrafo ${number}`} onClick={() => attempt(deleteCard(card.id))}>
+          Remover parágrafo
         </Button>
       </div>
     </li>
@@ -96,9 +96,8 @@ function CardRow({ card, canRead }: { card: SourceCard; canRead: boolean }) {
 }
 
 /**
- * Os cards da ideia, na ordem em que são lidos. O texto é opcional e pode entrar
- * digitado, colado ou lido de screenshots pela IA, card por card: cada imagem vira
- * um card, na ordem em que foi escolhida.
+ * Os parágrafos do texto, na ordem de leitura. Podem entrar digitados, colados ou
+ * lidos de imagens pela IA: cada imagem vira um parágrafo, na ordem escolhida.
  */
 export function CardSequence({ item }: { item: IdeaWithCards }) {
   const settings = useSettings();
@@ -108,7 +107,7 @@ export function CardSequence({ item }: { item: IdeaWithCards }) {
   const blocks = splitIntoCards(pasted);
   const canRead = Boolean(settings && isAIConfigured(settings.ai)) && online;
 
-  // Uma imagem por vez: cada card aparece assim que fica pronto e a ordem é preservada.
+  // Uma imagem por vez: cada parágrafo aparece assim que fica pronto e a ordem é preservada.
   const readAsCards = async (files: File[]) => {
     let failed = 0;
     setProgress({ done: 0, total: files.length });
@@ -132,7 +131,7 @@ export function CardSequence({ item }: { item: IdeaWithCards }) {
     }
   };
 
-  // Ctrl+V com um screenshot na área de transferência vira um card novo.
+  // Ctrl+V com um screenshot na área de transferência vira um parágrafo novo.
   const onPaste = (e: ClipboardEvent) => {
     const files = onlyImages(e.clipboardData.files);
     if (canRead && files.length > 0 && !progress) {
@@ -153,31 +152,31 @@ export function CardSequence({ item }: { item: IdeaWithCards }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <Button small variant="secondary" onClick={() => attempt(addCards(item.idea.id, ['']))}>
-          + Card
+          + Parágrafo
         </Button>
         {canRead && (
           <ImageButton
             multiple
-            label="+ Cards a partir de imagens"
+            label="+ Parágrafos a partir de imagens"
             busyLabel={progress ? `Lendo imagem ${Math.min(progress.done + 1, progress.total)} de ${progress.total}…` : null}
             disabled={false}
             onFiles={(files) => void readAsCards(files)}
           />
         )}
       </div>
-      {canRead && <Hint>Cada imagem vira um card, na ordem escolhida. Também dá para colar um screenshot com Ctrl+V.</Hint>}
+      {canRead && <Hint>Cada imagem vira um parágrafo, na ordem escolhida. Também dá para colar um screenshot com Ctrl+V.</Hint>}
 
       <TextArea
-        label="Ou cole o texto de vários cards"
+        label="Ou cole mais parágrafos"
         value={pasted}
         onChange={setPasted}
         rows={3}
         lang="en"
-        placeholder="Separe um card do outro com uma linha em branco."
+        placeholder="Um parágrafo por linha, ou separados por uma linha em branco."
       />
       {blocks.length > 0 && (
         <Button small variant="secondary" onClick={() => attempt(addCards(item.idea.id, blocks).then(() => setPasted('')))}>
-          Adicionar {cardCount(blocks.length)}
+          Adicionar {paragraphCount(blocks.length)}
         </Button>
       )}
     </div>

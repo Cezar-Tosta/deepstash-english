@@ -23,7 +23,7 @@ export function TodaySuggestion({ date }: { date: ISODate }) {
           {info.rest
             ? 'Dia de revisão sem revisões agendadas. Descanse; o próximo ciclo começa quando você fizer a próxima sessão.'
             : info.period
-              ? 'Tudo em dia. Se quiser ir além, abra uma ideia em Knowledge e releia os cards clicando nas palavras.'
+              ? 'Tudo em dia. Se quiser ir além, abra um texto em Knowledge, ouça e releia clicando nas palavras.'
               : 'Nenhum ciclo em andamento e nada pendente. O próximo ciclo de 7 dias começa quando você fizer a próxima sessão.'}
         </p>
       ) : (

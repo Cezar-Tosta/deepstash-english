@@ -38,7 +38,7 @@ const PLANS: readonly WeekPlan[] = [
   },
   {
     week: 4,
-    focus: 'Explicar e ensinar a ideia.',
+    focus: 'Explicar e ensinar o texto.',
     translation: 'Tradução apenas quando necessária.',
     speakingLabel: '2–3 minutos',
     speakingMinSec: 120,

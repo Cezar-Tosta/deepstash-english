@@ -4,7 +4,7 @@
   "version": "0.4.0",
   "type": "module",
   "packageManager": "pnpm@12.3.4",
-  "description": "Deepstash English Study System — método 5 → 1 → 3 → 1",
+  "description": "English Study System — um texto por dia, nas quatro habilidades",
   "engines": {
     "node": ">=22"
   },

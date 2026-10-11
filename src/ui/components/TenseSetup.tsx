@@ -31,7 +31,7 @@ function flip(set: ReadonlySet<string>, value: string): Set<string> {
 }
 
 interface Props {
-  /** Os verbos marcados para estudo nas ideias. */
+  /** Os verbos marcados para estudo nos textos. */
   verbs: readonly VerbEntry[];
   stats: readonly PracticeStat[];
   onStart: (questions: Question[]) => void;

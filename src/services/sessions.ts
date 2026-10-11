@@ -9,8 +9,10 @@ import type {
   ComprehensionVocab,
   Idea,
   ISODate,
+  ListeningAnswer,
   Reflection,
   SourceCard,
+  SpeakingKind,
   SpeakingSession,
   StepId,
   StudySession,
@@ -19,15 +21,17 @@ import { ChunkLimitError, DomainError } from './errors';
 import { ensureCycle } from './cycles';
 import { getSettings } from './settings';
 
+/** Um texto com os seus parágrafos. */
 export interface IdeaWithCards {
   idea: Idea;
-  /** Na ordem em que são lidos. */
+  /** Os parágrafos, na ordem de leitura. */
   cards: SourceCard[];
 }
 
 export interface SessionBundle {
   session: StudySession;
   ideas: IdeaWithCards[];
+  /** O texto em estudo hoje. */
   ideaOfDay: IdeaWithCards | null;
   vocab: ComprehensionVocab[];
   chunks: Chunk[];
@@ -111,12 +115,21 @@ export async function setStep(sessionId: string, step: StepId): Promise<void> {
 
 export async function updateSessionNotes(
   sessionId: string,
-  patch: Partial<Pick<StudySession, 'misunderstood' | 'retellNotes'>>,
+  patch: Partial<Pick<StudySession, 'misunderstood' | 'retellNotes' | 'listenGist'>>,
 ): Promise<void> {
   await db.sessions.update(sessionId, patch);
 }
 
-// ---------- Ideias ----------
+/** Guarda a resposta a uma frase do ditado do LISTEN, substituindo a anterior da mesma frase. */
+export function saveListeningAnswer(sessionId: string, answer: ListeningAnswer): Promise<void> {
+  return db.transaction('rw', db.sessions, async () => {
+    const session = await mustGetSession(sessionId);
+    const others = (session.listenAnswers ?? []).filter((a) => a.sentence !== answer.sentence);
+    await db.sessions.update(sessionId, { listenAnswers: [...others, answer] });
+  });
+}
+
+// ---------- Textos ----------
 
 export interface IdeaInput {
   title: string;
@@ -124,14 +137,19 @@ export interface IdeaInput {
   mainIdea?: string | undefined;
   category?: string | undefined;
   notes?: string | undefined;
-  /** Texto dos cards, na ordem de leitura. */
+  /** Os parágrafos, na ordem de leitura. */
   cards?: readonly string[] | undefined;
 }
 
-/** Texto colado → um card por bloco. Os blocos são separados por uma linha em branco. */
+/**
+ * Texto colado → um parágrafo por bloco, separados por uma linha em branco. Sem nenhuma
+ * linha em branco (comum em texto copiado de sites), cada linha é um parágrafo.
+ */
 export function splitIntoCards(text: string): string[] {
-  return text
-    .split(/\n\s*\n/)
+  const clean = text.replace(/\r/g, '');
+  const separator = /\n\s*\n/.test(clean.trim()) ? /\n\s*\n/ : /\n/;
+  return clean
+    .split(separator)
     .map((block) => block.trim())
     .filter(Boolean);
 }
@@ -148,6 +166,7 @@ function buildCards(idea: Idea, contents: readonly string[], firstPosition: numb
   }));
 }
 
+/** Registra um texto. O primeiro texto da sessão passa a ser o texto em estudo. */
 export function addIdea(sessionId: string, input: IdeaInput): Promise<Idea> {
   return db.transaction('rw', db.sessions, db.ideas, db.cards, async () => {
     const session = await mustGetSession(sessionId);
@@ -156,7 +175,7 @@ export function addIdea(sessionId: string, input: IdeaInput): Promise<Idea> {
       sessionId,
       date: session.date,
       bookTitle: input.bookTitle?.trim() ?? '',
-      title: required(input.title, 'Título da ideia'),
+      title: required(input.title, 'Título do texto'),
       mainIdea: input.mainIdea?.trim() ?? '',
       category: input.category?.trim() ?? '',
       notes: input.notes?.trim() ?? '',
@@ -164,6 +183,7 @@ export function addIdea(sessionId: string, input: IdeaInput): Promise<Idea> {
     };
     await db.ideas.add(idea);
     await db.cards.bulkAdd(buildCards(idea, input.cards ?? [], 0));
+    if (!session.ideaOfDayId) await db.sessions.update(sessionId, { ideaOfDayId: idea.id });
     return idea;
   });
 }
@@ -172,11 +192,11 @@ export async function updateIdea(
   ideaId: string,
   patch: Partial<Pick<Idea, 'title' | 'bookTitle' | 'mainIdea' | 'category' | 'notes'>>,
 ): Promise<void> {
-  if (patch.title !== undefined) required(patch.title, 'Título da ideia');
+  if (patch.title !== undefined) required(patch.title, 'Título do texto');
   await db.ideas.update(ideaId, patch);
 }
 
-/** Remove a ideia e o que só existe por causa dela. Os chunks ficam, sem ideia de origem. */
+/** Remove o texto e o que só existe por causa dele. Os chunks ficam, sem texto de origem. */
 export function deleteIdea(ideaId: string): Promise<void> {
   return db.transaction(
     'rw',
@@ -204,30 +224,30 @@ export function deleteIdea(ideaId: string): Promise<void> {
   );
 }
 
-/** Só uma ideia por sessão recebe o aprofundamento; escolher outra substitui a anterior. */
+/** Só um texto por sessão recebe o aprofundamento; escolher outro substitui o anterior. */
 export function setIdeaOfDay(sessionId: string, ideaId: string): Promise<void> {
   return db.transaction('rw', db.sessions, db.ideas, async () => {
     const idea = await db.ideas.get(ideaId);
     if (!idea || idea.sessionId !== sessionId) {
-      throw new DomainError('Esta ideia não pertence à sessão de hoje.');
+      throw new DomainError('Este texto não pertence à sessão de hoje.');
     }
     await db.sessions.update(sessionId, { ideaOfDayId: ideaId });
   });
 }
 
-/** Título do livro usado por último, para não redigitar ao registrar a próxima ideia. */
+/** Fonte usada por último, para não redigitar ao registrar o próximo texto. */
 export async function lastBookTitle(): Promise<string> {
   const ideas = await db.ideas.toArray();
   return ideas.sort(byCreatedAt).findLast((i) => i.bookTitle)?.bookTitle ?? '';
 }
 
-// ---------- Cards de uma ideia ----------
+// ---------- Parágrafos de um texto ----------
 
-/** Acrescenta cards ao fim da ideia, preservando a ordem de leitura. */
+/** Acrescenta parágrafos ao fim do texto, preservando a ordem de leitura. */
 export function addCards(ideaId: string, contents: readonly string[]): Promise<void> {
   return db.transaction('rw', db.ideas, db.cards, async () => {
     const idea = await db.ideas.get(ideaId);
-    if (!idea) throw new DomainError('Ideia não encontrada.');
+    if (!idea) throw new DomainError('Texto não encontrado.');
     const count = await db.cards.where('ideaId').equals(ideaId).count();
     await db.cards.bulkAdd(buildCards(idea, contents, count));
   });
@@ -237,7 +257,7 @@ export async function updateCard(cardId: string, content: string): Promise<void>
   await db.cards.update(cardId, { content });
 }
 
-/** Remove o card e renumera os seguintes para a sequência continuar sem buracos. */
+/** Remove o parágrafo e renumera os seguintes para a sequência continuar sem buracos. */
 export function deleteCard(cardId: string): Promise<void> {
   return db.transaction('rw', db.cards, async () => {
     const card = await db.cards.get(cardId);
@@ -361,23 +381,26 @@ export function deleteChunk(chunkId: string): Promise<void> {
 // ---------- Speaking ----------
 
 export interface SpeakingInput {
-  kind: 'daily' | 'weekly' | 'book';
+  kind: SpeakingKind;
   sessionId: string | null;
   ideaId: string | null;
   date: ISODate;
   durationSec: number;
   targetSec: number;
-  /** Livro explicado, quando `kind` é 'book'. */
+  /** Fonte explicada, quando `kind` é 'book'. */
   bookKey?: string | undefined;
+  /** Parágrafo lido em voz alta, quando `kind` é 'aloud'. */
+  cardId?: string | undefined;
 }
 
 /** Registra a fala e devolve o id, ou null se foi curta demais para contar. */
-export async function recordSpeaking({ bookKey, ...input }: SpeakingInput): Promise<string | null> {
+export async function recordSpeaking({ bookKey, cardId, ...input }: SpeakingInput): Promise<string | null> {
   if (input.durationSec < 1) return null;
   const id = newId();
   await db.speaking.add({
     ...input,
     ...(bookKey ? { bookKey } : {}),
+    ...(cardId ? { cardId } : {}),
     id,
     durationSec: Math.round(input.durationSec),
     transcript: null,
@@ -421,13 +444,13 @@ export function saveReflection(
 
 // ---------- Encerramento ----------
 
-/** A única exigência para encerrar é ter lido ao menos uma ideia. */
+/** A única exigência para encerrar é ter registrado o texto. */
 export function finishSession(sessionId: string): Promise<void> {
   return db.transaction('rw', db.sessions, db.ideas, async () => {
     await mustGetSession(sessionId);
     const ideas = await db.ideas.where('sessionId').equals(sessionId).count();
     if (ideas === 0) {
-      throw new DomainError('Registre pelo menos uma ideia antes de finalizar a sessão.');
+      throw new DomainError('Registre o texto do dia antes de finalizar a sessão.');
     }
     await db.sessions.update(sessionId, {
       status: 'completed',

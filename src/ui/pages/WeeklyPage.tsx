@@ -32,7 +32,7 @@ const WRITING_STARTERS = ['The idea…', 'The main point is…', 'For example…
 const WRITING_MIN = 80;
 const WRITING_MAX = 120;
 
-// ---------- 1. Relembrar os Ideas of the Day ----------
+// ---------- 1. Relembrar os textos do ciclo ----------
 
 function RecallCard({ item, weekStart, saved }: { item: WeekIdea; weekStart: string; saved: string }) {
   const [revealed, setRevealed] = useState(false);
@@ -44,7 +44,7 @@ function RecallCard({ item, weekStart, saved }: { item: WeekIdea; weekStart: str
       {idea.bookTitle && <p className="text-sm text-muted">{idea.bookTitle}</p>}
       <div className="mt-3">
         <AutoTextArea
-          label="Você consegue lembrar a ideia?"
+          label="Você consegue lembrar do que o texto falava?"
           value={saved}
           onSave={(text) => saveRecall(weekStart, idea.id, text)}
           rows={2}
@@ -106,7 +106,7 @@ function TopIdeas({ bundle }: { bundle: WeekBundle }) {
   return (
     <fieldset className="space-y-2">
       <legend className="mb-3">
-        <Prompt>Escolha as 3 melhores ideias do ciclo.</Prompt>
+        <Prompt>Escolha os 3 melhores textos do ciclo.</Prompt>
         <Hint>Depois, explique cada uma em voz alta, em inglês.</Hint>
       </legend>
       {ideas.map(({ idea }) => {
@@ -175,7 +175,7 @@ function WeeklySpeaking({ bundle, date }: { bundle: WeekBundle; date: string }) 
   return (
     <div className="space-y-4">
       <div>
-        <Prompt>Escolha uma das melhores ideias e fale sem ler.</Prompt>
+        <Prompt>Escolha um dos melhores textos e fale sobre ele sem ler.</Prompt>
         <Hint>Compare a fluidez e a capacidade de continuar apesar dos erros.</Hint>
       </div>
       <div>
@@ -331,8 +331,8 @@ function Balance({ bundle }: { bundle: WeekBundle }) {
   const stats = weekStats(input, bundle.weekStart);
   const rows: [string, string][] = [
     ['Dias de sessão', `${stats.sessionDays} / 5`],
-    ['Ideias lidas', `${stats.ideasRead} (${stats.cardsRead} cards)`],
-    ['Ideias aprofundadas', `${stats.ideasStudied} / 5`],
+    ['Textos lidos', `${stats.ideasRead} (${stats.cardsRead} parágrafos)`],
+    ['Textos estudados', `${stats.ideasStudied} / 5`],
     ['Chunks novos', `${stats.chunksCreated} / 15`],
     ['Tempo total de speaking', `${Math.round(stats.speakingSec / 60)} min`],
   ];
@@ -396,14 +396,14 @@ export function WeeklyPage() {
 
       {bundle.ideas.length === 0 ? (
         <div className="col-span-full">
-          <EmptyState title="Nenhuma Idea of the Day neste ciclo.">
-            O fechamento usa as ideias que você aprofundou nas sessões diárias.
+          <EmptyState title="Nenhum texto estudado neste ciclo.">
+            O fechamento usa os textos que você estudou nas sessões diárias.
           </EmptyState>
         </div>
       ) : (
         <>
-          <Part number={1} title="As Ideas of the Day" wide>
-            <Hint>Sem reler primeiro, tente lembrar o ponto central de cada ideia. Depois confira.</Hint>
+          <Part number={1} title="Os textos do ciclo" wide>
+            <Hint>Sem reler primeiro, tente lembrar o ponto central de cada texto. Depois confira.</Hint>
             <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
               {bundle.ideas.map((item) => (
                 <RecallCard key={item.idea.id} item={item} weekStart={weekStart} saved={bundle.review.recalls[item.idea.id] ?? ''} />

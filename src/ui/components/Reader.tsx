@@ -74,7 +74,7 @@ interface GlossedTextProps {
 
 /**
  * Texto em que as palavras e expressões já conhecidas (dicionário e chunks de
- * qualquer ideia) aparecem sublinhadas, com as informações ao passar o mouse ou focar.
+ * qualquer texto) aparecem sublinhadas, com as informações ao passar o mouse ou focar.
  */
 export function GlossedText({ tokens, glossary, selection, onPick }: GlossedTextProps) {
   const annotations = useMemo(() => annotate(tokens, glossary), [tokens, glossary]);
@@ -173,8 +173,8 @@ interface Known {
 const sameText = (a: string | undefined, b: string): boolean => (a ?? '').trim().toLowerCase() === b.trim().toLowerCase();
 
 /**
- * Cards em sequência, com cada palavra clicável. Um clique escolhe a palavra; um
- * segundo clique, em outra palavra do mesmo card, estende até formar a expressão.
+ * Parágrafos em sequência, com cada palavra clicável. Um clique escolhe a palavra; um
+ * segundo clique, em outra palavra do mesmo parágrafo, estende até formar a expressão.
  *
  * Se o termo já está no dicionário ou é um chunk, o painel mostra o que foi salvo,
  * com Editar e Excluir. Excluir tira o termo de todos os textos em que ele aparecia
@@ -328,7 +328,7 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
     <div>
       <Hint>
         Clique em uma palavra para ver tradução e pronúncia. Para uma expressão, clique na primeira e depois na última palavra. O que está
-        no seu dicionário ou nos seus chunks aparece sublinhado em todos os textos, de qualquer livro: passe o mouse para ver, clique para
+        no seu dicionário ou nos seus chunks aparece sublinhado em todos os textos, de qualquer fonte: passe o mouse para ver, clique para
         editar ou excluir.
       </Hint>
       <div className="mt-2">
@@ -338,7 +338,7 @@ export function Reader({ ideaId, cards }: { ideaId: string; cards: readonly Sour
         {cards.map((card) => (
           <li key={card.id} className="border-l-2 border-line pl-4">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-muted">Card {card.position + 1}</p>
+              <p className="text-xs font-semibold text-muted">Parágrafo {card.position + 1}</p>
               <ListenButton text={card.content} />
             </div>
             <p className="whitespace-pre-wrap font-serif text-lg leading-loose" lang="en">

@@ -34,8 +34,8 @@ describe('chat sobre a ideia', () => {
   it('a IA recebe o livro, os cards em ordem e o que o aluno já escreveu', async () => {
     const { idea } = await seedIdea();
     const system = buildChatSystem((await loadChatContext(idea.id))!);
-    expect(system).toContain('Livro: Getting Things Done');
-    expect(system).toContain('Ideia: Thought Into Action');
+    expect(system).toContain('Fonte: Getting Things Done');
+    expect(system).toContain('Título: Thought Into Action');
     expect(system).toContain('Your mind is for having ideas, not holding them.\n\nDo one thing at a time.');
     expect(system).toContain('Ideia principal, nas palavras dele: Focus on one task.');
     expect(system).toContain('Opinião que ele escreveu: I partly agree.');

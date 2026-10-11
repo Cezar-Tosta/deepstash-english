@@ -4,6 +4,7 @@ import { normalizeStarts } from '../domain/periods';
 import type { AISettings, UserSettings } from '../domain/types';
 import { migrateV1toV2, type Tables } from './migrations';
 
+/** Identificador gravado nos backups. Vem do nome antigo do app e não muda, para os backups antigos continuarem valendo. */
 export const BACKUP_APP = 'deepstash-english';
 export const BACKUP_VERSION = 2;
 
@@ -91,7 +92,7 @@ export function parseBackup(json: string): BackupFile {
     throw new BackupError('O arquivo não é um JSON válido.');
   }
   if (!isRecord(raw) || raw['app'] !== BACKUP_APP) {
-    throw new BackupError('Este arquivo não é um backup do Deepstash English.');
+    throw new BackupError('Este arquivo não é um backup do English Study System.');
   }
   const version = raw['version'];
   if (typeof version !== 'number' || version > BACKUP_VERSION) {

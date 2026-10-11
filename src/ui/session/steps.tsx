@@ -2,12 +2,13 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { type FormEvent, useEffect, useState } from 'react';
 import { AIError } from '../../ai/AIProvider';
 import { canTranscribe, transcribeAudio } from '../../ai/feedback';
-import { bookKey, NO_BOOK_TITLE } from '../../domain/books';
 import { weekPlan } from '../../domain/cycle';
 import { formatDate, formatDuration } from '../../domain/dates';
-import { looksLikeSingleWord, MAX_CHUNKS_PER_DAY } from '../../domain/session';
+import { checkDictation, DICTATION_PASS, locateTerm } from '../../domain/exercises';
+import { listeningSentences } from '../../domain/listening';
+import { countWords, looksLikeSingleWord, MAX_CHUNKS_PER_DAY } from '../../domain/session';
 import { scheduler } from '../../domain/srs';
-import type { Chunk, StepId } from '../../domain/types';
+import type { Chunk, ListeningAnswer, StepId } from '../../domain/types';
 import { ChunkLimitError } from '../../services/errors';
 import { saveRecording } from '../../services/maintenance';
 import { getUpcoming } from '../../services/reviews';
@@ -25,20 +26,22 @@ import {
   lastBookTitle,
   recordSpeaking,
   replaceChunk,
+  saveListeningAnswer,
   saveReflection,
   saveTranscript,
   type SessionBundle,
   setIdeaOfDay,
+  splitIntoCards,
   updateChunk,
   updateIdea,
   updateSessionNotes,
 } from '../../services/sessions';
-import { locateTerm } from '../../domain/exercises';
 import { sentenceTarget } from '../../domain/feedback';
 import { AIFeedbackPanel } from '../components/AIFeedbackPanel';
 import { DaySummary } from '../components/DaySummary';
-import { RecordingPlayer } from '../components/Listen';
-import { GlossedParagraph } from '../components/Reader';
+import { ListenButton, ListenSettings, RecordingPlayer } from '../components/Listen';
+import { GlossedParagraph, Reader } from '../components/Reader';
+import { SentenceTranslation } from '../components/SentenceTranslation';
 import { CardSequence } from '../components/CardSequence';
 import { IdeaImport } from '../components/IdeaImport';
 import { ReviewFlow } from '../components/ReviewFlow';
@@ -59,6 +62,7 @@ import {
   TextInput,
 } from '../components/ui';
 import { useSettings } from '../hooks';
+import { stopSpeaking } from '../speech';
 import { attempt, showToast } from '../toast';
 
 export interface StepProps {
@@ -66,24 +70,31 @@ export interface StepProps {
   goTo: (step: StepId) => void;
 }
 
-const cardCount = (n: number): string => `${n} ${n === 1 ? 'card' : 'cards'}`;
+const paragraphCount = (n: number): string => `${n} ${n === 1 ? 'parágrafo' : 'parágrafos'}`;
 
-function NeedsIdeaOfDay({ goTo }: Pick<StepProps, 'goTo'>) {
+/** Os parágrafos com texto, na ordem de leitura. */
+const paragraphsOf = (item: IdeaWithCards): string[] => item.cards.map((c) => c.content.trim()).filter(Boolean);
+
+function NeedsText({ goTo }: Pick<StepProps, 'goTo'>) {
   return (
-    <EmptyState title="Nenhuma Idea of the Day escolhida.">
-      <p className="mb-4">Esta etapa aprofunda uma única ideia. Escolha qual merece isso hoje.</p>
-      <Button onClick={() => goTo('focus')}>Escolher a ideia</Button>
+    <EmptyState title="Nenhum texto registrado hoje.">
+      <p className="mb-4">Esta etapa trabalha o texto do dia. Registre-o primeiro.</p>
+      <Button onClick={() => goTo('text')}>Registrar o texto</Button>
     </EmptyState>
   );
 }
 
-/** Cabeçalho da ideia em aprofundamento, com o livro de onde ela vem. */
-function IdeaHeading({ item }: { item: IdeaWithCards }) {
+/** Cabeçalho do texto em estudo, com a fonte de onde ele vem. */
+function TextHeading({ item }: { item: IdeaWithCards }) {
   return (
     <div>
-      <Eyebrow>⭐ Idea of the Day</Eyebrow>
+      <Eyebrow>Texto do dia</Eyebrow>
       <h3 className="mt-1 font-serif text-xl">{item.idea.title}</h3>
-      <p className="text-sm text-muted">{[item.idea.bookTitle, cardCount(item.cards.length)].filter(Boolean).join(' · ')}</p>
+      <p className="text-sm text-muted">
+        {[item.idea.bookTitle, paragraphCount(item.cards.length), `${countWords(paragraphsOf(item).join(' '))} palavras`]
+          .filter(Boolean)
+          .join(' · ')}
+      </p>
     </div>
   );
 }
@@ -99,40 +110,38 @@ export function ReviewStep({ bundle }: StepProps) {
   );
 }
 
-// ---------- 2. READ ----------
+// ---------- 2. TEXT ----------
 
-function IdeaEditor({ item, isIdeaOfDay }: { item: IdeaWithCards; isIdeaOfDay: boolean }) {
-  const [open, setOpen] = useState<'cards' | 'details' | null>(null);
+function TextEditor({ item, current, onlyOne }: { item: IdeaWithCards; current: boolean; onlyOne: boolean }) {
+  const [open, setOpen] = useState<'paragraphs' | 'details' | null>(null);
   const [confirming, setConfirming] = useState(false);
   const { idea, cards } = item;
-  const toggle = (panel: 'cards' | 'details') => setOpen(open === panel ? null : panel);
+  const toggle = (panel: 'paragraphs' | 'details') => setOpen(open === panel ? null : panel);
 
   return (
     <Card>
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h4 className="font-serif text-lg leading-snug">{idea.title}</h4>
+        <div className="min-w-0">
+          <h4 className="font-serif text-lg leading-snug break-words">{idea.title}</h4>
+          <p className="text-sm text-muted">{[idea.bookTitle, paragraphCount(cards.length)].filter(Boolean).join(' · ')}</p>
         </div>
-        {isIdeaOfDay && <Badge tone="accent">⭐ Idea of the Day</Badge>}
+        {current && !onlyOne && <Badge tone="accent">Em estudo</Badge>}
       </div>
-      <div className="mt-3">
-        <AutoTextArea
-          label="What is the main idea?"
-          value={idea.mainIdea}
-          onSave={(mainIdea) => updateIdea(idea.id, { mainIdea })}
-          rows={2}
-          lang="en"
-          placeholder="Uma frase curta, em inglês simples."
-        />
-      </div>
+      {!current && (
+        <div className="mt-2">
+          <Button small variant="secondary" onClick={() => attempt(setIdeaOfDay(idea.sessionId, idea.id))}>
+            Estudar este texto hoje
+          </Button>
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap gap-x-5">
         <button
           type="button"
-          aria-expanded={open === 'cards'}
-          onClick={() => toggle('cards')}
+          aria-expanded={open === 'paragraphs'}
+          onClick={() => toggle('paragraphs')}
           className="min-h-10 text-sm font-medium text-accent"
         >
-          Cards da ideia ({cards.length})
+          Parágrafos ({cards.length})
         </button>
         <button
           type="button"
@@ -140,24 +149,26 @@ function IdeaEditor({ item, isIdeaOfDay }: { item: IdeaWithCards; isIdeaOfDay: b
           onClick={() => toggle('details')}
           className="min-h-10 text-sm font-medium text-accent"
         >
-          Livro, tema e observações
+          Título, fonte, tema e observações
         </button>
       </div>
 
-      {open === 'cards' && (
+      {open === 'paragraphs' && (
         <div className="mt-2">
+          <Hint>Para não estragar o LISTEN, confira os parágrafos só se precisar corrigir algo.</Hint>
           <CardSequence item={item} />
         </div>
       )}
 
       {open === 'details' && (
         <div className="mt-2 space-y-3">
-          <AutoTextArea label="Livro" value={idea.bookTitle} onSave={(bookTitle) => updateIdea(idea.id, { bookTitle })} rows={1} />
+          <AutoTextArea label="Título" value={idea.title} onSave={(title) => updateIdea(idea.id, { title })} rows={1} lang="en" />
+          <AutoTextArea label="Fonte" value={idea.bookTitle} onSave={(bookTitle) => updateIdea(idea.id, { bookTitle })} rows={1} />
           <AutoTextArea label="Tema / categoria" value={idea.category} onSave={(category) => updateIdea(idea.id, { category })} rows={1} />
           <AutoTextArea label="Observações" value={idea.notes} onSave={(notes) => updateIdea(idea.id, { notes })} rows={2} />
           {confirming ? (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm">Apagar esta ideia e os cards dela?</span>
+              <span className="text-sm">Apagar este texto e o que foi feito com ele?</span>
               <Button small variant="danger" onClick={() => attempt(deleteIdea(idea.id))}>
                 Apagar
               </Button>
@@ -167,7 +178,7 @@ function IdeaEditor({ item, isIdeaOfDay }: { item: IdeaWithCards; isIdeaOfDay: b
             </div>
           ) : (
             <Button small variant="danger" onClick={() => setConfirming(true)}>
-              Apagar ideia
+              Apagar texto
             </Button>
           )}
         </div>
@@ -176,168 +187,235 @@ function IdeaEditor({ item, isIdeaOfDay }: { item: IdeaWithCards; isIdeaOfDay: b
   );
 }
 
-export function ReadStep({ bundle }: StepProps) {
+export function TextStep({ bundle, goTo }: StepProps) {
   const { session, ideas } = bundle;
   const [title, setTitle] = useState('');
-  const [book, setBook] = useState<string | null>(null);
-  /** Cards trazidos pela importação, esperando o usuário confirmar a ideia. */
-  const [cards, setCards] = useState<string[]>([]);
-  const [importing, setImporting] = useState(false);
+  const [source, setSource] = useState<string | null>(null);
+  const [body, setBody] = useState('');
   const remembered = useLiveQuery(lastBookTitle, [ideas.length]);
+  const paragraphs = splitIntoCards(body);
 
-  // Sugere o livro da última ideia registrada, até o usuário digitar outro.
+  // Sugere a fonte do último texto registrado, até o usuário digitar outra.
   useEffect(() => {
-    if (book === null && remembered !== undefined) setBook(remembered);
-  }, [book, remembered]);
+    if (source === null && remembered !== undefined) setSource(remembered);
+  }, [source, remembered]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || paragraphs.length === 0) return;
     attempt(
-      addIdea(session.id, { title, bookTitle: book ?? '', cards }).then(() => {
+      addIdea(session.id, { title, bookTitle: source ?? '', cards: paragraphs }).then(() => {
         setTitle('');
-        setCards([]);
+        setBody('');
       }),
     );
   };
 
-  const totalCards = ideas.reduce((sum, i) => sum + i.cards.length, 0);
+  if (ideas.length > 0) {
+    return (
+      <div className="space-y-4">
+        {ideas.map((item) => (
+          <TextEditor key={item.idea.id} item={item} current={item.idea.id === session.ideaOfDayId} onlyOne={ideas.length === 1} />
+        ))}
+        <Notice>
+          Texto registrado. Agora vem o <strong>LISTEN</strong>: ouça antes de ler, para treinar o ouvido sem o apoio da escrita.
+        </Notice>
+        <Button onClick={() => goTo('listen')}>Ir para o LISTEN</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <Notice>
-        Cada livro tem várias ideias, e cada ideia é uma sequência de cards, lida como uma história. Leia tudo em inglês antes de traduzir
-        e, ao fim de cada ideia, pergunte: <em>“What is the main idea?”</em> Não pare em toda palavra desconhecida.
+        Qualquer texto em inglês serve: artigo, notícia, página de livro, post, letra de música. Para uma sessão, de 150 a 400 palavras é um
+        bom tamanho. <strong>Cole sem ler</strong>: a primeira passada será só ouvindo.
       </Notice>
 
-      <div className="flex items-baseline justify-between">
-        <Eyebrow>Ideias de hoje</Eyebrow>
-        <p className="text-sm text-muted">
-          {ideas.length} {ideas.length === 1 ? 'ideia' : 'ideias'}
-          {totalCards > 0 && ` · ${cardCount(totalCards)}`}
-        </p>
-      </div>
-
-      {ideas.map((item, i) => {
-        const previous = ideas[i - 1];
-        const newBook = !previous || bookKey(previous.idea.bookTitle) !== bookKey(item.idea.bookTitle);
-        return (
-          <div key={item.idea.id} className="space-y-2">
-            {newBook && (
-              <h3 className="pt-2 text-sm font-semibold">
-                <span className="text-muted">Livro · </span>
-                {item.idea.bookTitle || NO_BOOK_TITLE}
-              </h3>
-            )}
-            <IdeaEditor item={item} isIdeaOfDay={item.idea.id === session.ideaOfDayId} />
-          </div>
-        );
-      })}
-
       <form onSubmit={submit} className="space-y-3 rounded-2xl border border-line p-4">
-        <TextInput label="Livro" value={book ?? ''} onChange={setBook} autoComplete="off" placeholder="Atomic Habits" />
+        <TextInput label="Título" value={title} onChange={setTitle} lang="en" placeholder="Why we sleep" autoComplete="off" />
         <TextInput
-          label={ideas.length === 0 ? 'Título da primeira ideia' : 'Título da próxima ideia'}
-          value={title}
-          onChange={setTitle}
-          lang="en"
-          placeholder="Thought Into Action"
+          label="Fonte (opcional)"
+          value={source ?? ''}
+          onChange={setSource}
           autoComplete="off"
+          placeholder="Livro, site, autor…"
         />
-        {cards.length > 0 && (
-          <div className="rounded-xl bg-accent-soft px-3 py-2 text-sm">
-            <p className="font-medium">{cardCount(cards.length)} prontos para entrar com esta ideia</p>
-            <ol className="mt-1 list-inside list-decimal space-y-1 text-muted">
-              {cards.map((c, i) => (
-                <li key={i} className="break-words">
-                  {c.length > 90 ? `${c.slice(0, 90)}…` : c}
-                </li>
-              ))}
-            </ol>
-            <button type="button" onClick={() => setCards([])} className="mt-1 min-h-8 text-sm font-medium text-accent">
-              Descartar os cards importados
-            </button>
-          </div>
+        <TextArea
+          label="Texto"
+          value={body}
+          onChange={setBody}
+          rows={8}
+          lang="en"
+          placeholder="Cole o texto aqui. Cada parágrafo fica separado do outro por uma quebra de linha."
+        />
+        {body.trim() && (
+          <Hint>
+            {paragraphCount(paragraphs.length)} · {countWords(body)} palavras
+          </Hint>
         )}
-        <Button type="submit" variant="secondary" block disabled={!title.trim()}>
-          Adicionar ideia{cards.length > 0 && ` com ${cardCount(cards.length)}`}
+        <Button type="submit" block disabled={!title.trim() || paragraphs.length === 0}>
+          Registrar o texto
         </Button>
-        <button
-          type="button"
-          aria-expanded={importing}
-          onClick={() => setImporting(!importing)}
-          className="min-h-10 text-sm font-medium text-accent"
-        >
-          {importing ? 'Fechar importação' : 'Importar a ideia inteira (texto colado ou screenshots)'}
-        </button>
-        {importing && (
-          <IdeaImport
-            onImported={(idea) => {
-              if (idea.title) setTitle(idea.title);
-              setCards(idea.cards);
-              setImporting(false);
-            }}
-          />
-        )}
+        <IdeaImport
+          onImported={(imported) => {
+            if (imported.title && !title.trim()) setTitle(imported.title);
+            setBody(imported.cards.join('\n\n'));
+          }}
+        />
       </form>
-      <Hint>Registre quantas ideias você leu hoje; não há número certo. O texto dos cards é opcional.</Hint>
     </div>
   );
 }
 
-// ---------- 3. IDEA OF THE DAY ----------
+// ---------- 3. LISTEN ----------
 
-export function FocusStep({ bundle, goTo }: StepProps) {
-  const { session, ideas } = bundle;
-  if (ideas.length === 0) {
-    return (
-      <EmptyState title="Nenhuma ideia registrada ainda.">
-        <Button onClick={() => goTo('read')}>Registrar ideias</Button>
-      </EmptyState>
+/** Quantas frases do texto entram no ditado do LISTEN. */
+const LISTEN_SENTENCES = 3;
+
+/** Uma frase do texto para ouvir e escrever. A resposta fica guardada na sessão. */
+function ListeningSentence({
+  sessionId,
+  number,
+  sentence,
+  saved,
+}: {
+  sessionId: string;
+  number: number;
+  sentence: string;
+  saved: ListeningAnswer | undefined;
+}) {
+  const [answer, setAnswer] = useState('');
+  const [retrying, setRetrying] = useState(false);
+  const checked = saved !== undefined && !retrying;
+  const result = checked ? checkDictation(saved.answer, sentence) : null;
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!answer.trim()) return;
+    stopSpeaking();
+    const score = checkDictation(answer, sentence).score;
+    attempt(
+      saveListeningAnswer(sessionId, { sentence, answer: answer.trim(), score }).then(() => {
+        setRetrying(false);
+        setAnswer('');
+      }),
     );
-  }
+  };
+
   return (
-    <fieldset className="space-y-3">
-      <legend className="mb-3">
-        <Prompt>Qual ideia merece ser aprofundada hoje?</Prompt>
-        <Hint>Escolha a mais útil ou interessante. Só ela recebe o aprofundamento, com todos os seus cards.</Hint>
-      </legend>
-      {ideas.map(({ idea, cards }) => {
-        const selected = idea.id === session.ideaOfDayId;
-        return (
-          <label
-            key={idea.id}
-            className={`flex min-h-16 cursor-pointer items-start gap-3 rounded-2xl border p-4 transition-colors ${
-              selected ? 'border-accent bg-accent-soft' : 'border-line bg-surface'
-            }`}
-          >
-            <input
-              type="radio"
-              name="idea-of-day"
-              className="mt-1.5 size-4 accent-(--accent)"
-              checked={selected}
-              onChange={() => attempt(setIdeaOfDay(session.id, idea.id))}
-            />
-            <span className="flex-1">
-              <span className="block font-serif text-lg leading-snug">{idea.title}</span>
-              <span className="block text-xs text-muted">{[idea.bookTitle, cardCount(cards.length)].filter(Boolean).join(' · ')}</span>
-              {idea.mainIdea && <span className="mt-1 block text-sm text-muted">{idea.mainIdea}</span>}
-              {selected && <span className="mt-2 block text-xs font-semibold tracking-wide text-accent">⭐ IDEA OF THE DAY</span>}
-            </span>
-          </label>
-        );
-      })}
-    </fieldset>
+    <li className="space-y-2 border-l-2 border-line pl-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm font-semibold">Frase {number}</span>
+        <ListenButton text={sentence} label="Ouvir" />
+      </div>
+      {result && saved ? (
+        <div className="space-y-1" aria-live="polite">
+          <p className={`text-sm font-medium ${result.score >= DICTATION_PASS ? 'text-good' : 'text-danger'}`}>
+            {Math.round(result.score * 100)}% das palavras certas
+          </p>
+          <p className="font-serif text-lg break-words" lang="en">
+            {result.words.map((word, i) => (
+              <span key={i}>
+                {i > 0 && ' '}
+                {word.hit ? word.text : <mark className="rounded bg-sunken px-0.5 text-danger">{word.text}</mark>}
+              </span>
+            ))}
+          </p>
+          <p className="text-sm text-muted break-words">
+            Você escreveu: <span lang="en">{saved.answer}</span>
+          </p>
+          <SentenceTranslation sentence={sentence} />
+          <button type="button" onClick={() => setRetrying(true)} className="min-h-8 text-sm font-medium text-accent">
+            Tentar de novo
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="space-y-2">
+          <TextArea label={`O que você ouviu na frase ${number}`} hideLabel value={answer} onChange={setAnswer} rows={2} lang="en" />
+          <Button small type="submit" variant="secondary" disabled={!answer.trim()}>
+            Conferir
+          </Button>
+        </form>
+      )}
+    </li>
   );
 }
 
-// ---------- 4. CHECK ----------
+export function ListenStep({ bundle, goTo }: StepProps) {
+  const { session, ideaOfDay } = bundle;
+  if (!ideaOfDay) return <NeedsText goTo={goTo} />;
+  const paragraphs = paragraphsOf(ideaOfDay);
+  if (paragraphs.length === 0) return <NeedsText goTo={goTo} />;
+  const whole = paragraphs.join('\n\n');
+  const sentences = listeningSentences(paragraphs, LISTEN_SENTENCES);
+  const answers = session.listenAnswers ?? [];
 
-export function CheckStep({ bundle, goTo }: StepProps) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <Eyebrow>Texto do dia</Eyebrow>
+        <h3 className="mt-1 font-serif text-xl">{ideaOfDay.idea.title}</h3>
+      </div>
+
+      <div className="space-y-3">
+        <Prompt>1. Ouça o texto inteiro, sem ler.</Prompt>
+        <Hint>
+          Na primeira vez, só a ideia geral. Ouça de novo quantas vezes quiser; se estiver difícil, diminua a velocidade ou ouça um
+          parágrafo por vez.
+        </Hint>
+        <ListenSettings />
+        <ListenButton big text={whole} label="Ouvir o texto inteiro" />
+        {paragraphs.length > 1 && (
+          <div className="flex flex-wrap gap-x-4">
+            {paragraphs.map((p, i) => (
+              <ListenButton key={i} text={p} label={`Parágrafo ${i + 1}`} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Prompt>2. O que você entendeu?</Prompt>
+        <AutoTextArea
+          label="O que entendi só ouvindo (em inglês ou em português)"
+          hideLabel
+          value={session.listenGist ?? ''}
+          onSave={(listenGist) => updateSessionNotes(session.id, { listenGist })}
+          rows={3}
+          placeholder="Do que o texto fala? Que palavras você reconheceu?"
+        />
+        <Hint>Na etapa READ você compara isto com o que o texto diz de verdade.</Hint>
+      </div>
+
+      {sentences.length > 0 && (
+        <div className="space-y-3">
+          <Prompt>3. Ditado: ouça e escreva cada frase.</Prompt>
+          <Hint>Frases tiradas do texto. Maiúsculas, pontuação e apóstrofos não contam.</Hint>
+          <ol className="space-y-4">
+            {sentences.map((sentence, i) => (
+              <ListeningSentence
+                key={sentence}
+                sessionId={session.id}
+                number={i + 1}
+                sentence={sentence}
+                saved={answers.find((a) => a.sentence === sentence)}
+              />
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- 4. READ ----------
+
+export function ReadStep({ bundle, goTo }: StepProps) {
   const { session, ideaOfDay, vocab } = bundle;
   const [term, setTerm] = useState('');
   const [meaning, setMeaning] = useState('');
-  if (!ideaOfDay) return <NeedsIdeaOfDay goTo={goTo} />;
+  if (!ideaOfDay) return <NeedsText goTo={goTo} />;
   const { idea, cards } = ideaOfDay;
   const withText = cards.filter((c) => c.content.trim());
 
@@ -354,11 +432,26 @@ export function CheckStep({ bundle, goTo }: StepProps) {
 
   return (
     <div className="space-y-6">
-      <IdeaHeading item={ideaOfDay} />
+      <TextHeading item={ideaOfDay} />
+
+      <Notice>
+        Leia tudo em inglês antes de traduzir e não pare em toda palavra desconhecida. Depois, clique nas palavras e expressões que quiser
+        entender: a análise aparece no contexto e pode ir para o dicionário.
+      </Notice>
+
+      {withText.length > 0 && <Reader ideaId={idea.id} cards={withText} />}
+
+      {session.listenGist?.trim() && (
+        <Card>
+          <Eyebrow>O que você entendeu só ouvindo</Eyebrow>
+          <p className="mt-2 whitespace-pre-wrap">{session.listenGist}</p>
+          <Hint>Compare com o texto: o que você captou e o que escapou?</Hint>
+        </Card>
+      )}
 
       <div className="space-y-3">
         <Prompt>What is the main idea?</Prompt>
-        <Hint>Uma frase que resuma a história inteira dos cards, não só o primeiro.</Hint>
+        <Hint>Uma frase que resuma o texto inteiro, não só o primeiro parágrafo.</Hint>
         <AutoTextArea
           label="Ideia principal, em uma frase em inglês"
           hideLabel
@@ -368,22 +461,8 @@ export function CheckStep({ bundle, goTo }: StepProps) {
           lang="en"
           placeholder="The main idea is that…"
         />
-        <AIFeedbackPanel targetType="mainIdea" targetId={idea.id} text={idea.mainIdea} context={`Ideia: ${idea.title}`} />
+        <AIFeedbackPanel targetType="mainIdea" targetId={idea.id} text={idea.mainIdea} context={`Texto: ${idea.title}`} />
       </div>
-
-      {withText.length > 0 && (
-        <details className="rounded-2xl border border-line bg-surface p-4">
-          <summary className="min-h-8 cursor-pointer text-sm font-medium">Reler os cards depois de tentar ({withText.length})</summary>
-          <ol className="mt-3 space-y-3">
-            {withText.map((card) => (
-              <li key={card.id} className="border-l-2 border-line pl-3">
-                <p className="text-xs font-semibold text-muted">Card {card.position + 1}</p>
-                <GlossedParagraph text={card.content} className="whitespace-pre-wrap font-serif leading-loose" />
-              </li>
-            ))}
-          </ol>
-        </details>
-      )}
 
       <Notice>
         Só agora consulte tradução ou dicionário e compare com a sua primeira interpretação. {weekPlan(session.cycleWeek).translation}
@@ -399,7 +478,7 @@ export function CheckStep({ bundle, goTo }: StepProps) {
       <div className="space-y-3">
         <div>
           <Eyebrow>Vocabulário de compreensão</Eyebrow>
-          <Hint>Só para entender esta ideia. Não entra na revisão; para isso existem os chunks da próxima etapa.</Hint>
+          <Hint>Só para entender este texto. Não entra na revisão; para isso existem os chunks da próxima etapa.</Hint>
         </div>
         {vocab.length > 0 && (
           <ul className="divide-y divide-line rounded-xl border border-line">
@@ -469,8 +548,8 @@ export function MineStep({ bundle }: StepProps) {
   return (
     <div className="space-y-5">
       <Notice>
-        Escolha no conjunto das ideias lidas hoje. Prefira expressões reutilizáveis a palavras isoladas. Ex.:{' '}
-        <em lang="en">one thing at a time</em>, <em lang="en">in your head</em>, <em lang="en">it turns out that</em>.
+        Escolha no texto de hoje. Prefira expressões reutilizáveis a palavras isoladas. Ex.: <em lang="en">one thing at a time</em>,{' '}
+        <em lang="en">in your head</em>, <em lang="en">it turns out that</em>.
       </Notice>
 
       <div className="flex items-baseline justify-between">
@@ -498,7 +577,7 @@ export function MineStep({ bundle }: StepProps) {
               rows={1}
             />
             <AutoTextArea
-              label="Frase original (contexto no card)"
+              label="Frase original (contexto no texto)"
               value={chunk.originalSentence}
               onSave={(value) => updateChunk(chunk.id, { originalSentence: value })}
               rows={2}
@@ -518,7 +597,7 @@ export function MineStep({ bundle }: StepProps) {
         {ideas.length > 1 && (
           <div>
             <label htmlFor="chunk-source" className="mb-1.5 block text-sm font-medium">
-              Ideia de origem
+              Texto de origem
             </label>
             <select
               id="chunk-source"
@@ -526,7 +605,7 @@ export function MineStep({ bundle }: StepProps) {
               onChange={(e) => setSourceId(e.target.value)}
               className="min-h-12 w-full rounded-xl border border-line bg-paper px-3"
             >
-              {!ideaOfDay && <option value="">Sem ideia</option>}
+              {!ideaOfDay && <option value="">Sem texto</option>}
               {ideas.map(({ idea }) => (
                 <option key={idea.id} value={idea.id}>
                   {idea.title}
@@ -562,7 +641,183 @@ export function MineStep({ bundle }: StepProps) {
   );
 }
 
-// ---------- 6. RETELL ----------
+// ---------- 6. READ ALOUD ----------
+
+/** Ritmo de referência da leitura em voz alta, em palavras por segundo (cerca de 130 por minuto). */
+const ALOUD_WORDS_PER_SEC = 2.2;
+
+/** Quanto do parágrafo a transcrição reconheceu, com as palavras que ficaram de fora em destaque. */
+function AloudResult({ transcript, paragraph, durationSec }: { transcript: string; paragraph: string; durationSec: number }) {
+  const result = checkDictation(transcript, paragraph);
+  return (
+    <Card>
+      <Eyebrow>
+        Leitura de {formatDuration(durationSec)} · {Math.round(result.score * 100)}% das palavras reconhecidas
+      </Eyebrow>
+      {result.missed > 0 ? (
+        <>
+          <p className="mt-2 font-serif text-lg leading-relaxed break-words" lang="en">
+            {result.words.map((word, i) => (
+              <span key={i}>
+                {i > 0 && ' '}
+                {word.hit ? word.text : <mark className="rounded bg-sunken px-0.5 text-danger">{word.text}</mark>}
+              </span>
+            ))}
+          </p>
+          <Hint>
+            Em destaque, o que a transcrição não reconheceu: pode ser pronúncia, uma palavra pulada ou falha da própria transcrição. Ouça o
+            modelo dessas palavras e leia de novo.
+          </Hint>
+        </>
+      ) : (
+        <p className="mt-2 text-sm text-good">Todas as palavras foram reconhecidas.</p>
+      )}
+      <details className="mt-2 text-sm">
+        <summary className="min-h-8 cursor-pointer text-xs font-medium text-accent">O que a transcrição ouviu</summary>
+        <p className="font-serif text-muted" lang="en">
+          {transcript}
+        </p>
+      </details>
+    </Card>
+  );
+}
+
+export function AloudStep({ bundle, goTo }: StepProps) {
+  const { session, ideaOfDay, speaking } = bundle;
+  const settings = useSettings();
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [playback, setPlayback] = useState<string | null>(null);
+  const [transcribing, setTranscribing] = useState(false);
+
+  // Libera a gravação anterior da memória ao trocar ou sair da tela.
+  useEffect(
+    () => () => {
+      if (playback) URL.revokeObjectURL(playback);
+    },
+    [playback],
+  );
+
+  if (!ideaOfDay) return <NeedsText goTo={goTo} />;
+  const cards = ideaOfDay.cards.filter((c) => c.content.trim());
+  if (cards.length === 0) return <NeedsText goTo={goTo} />;
+  const readings = speaking.filter((s) => s.kind === 'aloud');
+  // Por padrão, o primeiro parágrafo ainda não lido em voz alta.
+  const card = cards.find((c) => c.id === chosen) ?? cards.find((c) => !readings.some((r) => r.cardId === c.id)) ?? cards[0];
+  if (!card) return <NeedsText goTo={goTo} />;
+  const transcription = Boolean(settings && canTranscribe(settings.ai));
+  const expectedSec = Math.max(5, Math.round(countWords(card.content) / ALOUD_WORDS_PER_SEC));
+  const mine = readings.filter((r) => r.cardId === card.id);
+
+  const finish = async (durationSec: number, audio: Blob | null) => {
+    const id = await recordSpeaking({
+      kind: 'aloud',
+      sessionId: session.id,
+      ideaId: ideaOfDay.idea.id,
+      cardId: card.id,
+      date: session.date,
+      durationSec,
+      targetSec: expectedSec,
+    });
+    if (!id) return;
+    showToast(`Leitura registrada: ${formatDuration(durationSec)}`);
+    if (!audio) return;
+    await saveRecording(id, audio);
+    setPlayback(URL.createObjectURL(audio));
+    if (!transcription) return;
+    setTranscribing(true);
+    try {
+      await saveTranscript(id, await transcribeAudio(audio));
+    } catch (e) {
+      showToast(e instanceof AIError ? e.message : 'Não foi possível transcrever a leitura.', 'error');
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <TextHeading item={ideaOfDay} />
+      <div>
+        <Prompt>Ouça o modelo e leia em voz alta.</Prompt>
+        <Hint>
+          Shadowing: ouça o parágrafo, leia junto com o áudio algumas vezes e, por fim, grave a sua leitura sozinho. Imite o ritmo, as
+          pausas e a entonação, não só as palavras.
+        </Hint>
+      </div>
+
+      {cards.length > 1 && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Parágrafo para ler">
+          {cards.map((c, i) => {
+            const active = c.id === card.id;
+            const done = readings.some((r) => r.cardId === c.id);
+            return (
+              <button
+                key={c.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => {
+                  stopSpeaking();
+                  setChosen(c.id);
+                  setPlayback(null);
+                }}
+                className={`min-h-10 rounded-xl border px-3 text-sm font-medium ${
+                  active ? 'border-accent bg-accent text-accent-ink' : 'border-line bg-surface text-muted hover:text-ink'
+                }`}
+              >
+                {done && <span aria-hidden="true">✓ </span>}Parágrafo {i + 1}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <Card>
+        <GlossedParagraph text={card.content} className="whitespace-pre-wrap font-serif text-lg leading-loose" />
+        <div className="mt-3 space-y-2">
+          <ListenButton big text={card.content} label="Ouvir o modelo" />
+          <ListenSettings />
+        </div>
+      </Card>
+
+      <Card>
+        <Timer
+          record
+          minSec={expectedSec}
+          maxSec={expectedSec}
+          targetPrefix="Em ritmo natural"
+          targetLabel={`~${formatDuration(expectedSec)}`}
+          onStop={(durationSec, audio) => attempt(finish(durationSec, audio))}
+        />
+        <p className="mt-2 text-center text-xs text-muted">
+          {transcription
+            ? 'A leitura é gravada e transcrita; a transcrição mostra as palavras que não foram reconhecidas.'
+            : 'A leitura é gravada para você se ouvir e comparar com o modelo. Com Groq em Ajustes, ela também é transcrita e conferida.'}
+        </p>
+      </Card>
+
+      {playback && (
+        <div>
+          <p className="mb-1 text-sm font-medium">Ouça a sua leitura e compare com o modelo</p>
+          <RecordingPlayer src={playback} />
+        </div>
+      )}
+
+      {transcribing && (
+        <p className="text-sm text-muted" role="status">
+          Transcrevendo…
+        </p>
+      )}
+
+      {mine
+        .filter((r) => r.transcript)
+        .map((r) => (
+          <AloudResult key={r.id} transcript={r.transcript ?? ''} paragraph={card.content} durationSec={r.durationSec} />
+        ))}
+    </div>
+  );
+}
+
+// ---------- 7. RETELL ----------
 
 const RETELL_PROMPTS = [
   'Today I read about…',
@@ -578,7 +833,7 @@ const RETELL_PROMPTS = [
 ] as const;
 
 export function RetellStep({ bundle, goTo }: StepProps) {
-  const { session, ideaOfDay, speaking, chunks } = bundle;
+  const { session, ideaOfDay, chunks } = bundle;
   const settings = useSettings();
   const [playback, setPlayback] = useState<string | null>(null);
   const [transcribing, setTranscribing] = useState(false);
@@ -591,7 +846,9 @@ export function RetellStep({ bundle, goTo }: StepProps) {
     [playback],
   );
 
-  if (!ideaOfDay) return <NeedsIdeaOfDay goTo={goTo} />;
+  if (!ideaOfDay) return <NeedsText goTo={goTo} />;
+  // As leituras em voz alta têm a etapa própria; aqui ficam só as falas do retell.
+  const speaking = bundle.speaking.filter((s) => s.kind === 'daily');
   const plan = weekPlan(session.cycleWeek);
   const total = speaking.reduce((sum, s) => sum + s.durationSec, 0);
   const transcription = Boolean(settings && canTranscribe(settings.ai));
@@ -625,7 +882,7 @@ export function RetellStep({ bundle, goTo }: StepProps) {
   };
 
   const feedbackContext = [
-    `Ideia recontada: "${idea.title}".`,
+    `Texto recontado: "${idea.title}".`,
     idea.mainIdea && `Ideia principal segundo o aluno: ${idea.mainIdea}`,
     chunks.length > 0 &&
       `Expressões que ele está aprendendo e deveria usar na fala: ${chunks.map((c) => c.text).join('; ')}. No comentário, diga quais ele usou e mostre, com uma frase de exemplo, como encaixar as que faltaram.`,
@@ -635,12 +892,11 @@ export function RetellStep({ bundle, goTo }: StepProps) {
 
   return (
     <div className="space-y-6">
-      <IdeaHeading item={ideaOfDay} />
+      <TextHeading item={ideaOfDay} />
       <div>
-        <Prompt>Feche o Deepstash e reconte a ideia em voz alta.</Prompt>
+        <Prompt>Esconda o texto e reconte-o em voz alta.</Prompt>
         <Hint>
-          Conte a história dos cards do começo ao fim, com as suas palavras. Fase {session.cycleWeek} de 4: {plan.focus} Não reinicie por
-          causa de erros.
+          Conte o texto do começo ao fim, com as suas palavras. Fase {session.cycleWeek} de 4: {plan.focus} Não reinicie por causa de erros.
         </Hint>
       </div>
 
@@ -669,7 +925,7 @@ export function RetellStep({ bundle, goTo }: StepProps) {
           </ul>
           <div className="mt-2">
             <Hint>
-              Tente encaixar cada expressão ao recontar a ideia.
+              Tente encaixar cada expressão ao recontar o texto.
               {transcripts.length > 0 && ` Você usou ${usedCount} de ${chunks.length} até agora.`}
             </Hint>
           </div>
@@ -741,7 +997,7 @@ export function RetellStep({ bundle, goTo }: StepProps) {
   );
 }
 
-// ---------- 7. PERSONALIZE ----------
+// ---------- 8. PERSONALIZE ----------
 
 /** Um chunk de dias anteriores, para escrever mais uma frase com ele. */
 function ExtraChunk({ chunk }: { chunk: Chunk }) {
@@ -878,7 +1134,7 @@ export function PersonalizeStep({ bundle, goTo }: StepProps) {
   );
 }
 
-// ---------- 8. REFLECT ----------
+// ---------- 9. REFLECT ----------
 
 /** Conectores para montar a opinião, agrupados pelo que fazem na frase. */
 const REFLECT_CONNECTORS: readonly StarterGroup[] = [
@@ -921,16 +1177,16 @@ const REFLECT_CONNECTORS: readonly StarterGroup[] = [
 
 export function ReflectStep({ bundle, goTo }: StepProps) {
   const { session, ideaOfDay, reflection } = bundle;
-  if (!ideaOfDay) return <NeedsIdeaOfDay goTo={goTo} />;
+  if (!ideaOfDay) return <NeedsText goTo={goTo} />;
   const { idea } = ideaOfDay;
   return (
     <div className="space-y-4">
       <div>
-        <Prompt>Do I agree with this idea? Why?</Prompt>
-        <Hint>Questione a ideia de “{idea.title}”: concorde, discorde ou qualifique.</Hint>
+        <Prompt>Do I agree with this text? Why?</Prompt>
+        <Hint>Questione as ideias de “{idea.title}”: concorde, discorde ou qualifique.</Hint>
       </div>
       <AutoTextArea
-        label="Em português: o que eu penso sobre essa ideia (rascunho)"
+        label="Em português: o que eu penso sobre o texto (rascunho)"
         value={reflection?.opinionPt ?? ''}
         onSave={(opinionPt) => saveReflection(session.id, idea.id, { opinionPt })}
         rows={3}
@@ -949,17 +1205,17 @@ export function ReflectStep({ bundle, goTo }: StepProps) {
         targetType="opinion"
         targetId={idea.id}
         text={reflection?.userOpinion ?? ''}
-        context={`Opinião sobre a ideia "${idea.title}".`}
+        context={`Opinião sobre o texto "${idea.title}".`}
       />
     </div>
   );
 }
 
-// ---------- 9. SO WHAT? ----------
+// ---------- 10. SO WHAT? ----------
 
 export function SoWhatStep({ bundle, goTo }: StepProps) {
   const { session, ideaOfDay, reflection } = bundle;
-  if (!ideaOfDay) return <NeedsIdeaOfDay goTo={goTo} />;
+  if (!ideaOfDay) return <NeedsText goTo={goTo} />;
   const { idea } = ideaOfDay;
   return (
     <div className="space-y-4">
@@ -987,13 +1243,13 @@ export function SoWhatStep({ bundle, goTo }: StepProps) {
         targetType="soWhat"
         targetId={idea.id}
         text={reflection?.soWhat ?? ''}
-        context={`Ação a partir da ideia "${idea.title}".`}
+        context={`Ação a partir do texto "${idea.title}".`}
       />
     </div>
   );
 }
 
-// ---------- 10. SCHEDULE REVIEW ----------
+// ---------- 11. SCHEDULE REVIEW ----------
 
 function inDaysLabel(days: number): string {
   if (days === 1) return 'Amanhã';
@@ -1001,34 +1257,76 @@ function inDaysLabel(days: number): string {
 }
 
 export function ScheduleStep({ bundle }: StepProps) {
-  const { session, ideas, ideaOfDay, chunks, speaking, reflection } = bundle;
+  const { session, ideaOfDay, chunks, speaking, reflection } = bundle;
   const upcoming = useLiveQuery(() => getUpcoming(session.date, 30), [session.date, chunks.length]);
-  const speakingSec = speaking.reduce((sum, s) => sum + s.durationSec, 0);
-  const totalCards = ideas.reduce((sum, i) => sum + i.cards.length, 0);
+  const seconds = (kind: 'daily' | 'aloud'): number => speaking.filter((s) => s.kind === kind).reduce((sum, s) => sum + s.durationSec, 0);
+  const retellSec = seconds('daily');
+  const aloudSec = seconds('aloud');
+  const answers = session.listenAnswers ?? [];
+  const listenScore = answers.length > 0 ? Math.round((answers.reduce((sum, a) => sum + a.score, 0) / answers.length) * 100) : null;
+  const sentences = chunks.filter((c) => c.userSentence.trim()).length;
+  const words = countWords([...chunks.map((c) => c.userSentence), reflection?.userOpinion ?? '', reflection?.soWhat ?? ''].join(' '));
 
-  const lines: [string, boolean][] = [
-    [
-      `${ideas.length} ${ideas.length === 1 ? 'idea' : 'ideas'} read${totalCards > 0 ? ` (${cardCount(totalCards)})` : ''}`,
-      ideas.length > 0,
-    ],
-    [ideaOfDay ? '1 Idea of the Day' : 'No Idea of the Day', ideaOfDay !== null],
-    [`${chunks.length} ${chunks.length === 1 ? 'chunk' : 'chunks'} learned`, chunks.length > 0],
-    [`${formatDuration(speakingSec)} speaking`, speakingSec > 0],
-    [reflection?.userOpinion.trim() ? '1 reflection' : 'No reflection', Boolean(reflection?.userOpinion.trim())],
-    [reflection?.soWhat.trim() ? '1 action' : 'No action', Boolean(reflection?.soWhat.trim())],
+  const groups: { skill: string; lines: [string, boolean][] }[] = [
+    {
+      skill: 'Listening',
+      lines: [
+        [session.listenGist?.trim() ? 'Gist written after listening' : 'No gist', Boolean(session.listenGist?.trim())],
+        [
+          listenScore === null
+            ? 'No dictation'
+            : `Dictation: ${answers.length} ${answers.length === 1 ? 'sentence' : 'sentences'}, ${listenScore}% right`,
+          listenScore !== null,
+        ],
+      ],
+    },
+    {
+      skill: 'Reading',
+      lines: [
+        [
+          ideaOfDay ? `1 text read (${ideaOfDay.cards.length} ${ideaOfDay.cards.length === 1 ? 'paragraph' : 'paragraphs'})` : 'No text',
+          ideaOfDay !== null,
+        ],
+        [ideaOfDay?.idea.mainIdea.trim() ? 'Main idea written' : 'No main idea', Boolean(ideaOfDay?.idea.mainIdea.trim())],
+        [`${chunks.length} ${chunks.length === 1 ? 'chunk' : 'chunks'} learned`, chunks.length > 0],
+      ],
+    },
+    {
+      skill: 'Speaking',
+      lines: [
+        [`${formatDuration(aloudSec)} reading aloud`, aloudSec > 0],
+        [`${formatDuration(retellSec)} retelling`, retellSec > 0],
+      ],
+    },
+    {
+      skill: 'Writing',
+      lines: [
+        [`${sentences} personal ${sentences === 1 ? 'sentence' : 'sentences'}`, sentences > 0],
+        [reflection?.userOpinion.trim() ? '1 reflection' : 'No reflection', Boolean(reflection?.userOpinion.trim())],
+        [reflection?.soWhat.trim() ? '1 action' : 'No action', Boolean(reflection?.soWhat.trim())],
+        [`${words} words written`, words > 0],
+      ],
+    },
   ];
 
   return (
     <div className="space-y-6">
       <Card>
         <Eyebrow>{session.status === 'completed' ? 'Today completed' : 'Resumo de hoje'}</Eyebrow>
-        <ul className="mt-3 space-y-1.5 font-serif text-lg" lang="en">
-          {lines.map(([label, done]) => (
-            <li key={label} className={done ? '' : 'text-muted'}>
-              <span aria-hidden="true">{done ? '✓' : '·'}</span> {label}
-            </li>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          {groups.map((group) => (
+            <div key={group.skill}>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">{group.skill}</p>
+              <ul className="mt-1 space-y-1 font-serif" lang="en">
+                {group.lines.map(([label, done]) => (
+                  <li key={label} className={done ? '' : 'text-muted'}>
+                    <span aria-hidden="true">{done ? '✓' : '·'}</span> {label}
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       </Card>
 
       <DaySummary sessionId={session.id} />

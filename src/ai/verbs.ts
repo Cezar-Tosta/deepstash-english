@@ -42,7 +42,7 @@ const EXAMPLE = JSON.stringify({
 export function buildVerbPrompt(ideaTitle: string, cardsText: string, only?: string): { system: string; user: string } {
   return {
     system: [
-      'Você prepara material de estudo de tempos verbais para um brasileiro que aprende inglês lendo ideias de livros.',
+      'Você prepara material de estudo de tempos verbais para um brasileiro que aprende inglês a partir de textos que ele escolhe.',
       only
         ? `Prepare o material apenas para o verbo "${only}", que o aluno escolheu estudar. Devolva a lista "verbs" com esse único verbo. Se ele aparecer no texto abaixo, preencha "textForm", "textTense" e "sentence" com o que está lá; se não aparecer, deixe esses três campos vazios.`
         : `Do texto abaixo, escolha até ${MAX_VERBS} verbos principais que valha a pena estudar: os que carregam o sentido do texto, com preferência para os irregulares e os mais reutilizáveis. Ignore "be", "have" e "do" quando forem só auxiliares.`,
@@ -57,7 +57,7 @@ export function buildVerbPrompt(ideaTitle: string, cardsText: string, only?: str
       'Responda somente com um objeto JSON válido, sem texto antes ou depois, sem comentários e sem cerca de código, exatamente com estes nomes de campo. Exemplo do formato (com um verbo e um exercício):',
       EXAMPLE,
     ].join('\n'),
-    user: `Ideia: ${ideaTitle}\n\nTexto dos cards:\n${cardsText.slice(0, CARDS_LIMIT)}`,
+    user: `Título: ${ideaTitle}\n\nTexto:\n${cardsText.slice(0, CARDS_LIMIT)}`,
   };
 }
 
@@ -117,7 +117,7 @@ export function parseVerbs(raw: string): ParsedVerb[] {
 }
 
 /**
- * Guarda os verbos encontrados numa ideia. Os que já existiam (mesma forma base)
+ * Guarda os verbos encontrados num texto. Os que já existiam (mesma forma base)
  * são mantidos como estão, com a seleção do usuário; só entram os novos.
  */
 export async function saveVerbs(ideaId: string, parsed: readonly ParsedVerb[]): Promise<number> {
@@ -133,16 +133,16 @@ export async function saveVerbs(ideaId: string, parsed: readonly ParsedVerb[]): 
   });
 }
 
-/** Pede à IA os verbos da ideia, com formas e exercícios, e os guarda. Devolve quantos são novos. */
+/** Pede à IA os verbos do texto, com formas e exercícios, e os guarda. Devolve quantos são novos. */
 export async function findVerbs(ideaId: string): Promise<number> {
   const idea = await db.ideas.get(ideaId);
-  if (!idea) throw new AIError('Ideia não encontrada.');
+  if (!idea) throw new AIError('Texto não encontrado.');
   const cards = await db.cards.where('ideaId').equals(ideaId).sortBy('position');
   const cardsText = cards
     .map((c) => c.content.trim())
     .filter(Boolean)
     .join('\n\n');
-  if (!cardsText) throw new AIError('Registre o texto dos cards desta ideia para encontrar os verbos.');
+  if (!cardsText) throw new AIError('Registre os parágrafos deste texto para encontrar os verbos.');
 
   const provider = await createProvider((await getSettings()).ai);
   if (!provider) throw new AIError('A IA não está configurada. Veja em Ajustes.');
@@ -184,7 +184,7 @@ export function normalizeBase(input: string): string {
 
 async function ideaText(ideaId: string): Promise<{ title: string; cardsText: string }> {
   const idea = await db.ideas.get(ideaId);
-  if (!idea) throw new AIError('Ideia não encontrada.');
+  if (!idea) throw new AIError('Texto não encontrado.');
   const cards = await db.cards.where('ideaId').equals(ideaId).sortBy('position');
   return {
     title: idea.title,
@@ -196,7 +196,7 @@ async function ideaText(ideaId: string): Promise<{ title: string; cardsText: str
 }
 
 /**
- * Cadastra na ideia um verbo escolhido pelo usuário. O verbo é guardado na hora,
+ * Cadastra no texto um verbo escolhido pelo usuário. O verbo é guardado na hora,
  * só com a forma base; depois a IA, se houver, completa as formas e os exercícios.
  * Devolve se o verbo ficou completo.
  */
@@ -204,7 +204,7 @@ export async function addVerb(ideaId: string, input: string, injected?: AIProvid
   const base = normalizeBase(input);
   if (!base) throw new AIError('Informe o verbo na forma base, por exemplo "hold".');
   const existing = await db.verbs.where('ideaId').equals(ideaId).toArray();
-  if (existing.some((v) => v.base === base)) throw new AIError(`"${base}" já está nos verbos desta ideia.`);
+  if (existing.some((v) => v.base === base)) throw new AIError(`"${base}" já está nos verbos deste texto.`);
 
   const entry: VerbEntry = {
     id: newId(),

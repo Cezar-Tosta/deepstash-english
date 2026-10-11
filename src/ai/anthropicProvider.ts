@@ -17,7 +17,7 @@ export function createAnthropicProvider(apiKey: string, model: string): AIProvid
       const response = await client.beta.messages.create({
         model: resolvedModel,
         max_tokens: 16000,
-        // Corrigir frases e transcrever cards são tarefas simples; esforço baixo responde mais rápido.
+        // Corrigir frases e transcrever textos são tarefas simples; esforço baixo responde mais rápido.
         output_config: { effort: 'low' },
         ...(system ? { system } : {}),
         messages,

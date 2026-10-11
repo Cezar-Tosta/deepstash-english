@@ -2,9 +2,9 @@ import { type ChangeEvent, type ClipboardEvent, useState } from 'react';
 import { AIError, type ImageInput } from '../../ai/AIProvider';
 import { importIdeaFromImages } from '../../ai/coach';
 import { isAIConfigured } from '../../ai/feedback';
-import { type ImportedIdea, parseIdeaText } from '../../domain/ideaImport';
+import type { ImportedIdea } from '../../domain/ideaImport';
 import { useOnline, useSettings } from '../hooks';
-import { Button, Hint, Spinner, TextArea } from './ui';
+import { Hint, Spinner } from './ui';
 
 function toImageInput(file: File): Promise<ImageInput> {
   return new Promise((resolve, reject) => {
@@ -18,22 +18,19 @@ function toImageInput(file: File): Promise<ImageInput> {
   });
 }
 
-/**
- * Duas formas rápidas de cadastrar uma ideia inteira: colar o texto (a primeira
- * linha é o título, cada bloco é um card) ou mandar screenshots para a IA transcrever.
- * O resultado volta para o formulário, para o usuário conferir antes de salvar.
- */
 export { toImageInput };
 
+/**
+ * Lê fotos ou screenshots do texto com a IA: título e parágrafos voltam para o
+ * formulário, para o usuário conferir antes de salvar.
+ */
 export function IdeaImport({ onImported }: { onImported: (idea: ImportedIdea) => void }) {
   const settings = useSettings();
   const online = useOnline();
-  const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const aiReady = Boolean(settings && isAIConfigured(settings.ai));
-  const parsed = parseIdeaText(text);
 
   const readImages = async (files: File[]) => {
     const images = files.filter((f) => f.type.startsWith('image/'));
@@ -66,54 +63,25 @@ export function IdeaImport({ onImported }: { onImported: (idea: ImportedIdea) =>
     }
   };
 
+  if (!aiReady) return <Hint>Com a IA configurada em Ajustes, também dá para trazer o texto de fotos ou screenshots.</Hint>;
+
   return (
-    <div className="space-y-3" onPaste={onPaste}>
-      <TextArea
-        label="Colar a ideia inteira"
-        value={text}
-        onChange={setText}
-        rows={5}
-        lang="en"
-        placeholder={'Título da ideia\n\nTexto do card 1\n\nTexto do card 2'}
-      />
-      <Hint>A primeira linha vira o título; cada bloco separado por uma linha em branco vira um card.</Hint>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          small
-          variant="secondary"
-          disabled={!parsed.title}
-          onClick={() => {
-            onImported(parsed);
-            setText('');
-          }}
-        >
-          Usar este texto
-          {parsed.cards.length > 0 && ` (${parsed.cards.length} ${parsed.cards.length === 1 ? 'card' : 'cards'})`}
-        </Button>
-        {aiReady && (
-          <label
-            className={`inline-flex min-h-10 cursor-pointer items-center rounded-xl border border-line bg-surface px-3 text-sm font-semibold hover:bg-sunken ${
-              busy ? 'pointer-events-none' : !online ? 'pointer-events-none opacity-40' : ''
-            }`}
-          >
-            {busy ? (
-              <span className="inline-flex items-center gap-2" role="status">
-                <Spinner /> Lendo as imagens… {progress}
-              </span>
-            ) : (
-              'Ler screenshots com a IA'
-            )}
-            <input type="file" accept="image/*" multiple className="sr-only" onChange={onPick} disabled={busy || !online} />
-          </label>
+    <div className="space-y-2" onPaste={onPaste}>
+      <label
+        className={`inline-flex min-h-10 cursor-pointer items-center rounded-xl border border-line bg-surface px-3 text-sm font-semibold hover:bg-sunken ${
+          busy ? 'pointer-events-none' : !online ? 'pointer-events-none opacity-40' : ''
+        }`}
+      >
+        {busy ? (
+          <span className="inline-flex items-center gap-2" role="status">
+            <Spinner /> Lendo as imagens… {progress}
+          </span>
+        ) : (
+          'Ler o texto de fotos ou screenshots'
         )}
-      </div>
-      {aiReady ? (
-        <Hint>
-          Screenshots: escolha as imagens, quantas forem, ou cole com Ctrl+V. A IA transcreve título e cards; confira antes de salvar.
-        </Hint>
-      ) : (
-        <Hint>Com a IA configurada em Ajustes, também dá para importar a partir de screenshots dos cards.</Hint>
-      )}
+        <input type="file" accept="image/*" multiple className="sr-only" onChange={onPick} disabled={busy || !online} />
+      </label>
+      <Hint>Escolha as imagens, quantas forem, ou cole com Ctrl+V. A IA transcreve título e parágrafos; confira antes de salvar.</Hint>
       {error && (
         <p role="alert" className="text-sm text-danger">
           {error}

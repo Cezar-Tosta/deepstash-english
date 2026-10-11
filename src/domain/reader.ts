@@ -69,12 +69,26 @@ export function sentenceAround(tokens: readonly Token[], selection: Selection): 
     .trim();
 }
 
-/** Divide um texto em frases. Usado para montar exercícios a partir dos cards. */
+/** Abreviações que terminam em ponto sem encerrar a frase. */
+const ABBREVIATIONS = new Set(['mr.', 'mrs.', 'ms.', 'dr.', 'prof.', 'st.', 'vs.', 'etc.', 'e.g.', 'i.e.', 'jr.', 'sr.']);
+
+/** Uma palavra que encerra a frase: termina em . ! ? ou …, talvez seguida de aspas ou parêntese. */
+const WORD_ENDS_SENTENCE = /[.!?…]["”')\]]*$/u;
+
+/** Divide um texto em frases, pela pontuação final. Quebras de linha contam como espaço. */
 export function splitSentences(text: string): string[] {
-  return text
-    .split(/(?<=[.!?…])\s+|\n+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const words = text.split(/\s+/u).filter(Boolean);
+  const sentences: string[] = [];
+  let current: string[] = [];
+  words.forEach((word, i) => {
+    current.push(word);
+    const last = i === words.length - 1;
+    if (last || (WORD_ENDS_SENTENCE.test(word) && !ABBREVIATIONS.has(word.toLowerCase()))) {
+      sentences.push(current.join(' '));
+      current = [];
+    }
+  });
+  return sentences;
 }
 
 // ---------- Termos conhecidos dentro do texto ----------

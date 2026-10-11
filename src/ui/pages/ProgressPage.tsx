@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDate, formatDuration } from '../../domain/dates';
 import { CYCLE_SESSION_DAYS, periodAround, periodOf, periods } from '../../domain/periods';
-import { MAX_CHUNKS_PER_DAY, SESSION_DAYS_PER_WEEK } from '../../domain/session';
-import { totals, weeklyHistory, type WeekStats, weekStats } from '../../domain/stats';
-import type { ISODate } from '../../domain/types';
+import { MAX_CHUNKS_PER_DAY, SESSION_DAYS_PER_WEEK, SKILL_LABELS } from '../../domain/session';
+import { type SkillStats, skillStats, totals, weeklyHistory, type WeekStats, weekStats } from '../../domain/stats';
+import type { ISODate, Skill } from '../../domain/types';
 import { loadStatsInput } from '../../services/library';
 import { BarChart, type BarDatum } from '../components/BarChart';
 import { ResetWeek } from '../components/Maintenance';
@@ -25,6 +25,63 @@ function Tile({ label, value, goal }: { label: string; value: string; goal?: str
         {goal && <span className="text-base font-normal text-muted">/{goal}</span>}
       </p>
     </div>
+  );
+}
+
+const SKILL_COLOR: Record<Skill, string> = {
+  listening: 'border-listening',
+  reading: 'border-reading',
+  speaking: 'border-speaking',
+  writing: 'border-writing',
+};
+
+/** O que foi feito em cada habilidade no ciclo, com o número principal em destaque. */
+function SkillsCard({ stats }: { stats: SkillStats }) {
+  const { listening, reading, speaking, writing } = stats;
+  const rows: { skill: Skill; main: string; detail: string }[] = [
+    {
+      skill: 'listening',
+      main: `${listening.days} ${listening.days === 1 ? 'dia' : 'dias'}`,
+      detail:
+        listening.score === null
+          ? 'ouvindo o texto antes de ler · sem ditado ainda'
+          : `ouvindo antes de ler · ditado: ${listening.sentences} frases, ${percent(listening.score)} de acerto`,
+    },
+    {
+      skill: 'reading',
+      main: `${reading.words} palavras`,
+      detail: `${reading.texts} ${reading.texts === 1 ? 'texto lido' : 'textos lidos'}`,
+    },
+    {
+      skill: 'speaking',
+      main: formatDuration(speaking.aloudSec + speaking.retellSec),
+      detail: [
+        `${formatDuration(speaking.aloudSec)} em voz alta`,
+        `${formatDuration(speaking.retellSec)} recontando`,
+        speaking.aloudScore !== null && `${percent(speaking.aloudScore)} das palavras reconhecidas`,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    },
+    {
+      skill: 'writing',
+      main: `${writing.words} palavras`,
+      detail: 'frases com chunks, reflexões, ações e texto do ciclo',
+    },
+  ];
+  return (
+    <Card className="col-span-full">
+      <Eyebrow>As quatro habilidades neste ciclo</Eyebrow>
+      <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {rows.map((row) => (
+          <li key={row.skill} className={`border-l-4 pl-3 ${SKILL_COLOR[row.skill]}`}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">{SKILL_LABELS[row.skill]}</p>
+            <p className="text-xl font-semibold tabular-nums">{row.main}</p>
+            <p className="text-sm text-muted">{row.detail}</p>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 
@@ -69,6 +126,7 @@ export function ProgressPage() {
   const next = cycles[selected.index + 1];
   const running = periodOf(starts, date)?.start === weekStart;
   const week = weekStats(input, weekStart);
+  const skills = skillStats(input, weekStart);
   const history = weeklyHistory(input, cycles.at(-1)?.start ?? weekStart, HISTORY_WEEKS);
   const all = totals(input);
 
@@ -98,13 +156,15 @@ export function ProgressPage() {
       </div>
 
       <div className="col-span-full grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Tile label="Ideas read" value={String(week.ideasRead)} />
-        <Tile label="Ideas studied" value={String(week.ideasStudied)} goal={String(SESSION_DAYS_PER_WEEK)} />
+        <Tile label="Texts read" value={String(week.ideasRead)} />
+        <Tile label="Paragraphs" value={String(week.cardsRead)} />
         <Tile label="Chunks" value={String(week.chunksCreated)} goal={String(MAX_CHUNKS_PER_DAY * SESSION_DAYS_PER_WEEK)} />
         <Tile label="Reviews" value={String(week.reviewsDone)} />
         <Tile label="Speaking (min:s)" value={formatDuration(week.speakingSec)} />
         <Tile label="Session days" value={String(week.sessionDays)} goal={String(SESSION_DAYS_PER_WEEK)} />
       </div>
+
+      <SkillsCard stats={skills} />
 
       <Card>
         <div className="flex items-baseline justify-between">
@@ -124,8 +184,8 @@ export function ProgressPage() {
                 <p className="text-sm text-muted">
                   {d.studied
                     ? [
-                        d.ideas > 0 && `${d.ideas} ${d.ideas === 1 ? 'ideia' : 'ideias'}`,
-                        d.cards > 0 && `${d.cards} ${d.cards === 1 ? 'card' : 'cards'}`,
+                        d.ideas > 0 && `${d.ideas} ${d.ideas === 1 ? 'texto' : 'textos'}`,
+                        d.cards > 0 && `${d.cards} ${d.cards === 1 ? 'parágrafo' : 'parágrafos'}`,
                         d.speakingSec > 0 && formatDuration(d.speakingSec),
                         d.reviews > 0 && `${d.reviews} rev.`,
                         d.sessionCompleted && '✓',
@@ -139,7 +199,7 @@ export function ProgressPage() {
                         : 'sem estudo'}
                 </p>
               </div>
-              {d.ideaOfDayTitle && <p className="font-serif text-sm">⭐ {d.ideaOfDayTitle}</p>}
+              {d.ideaOfDayTitle && <p className="font-serif text-sm">{d.ideaOfDayTitle}</p>}
               {d.chunks.length > 0 && (
                 <p className="font-serif text-sm text-muted" lang="en">
                   {d.chunks.join(' • ')}
@@ -158,9 +218,9 @@ export function ProgressPage() {
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
           {(
             [
-              ['Ideias lidas', all.ideasRead],
-              ['Cards lidos', all.cardsRead],
-              ['Ideias aprofundadas', all.ideasStudied],
+              ['Textos lidos', all.ideasRead],
+              ['Parágrafos lidos', all.cardsRead],
+              ['Textos estudados', all.ideasStudied],
               ['Chunks criados', all.chunksCreated],
               ['Chunks aprendidos', all.chunksLearned],
               ['Revisões concluídas', all.reviewsDone],
@@ -181,7 +241,7 @@ export function ProgressPage() {
       <section className="col-span-full space-y-3">
         <Eyebrow>Evolução · {history.length === 1 ? 'último ciclo' : `últimos ${history.length} ciclos`}</Eyebrow>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <BarChart title="Ideias lidas por ciclo" data={series(history, (w) => w.ideasRead, '')} />
+          <BarChart title="Textos lidos por ciclo" data={series(history, (w) => w.ideasRead, '')} />
           <BarChart title="Chunks novos por ciclo" data={series(history, (w) => w.chunksCreated, '')} />
           <BarChart title="Revisões concluídas por ciclo" data={series(history, (w) => w.reviewsDone, '')} />
           <BarChart title="Minutos de speaking por ciclo" data={series(history, (w) => minutes(w.speakingSec), 'min')} />
@@ -197,7 +257,7 @@ export function ProgressPage() {
                     Ciclo
                   </th>
                   <th scope="col" className="px-2 font-medium">
-                    Ideias
+                    Textos
                   </th>
                   <th scope="col" className="px-2 font-medium">
                     Chunks

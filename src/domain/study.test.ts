@@ -25,7 +25,7 @@ import {
   verbBases,
   withoutContext,
 } from './exercises';
-import { parseIdeaJSON, parseIdeaText } from './ideaImport';
+import { parseIdeaJSON } from './ideaImport';
 import { annotate, extendSelection, selectionText, sentenceAround, splitSentences, termWords, tokenize } from './reader';
 import type { Chunk, ChunkReview, ComprehensionVocab, Idea, PracticeStat, SourceCard, VerbEntry } from './types';
 
@@ -68,7 +68,7 @@ describe('livro → ideias → cards', () => {
     expect(books.map((b) => [b.title, b.ideas.length, b.cardCount])).toEqual([
       ['Atomic Habits', 2, 3],
       ['Deep Work', 1, 1],
-      ['Sem livro', 1, 0],
+      ['Sem fonte', 1, 0],
     ]);
   });
 
@@ -416,26 +416,7 @@ describe('configurar o treino de tempos verbais', () => {
     expect(hardestVerbs(verbs, [], 5)).toEqual([]);
   });
 });
-describe('importar uma ideia colada', () => {
-  it('a primeira linha é o título e cada bloco é um card', () => {
-    expect(parseIdeaText('Thought Into Action\n\nYour mind is for having ideas.\n\nDo one thing\nat a time.')).toEqual({
-      title: 'Thought Into Action',
-      cards: ['Your mind is for having ideas.', 'Do one thing\nat a time.'],
-    });
-  });
-
-  it('sem linhas em branco, cada linha depois do título vira um card', () => {
-    expect(parseIdeaText('Title\nFirst card.\nSecond card.')).toEqual({
-      title: 'Title',
-      cards: ['First card.', 'Second card.'],
-    });
-  });
-
-  it('aceita só o título e ignora texto vazio', () => {
-    expect(parseIdeaText('Only a title')).toEqual({ title: 'Only a title', cards: [] });
-    expect(parseIdeaText('  \n ')).toEqual({ title: '', cards: [] });
-  });
-
+describe('importar um texto de imagens', () => {
   it('lê a resposta da IA ao transcrever screenshots', () => {
     const raw = 'Aqui está: ' + JSON.stringify({ title: 'Make It Obvious', cards: ['Card one.', '  ', 'Card two.'] });
     expect(parseIdeaJSON(raw)).toEqual({ title: 'Make It Obvious', cards: ['Card one.', 'Card two.'] });

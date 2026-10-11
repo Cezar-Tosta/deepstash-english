@@ -8,20 +8,21 @@ import { type ImportedIdea, parseIdeaJSON } from '../domain/ideaImport';
 const STEP_GUIDE: Record<StepId, string> = {
   review:
     'REVIEW — recuperar da memória as expressões agendadas antes de ver a resposta. Dê técnicas de recuperação (lembrar a situação em que aprendeu, dizer uma frase em voz alta) e como avaliar honestamente a própria lembrança.',
-  read: 'READ — ler as ideias em inglês sem traduzir e formular a ideia principal de cada uma. Diga em que prestar atenção neste texto (tese, exemplos, palavras-chave) e sugira 2 ou 3 perguntas-guia para a leitura.',
-  focus:
-    'IDEA OF THE DAY — escolher uma única ideia para aprofundar. Sugira critérios de escolha (utilidade na vida do aluno, novidade, vocabulário reutilizável) aplicados às ideias lidas hoje.',
-  check:
-    'CHECK — confirmar a compreensão e escrever a ideia principal em uma frase em inglês. Aponte os trechos do texto que costumam ser mal interpretados e sugira estruturas de frase para o resumo, sem escrever o resumo.',
-  mine: 'MINE — escolher no máximo 3 chunks reutilizáveis. Sugira de 4 a 6 expressões candidatas tiradas do texto, dizendo em uma linha por que cada uma é reutilizável; a escolha final é do aluno.',
+  text: 'TEXT — registrar o texto do dia sem lê-lo ainda, porque a primeira passada será só ouvindo. Dê critérios para escolher um bom texto de estudo (de 150 a 400 palavras, assunto de interesse, um pouco acima do nível atual) e o que observar no título antes de ouvir.',
+  listen:
+    'LISTEN (listening) — ouvir o texto antes de ler e anotar o que entendeu; depois, ditado de frases do texto. Dê estratégias de escuta (primeiro a ideia geral, depois palavras-chave, ouvir de novo em velocidade menor), diga em que prestar atenção sem revelar o conteúdo e como lidar com as palavras que não reconhecer.',
+  read: 'READ (reading) — ler o texto, formular a ideia principal em uma frase em inglês e conferir o que entendeu ao ouvir. Diga em que prestar atenção (tese, exemplos, palavras-chave), aponte trechos que costumam ser mal interpretados e sugira estruturas para a frase da ideia principal, sem escrevê-la.',
+  mine: 'MINE (reading) — escolher no máximo 3 chunks reutilizáveis. Sugira de 4 a 6 expressões candidatas tiradas do texto, dizendo em uma linha por que cada uma é reutilizável; a escolha final é do aluno.',
+  aloud:
+    'READ ALOUD (speaking) — ouvir o modelo e ler um parágrafo em voz alta (shadowing). Aponte no texto palavras de pronúncia difícil para brasileiros (com uma dica curta de cada), onde fazer pausas, quais palavras recebem ênfase e ligações entre palavras (connected speech).',
   retell:
-    'RETELL — recontar a ideia em voz alta, sem olhar. Sugira um roteiro em 3 ou 4 tópicos (só palavras-chave em inglês) e conectores úteis; não escreva a fala.',
+    'RETELL (speaking) — recontar o texto em voz alta, sem olhar. Sugira um roteiro em 3 ou 4 tópicos (só palavras-chave em inglês) e conectores úteis; não escreva a fala.',
   personalize:
-    'PERSONALIZE — criar uma frase pessoal com cada chunk. Para cada chunk escolhido, sugira 2 situações da vida real (trabalho, estudo, rotina) em que ele caberia; não escreva as frases.',
+    'PERSONALIZE (writing) — criar uma frase pessoal com cada chunk. Para cada chunk escolhido, sugira 2 situações da vida real (trabalho, estudo, rotina) em que ele caberia; não escreva as frases.',
   reflect:
-    'REFLECT — concordar, discordar ou qualificar a ideia. Sugira 3 ângulos para questionar esta ideia (quando ela falha, para quem não vale, o que ela ignora) e estruturas de frase em inglês para opinar.',
+    'REFLECT (writing) — concordar, discordar ou qualificar o texto. Sugira 3 ângulos para questionar as ideias dele (quando falham, para quem não valem, o que ignoram) e estruturas de frase em inglês para opinar.',
   sowhat:
-    'SO WHAT? — transformar a ideia em uma ação concreta. Sugira 3 tipos de ação pequena e verificável que esta ideia inspira, e a estrutura "I\'ll ... when/before/after ...".',
+    'SO WHAT? (writing) — transformar o texto em uma ação concreta. Sugira 3 tipos de ação pequena e verificável que ele inspira, e a estrutura "I\'ll ... when/before/after ...".',
   schedule:
     'SCHEDULE REVIEW — encerrar a sessão. Diga o que conferir antes de finalizar e como aproveitar as revisões D1, D3, D7, D14 e D30.',
 };
@@ -30,9 +31,11 @@ export interface CoachContext {
   step: StepId;
   /** Semana do ciclo de 4 semanas (1 a 4). */
   cycleWeek: number;
+  /** Fonte do texto (opcional). */
   bookTitle: string;
+  /** Título do texto em estudo. */
   ideaTitle: string;
-  /** Texto dos cards da ideia em foco (ou das ideias do dia, antes da escolha). */
+  /** O texto em estudo. */
   cardsText: string;
   mainIdea: string;
   chunks: string[];
@@ -45,8 +48,11 @@ export interface CoachContext {
 export function buildCoachPrompt(ctx: CoachContext): { system: string; user: string } {
   return {
     system: [
-      'Você é o orientador de um brasileiro que estuda inglês lendo ideias de livros (Deepstash).',
+      'Você é o orientador de um brasileiro que estuda inglês a partir de textos que ele escolhe, trabalhando listening, reading, speaking e writing.',
       'Método: o aluno tenta primeiro; a IA orienta e sugere caminhos, mas não entrega a resposta pronta para copiar.',
+      ...(ctx.step === 'listen' || ctx.step === 'text'
+        ? ['O aluno ainda não leu o texto: não revele o conteúdo dele, só oriente a escuta.']
+        : []),
       `Etapa atual e o tipo de ajuda esperada: ${STEP_GUIDE[ctx.step]}`,
       `Fase ${ctx.cycleWeek} de 4 (o aluno sobe uma fase a cada ciclo de 7 dias): ajuste a exigência (a fase 1 é mais guiada, a fase 4 pede mais autonomia).`,
       'Baseie as sugestões no conteúdo abaixo, citando trechos ou palavras dele quando ajudar.',
@@ -58,9 +64,9 @@ export function buildCoachPrompt(ctx: CoachContext): { system: string; user: str
       'Responda em português, com no máximo 8 linhas curtas, em tópicos iniciados por "- ". Exemplos de inglês vão entre aspas.',
     ].join('\n'),
     user: [
-      ctx.bookTitle && `Livro: ${ctx.bookTitle}`,
-      ctx.ideaTitle && `Ideia: ${ctx.ideaTitle}`,
-      ctx.cardsText && `Texto dos cards:\n${ctx.cardsText}`,
+      ctx.bookTitle && `Fonte: ${ctx.bookTitle}`,
+      ctx.ideaTitle && `Título: ${ctx.ideaTitle}`,
+      ctx.cardsText && `Texto:\n${ctx.cardsText}`,
       ctx.mainIdea && `Ideia principal escrita pelo aluno: ${ctx.mainIdea}`,
       ctx.chunks.length > 0 && `Chunks escolhidos: ${ctx.chunks.join('; ')}`,
       ctx.draftPt && `O que o aluno quer dizer, no rascunho dele em português: ${ctx.draftPt}`,
@@ -80,16 +86,16 @@ export async function askCoach(ctx: CoachContext): Promise<string> {
 }
 
 const IMPORT_PROMPT = [
-  'As imagens são capturas de tela de uma ideia do aplicativo Deepstash: um título e uma sequência de cards.',
-  'Transcreva o texto exatamente como está, em inglês, sem traduzir, resumir ou corrigir. Ignore botões, menus e contadores da interface.',
-  'Mantenha a ordem das imagens. Cada card vira um item da lista, sejam quantos forem. Se as imagens não mostrarem o título da ideia, devolva o título vazio.',
-  'Responda somente com um objeto JSON: {"title": "<título da ideia>", "cards": ["<texto do card 1>", "<texto do card 2>"]}',
+  'As imagens são fotos ou capturas de tela de um texto em inglês (artigo, página de livro, site...).',
+  'Transcreva o texto exatamente como está, em inglês, sem traduzir, resumir ou corrigir. Ignore botões, menus, anúncios, números de página e contadores.',
+  'Mantenha a ordem das imagens. Cada parágrafo vira um item da lista, sejam quantos forem; um parágrafo cortado entre duas imagens é um item só. Se as imagens não mostrarem um título, devolva o título vazio.',
+  'Responda somente com um objeto JSON: {"title": "<título do texto>", "cards": ["<parágrafo 1>", "<parágrafo 2>"]}',
 ].join('\n');
 
 /** Imagens por pedido. Os modelos de visão limitam quantas aceitam de uma vez. */
 export const IMAGES_PER_REQUEST = 4;
 
-/** Junta as partes lidas em pedidos separados: o primeiro título encontrado e todos os cards, em ordem. */
+/** Junta as partes lidas em pedidos separados: o primeiro título encontrado e todos os parágrafos, em ordem. */
 export function mergeImported(parts: readonly ImportedIdea[]): ImportedIdea {
   return {
     title: parts.find((p) => p.title)?.title ?? '',
@@ -98,9 +104,9 @@ export function mergeImported(parts: readonly ImportedIdea[]): ImportedIdea {
 }
 
 /**
- * Lê screenshots de uma ideia e devolve título e cards, prontos para conferir e salvar.
- * Não há limite de imagens: uma ideia pode ter qualquer quantidade de cards, então a
- * leitura é feita em lotes, na ordem, e `onProgress` informa quantas já foram lidas.
+ * Lê imagens de um texto e devolve título e parágrafos, prontos para conferir e salvar.
+ * Não há limite de imagens: a leitura é feita em lotes, na ordem, e `onProgress`
+ * informa quantas já foram lidas.
  */
 export async function importIdeaFromImages(
   images: ImageInput[],
@@ -122,13 +128,13 @@ export async function importIdeaFromImages(
 }
 
 const CARD_PROMPT = [
-  'A imagem é a captura de tela de um único card do aplicativo Deepstash.',
-  'Transcreva o texto do card exatamente como está, em inglês, sem traduzir, resumir ou corrigir.',
-  'Ignore botões, menus, contadores e o nome do autor da interface. Preserve as quebras de parágrafo.',
-  'Responda somente com o texto do card, sem aspas e sem comentários.',
+  'A imagem é uma foto ou captura de tela de um trecho de texto em inglês.',
+  'Transcreva o trecho exatamente como está, em inglês, sem traduzir, resumir ou corrigir.',
+  'Ignore botões, menus, anúncios, números de página e contadores. Junte as linhas de um mesmo parágrafo.',
+  'Responda somente com o texto, sem aspas e sem comentários.',
 ].join('\n');
 
-/** Lê um screenshot e devolve o texto de um card. Uma imagem = um card. */
+/** Lê uma imagem e devolve o texto de um parágrafo. Uma imagem = um parágrafo. */
 export async function readCardFromImage(image: ImageInput): Promise<string> {
   const provider = await createProvider((await getSettings()).ai);
   if (!provider?.readImages) throw new AIError('A IA configurada não lê imagens. Use Groq ou Anthropic, ou digite o texto.');
